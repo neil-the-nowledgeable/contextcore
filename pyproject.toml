@@ -1,0 +1,147 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "contextcore"
+version = "0.1.0"
+description = "Unified metadata model from project initiation to operations via Kubernetes CRDs"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [
+    { name = "ContextCore Contributors" }
+]
+keywords = [
+    "kubernetes",
+    "observability",
+    "project-management",
+    "opentelemetry",
+    "crd",
+    "devops",
+    "sre",
+    "platform-engineering"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Systems Administration",
+    "Topic :: System :: Monitoring",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "kopf>=1.36.0",
+    "kubernetes>=28.1.0",
+    "pydantic>=2.0.0",
+    "opentelemetry-api>=1.20.0",
+    "opentelemetry-sdk>=1.20.0",
+    "opentelemetry-exporter-otlp>=1.20.0",
+    "click>=8.1.0",
+    "pyyaml>=6.0",
+    "httpx>=0.25.0",
+    "jinja2>=3.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "mypy>=1.5.0",
+    "ruff>=0.1.0",
+    "black>=23.9.0",
+]
+sync = [
+    "jira>=3.5.0",
+    "PyGithub>=2.1.0",
+    "notion-client>=2.0.0",
+]
+all = [
+    "contextcore[dev,sync]",
+]
+
+[project.scripts]
+contextcore = "contextcore.cli:main"
+
+[project.urls]
+Documentation = "https://github.com/contextcore/contextcore#readme"
+Issues = "https://github.com/contextcore/contextcore/issues"
+Source = "https://github.com/contextcore/contextcore"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/contextcore"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/crds",
+    "/helm",
+    "/dashboards",
+    "/docs",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = [
+    "-v",
+    "--cov=src/contextcore",
+    "--cov-report=term-missing",
+]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+strict_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "kopf.*",
+    "kubernetes.*",
+    "jira.*",
+    "github.*",
+    "notion_client.*",
+]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # Pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by black)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["contextcore"]
+
+[tool.black]
+line-length = 100
+target-version = ["py39"]

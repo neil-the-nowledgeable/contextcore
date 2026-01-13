@@ -1,0 +1,314 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: projectcontexts.contextcore.io
+  annotations:
+    contextcore.io/description: |
+      ProjectContext provides a unified metadata model linking project management
+      context to Kubernetes workloads. It enables value-based observability
+      derivation and context-rich telemetry throughout the application lifecycle.
+spec:
+  group: contextcore.io
+  names:
+    kind: ProjectContext
+    listKind: ProjectContextList
+    plural: projectcontexts
+    singular: projectcontext
+    shortNames:
+      - pctx
+      - pc
+  scope: Namespaced
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          required:
+            - spec
+          properties:
+            spec:
+              type: object
+              required:
+                - project
+                - targets
+              properties:
+                # Project identification
+                project:
+                  type: object
+                  required:
+                    - id
+                  properties:
+                    id:
+                      type: string
+                      description: "Project identifier (e.g., commerce-platform)"
+                    epic:
+                      type: string
+                      description: "Epic ID this context relates to"
+                    tasks:
+                      type: array
+                      items:
+                        type: string
+                      description: "Task IDs associated with these resources"
+                    traceId:
+                      type: string
+                      description: "OTel trace ID linking to project span"
+
+                # Design artifacts
+                design:
+                  type: object
+                  properties:
+                    doc:
+                      type: string
+                      format: uri
+                      description: "URL to design document"
+                    adr:
+                      type: string
+                      description: "ADR identifier or URL"
+                    apiContract:
+                      type: string
+                      format: uri
+                      description: "OpenAPI/AsyncAPI specification URL"
+                    diagrams:
+                      type: array
+                      items:
+                        type: string
+                        format: uri
+                      description: "Architecture diagram URLs"
+
+                # Business context
+                business:
+                  type: object
+                  properties:
+                    criticality:
+                      type: string
+                      enum:
+                        - critical
+                        - high
+                        - medium
+                        - low
+                      description: "Business criticality level"
+                    value:
+                      type: string
+                      enum:
+                        - revenue-primary
+                        - revenue-secondary
+                        - cost-reduction
+                        - compliance
+                        - enabler
+                        - internal
+                      description: "Business value classification"
+                    owner:
+                      type: string
+                      description: "Owning team or individual"
+                    costCenter:
+                      type: string
+                      description: "Cost center code for chargebacks"
+                    stakeholders:
+                      type: array
+                      items:
+                        type: string
+                      description: "Stakeholder contacts"
+
+                # Requirements (for SLO derivation)
+                requirements:
+                  type: object
+                  properties:
+                    availability:
+                      type: string
+                      pattern: "^\\d+\\.?\\d*$"
+                      description: "Target availability percentage (e.g., 99.95)"
+                    latencyP50:
+                      type: string
+                      description: "Target P50 latency (e.g., 50ms)"
+                    latencyP99:
+                      type: string
+                      description: "Target P99 latency (e.g., 200ms)"
+                    errorBudget:
+                      type: string
+                      pattern: "^\\d+\\.?\\d*$"
+                      description: "Error budget percentage (e.g., 0.05)"
+                    throughput:
+                      type: string
+                      description: "Target throughput (e.g., 1000rps)"
+                    source:
+                      type: string
+                      description: "Where these requirements originated"
+
+                # Risk signals (for alert derivation)
+                risks:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - type
+                    properties:
+                      type:
+                        type: string
+                        enum:
+                          - security
+                          - compliance
+                          - data-integrity
+                          - availability
+                          - financial
+                          - reputational
+                        description: "Risk category"
+                      description:
+                        type: string
+                        description: "Risk description"
+                      priority:
+                        type: string
+                        enum:
+                          - P1
+                          - P2
+                          - P3
+                          - P4
+                        description: "Alert priority if this risk materializes"
+                      mitigation:
+                        type: string
+                        description: "Mitigation strategy or ADR reference"
+                      controls:
+                        type: array
+                        items:
+                          type: string
+                        description: "Controls in place"
+
+                # Target Kubernetes resources
+                targets:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required:
+                      - kind
+                      - name
+                    properties:
+                      kind:
+                        type: string
+                        enum:
+                          - Deployment
+                          - StatefulSet
+                          - DaemonSet
+                          - Service
+                          - Ingress
+                          - ConfigMap
+                          - Secret
+                          - CronJob
+                          - Job
+                        description: "Kubernetes resource kind"
+                      name:
+                        type: string
+                        description: "Resource name"
+                      namespace:
+                        type: string
+                        description: "Resource namespace (defaults to ProjectContext namespace)"
+
+                # Observability strategy
+                observability:
+                  type: object
+                  properties:
+                    traceSampling:
+                      type: number
+                      minimum: 0
+                      maximum: 1
+                      description: "Trace sampling rate (0.0 to 1.0)"
+                    metricsInterval:
+                      type: string
+                      pattern: "^\\d+[smh]$"
+                      description: "Metrics scrape interval (e.g., 10s, 1m)"
+                    logLevel:
+                      type: string
+                      enum:
+                        - debug
+                        - info
+                        - warn
+                        - error
+                      description: "Recommended log level"
+                    dashboardPlacement:
+                      type: string
+                      enum:
+                        - featured
+                        - standard
+                        - archived
+                      description: "Dashboard visibility level"
+                    alertChannels:
+                      type: array
+                      items:
+                        type: string
+                      description: "Alert notification channels"
+                    runbook:
+                      type: string
+                      format: uri
+                      description: "Runbook URL for operational guidance"
+
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                  enum:
+                    - Pending
+                    - Active
+                    - Degraded
+                    - Error
+                  description: "Current phase of the ProjectContext"
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                generatedArtifacts:
+                  type: object
+                  properties:
+                    serviceMonitor:
+                      type: string
+                      description: "Generated ServiceMonitor name"
+                    prometheusRules:
+                      type: array
+                      items:
+                        type: string
+                      description: "Generated PrometheusRule names"
+                    dashboard:
+                      type: string
+                      description: "Generated Dashboard ConfigMap name"
+                annotatedResources:
+                  type: array
+                  items:
+                    type: string
+                  description: "Resources annotated with context"
+                lastSyncTime:
+                  type: string
+                  format: date-time
+                  description: "Last time context was synced to resources"
+
+      subresources:
+        status: {}
+
+      additionalPrinterColumns:
+        - name: Project
+          type: string
+          jsonPath: .spec.project.id
+        - name: Criticality
+          type: string
+          jsonPath: .spec.business.criticality
+        - name: Value
+          type: string
+          jsonPath: .spec.business.value
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
