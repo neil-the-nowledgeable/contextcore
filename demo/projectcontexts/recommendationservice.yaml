@@ -1,0 +1,48 @@
+apiVersion: contextcore.io/v1
+kind: ProjectContext
+metadata:
+  name: recommendationservice-context
+  namespace: online-boutique
+  labels:
+    app: recommendationservice
+    team: ml
+spec:
+  project:
+    id: "online-boutique"
+    epic: "EPIC-002"
+    tasks:
+      - "TASK-0091"
+      - "TASK-0092"
+      - "TASK-0093"
+
+  design:
+    doc: "https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/docs/architecture.md#recommendation-service"
+    adr: "ADR-020-cart-based-recommendations"
+    apiContract: "https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/protos/demo.proto"
+
+  business:
+    criticality: medium
+    value: revenue-secondary
+    owner: ml-team
+    costCenter: "CC-ML-001"
+
+  requirements:
+    availability: "99.5"
+    latencyP99: "200ms"
+    errorBudget: "0.5"
+    throughput: "500rps"
+
+  risks: []
+
+  targets:
+    - kind: Deployment
+      name: recommendationservice
+    - kind: Service
+      name: recommendationservice
+
+  observability:
+    traceSampling: 0.1
+    metricsInterval: "60s"
+    dashboardPlacement: standard
+    alertChannels:
+      - "ml-oncall"

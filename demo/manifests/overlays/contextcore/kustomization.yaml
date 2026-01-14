@@ -1,0 +1,173 @@
+# ContextCore overlay for Online Boutique
+# Adds ProjectContext resources and annotations to all services
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: online-boutique
+
+resources:
+  - ../../base
+  # ProjectContext CRD (must be applied first)
+  - ../../../../crds/projectcontext.yaml
+  # ProjectContext resources for all services
+  - ../../../projectcontexts/frontend.yaml
+  - ../../../projectcontexts/checkoutservice.yaml
+  - ../../../projectcontexts/cartservice.yaml
+  - ../../../projectcontexts/productcatalogservice.yaml
+  - ../../../projectcontexts/paymentservice.yaml
+  - ../../../projectcontexts/currencyservice.yaml
+  - ../../../projectcontexts/shippingservice.yaml
+  - ../../../projectcontexts/emailservice.yaml
+  - ../../../projectcontexts/recommendationservice.yaml
+  - ../../../projectcontexts/adservice.yaml
+  - ../../../projectcontexts/loadgenerator.yaml
+
+# Common labels for all resources
+commonLabels:
+  contextcore.io/managed: "true"
+  contextcore.io/project: "online-boutique"
+
+# Patches to add ContextCore annotations to deployments
+patches:
+  # Frontend
+  - target:
+      kind: Deployment
+      name: frontend
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value:
+          contextcore.io/projectcontext: frontend-context
+          contextcore.io/criticality: critical
+          contextcore.io/business-value: revenue-primary
+          contextcore.io/owner: commerce-team
+
+  # Checkout Service
+  - target:
+      kind: Deployment
+      name: checkoutservice
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value:
+          contextcore.io/projectcontext: checkoutservice-context
+          contextcore.io/criticality: critical
+          contextcore.io/business-value: revenue-primary
+          contextcore.io/owner: commerce-team
+
+  # Cart Service
+  - target:
+      kind: Deployment
+      name: cartservice
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value:
+          contextcore.io/projectcontext: cartservice-context
+          contextcore.io/criticality: critical
+          contextcore.io/business-value: revenue-primary
+          contextcore.io/owner: commerce-team
+
+  # Product Catalog Service
+  - target:
+      kind: Deployment
+      name: productcatalogservice
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value:
+          contextcore.io/projectcontext: productcatalogservice-context
+          contextcore.io/criticality: high
+          contextcore.io/business-value: revenue-primary
+          contextcore.io/owner: catalog-team
+
+  # Payment Service
+  - target:
+      kind: Deployment
+      name: paymentservice
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value:
+          contextcore.io/projectcontext: paymentservice-context
+          contextcore.io/criticality: critical
+          contextcore.io/business-value: revenue-primary
+          contextcore.io/owner: payments-team
+
+  # Currency Service
+  - target:
+      kind: Deployment
+      name: currencyservice
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value:
+          contextcore.io/projectcontext: currencyservice-context
+          contextcore.io/criticality: high
+          contextcore.io/business-value: enabler
+          contextcore.io/owner: platform-team
+
+  # Shipping Service
+  - target:
+      kind: Deployment
+      name: shippingservice
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value:
+          contextcore.io/projectcontext: shippingservice-context
+          contextcore.io/criticality: high
+          contextcore.io/business-value: revenue-secondary
+          contextcore.io/owner: logistics-team
+
+  # Email Service
+  - target:
+      kind: Deployment
+      name: emailservice
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value:
+          contextcore.io/projectcontext: emailservice-context
+          contextcore.io/criticality: medium
+          contextcore.io/business-value: enabler
+          contextcore.io/owner: notifications-team
+
+  # Recommendation Service
+  - target:
+      kind: Deployment
+      name: recommendationservice
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value:
+          contextcore.io/projectcontext: recommendationservice-context
+          contextcore.io/criticality: medium
+          contextcore.io/business-value: revenue-secondary
+          contextcore.io/owner: ml-team
+
+  # Ad Service
+  - target:
+      kind: Deployment
+      name: adservice
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value:
+          contextcore.io/projectcontext: adservice-context
+          contextcore.io/criticality: medium
+          contextcore.io/business-value: revenue-secondary
+          contextcore.io/owner: marketing-team
+
+  # Load Generator
+  - target:
+      kind: Deployment
+      name: loadgenerator
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value:
+          contextcore.io/projectcontext: loadgenerator-context
+          contextcore.io/criticality: low
+          contextcore.io/business-value: internal
+          contextcore.io/owner: platform-team

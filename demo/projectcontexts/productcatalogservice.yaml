@@ -1,0 +1,52 @@
+apiVersion: contextcore.io/v1
+kind: ProjectContext
+metadata:
+  name: productcatalogservice-context
+  namespace: online-boutique
+  labels:
+    app: productcatalogservice
+    team: catalog
+spec:
+  project:
+    id: "online-boutique"
+    epic: "EPIC-002"
+    tasks:
+      - "TASK-0011"
+      - "TASK-0012"
+      - "TASK-0013"
+
+  design:
+    doc: "https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/docs/architecture.md#product-catalog-service"
+    adr: "ADR-010-catalog-json-storage"
+    apiContract: "https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/protos/demo.proto"
+
+  business:
+    criticality: high
+    value: revenue-primary
+    owner: catalog-team
+    costCenter: "CC-CATALOG-001"
+
+  requirements:
+    availability: "99.9"
+    latencyP99: "150ms"
+    errorBudget: "0.1"
+    throughput: "3000rps"
+
+  risks:
+    - type: availability
+      description: "Catalog unavailability prevents browsing and purchasing"
+      priority: P2
+      mitigation: "ADR-011-catalog-caching"
+
+  targets:
+    - kind: Deployment
+      name: productcatalogservice
+    - kind: Service
+      name: productcatalogservice
+
+  observability:
+    traceSampling: 0.5
+    metricsInterval: "30s"
+    dashboardPlacement: standard
+    alertChannels:
+      - "catalog-oncall"

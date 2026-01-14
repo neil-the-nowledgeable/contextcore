@@ -1,0 +1,48 @@
+apiVersion: contextcore.io/v1
+kind: ProjectContext
+metadata:
+  name: adservice-context
+  namespace: online-boutique
+  labels:
+    app: adservice
+    team: marketing
+spec:
+  project:
+    id: "online-boutique"
+    epic: "EPIC-007"
+    tasks:
+      - "TASK-0101"
+      - "TASK-0102"
+      - "TASK-0103"
+
+  design:
+    doc: "https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/docs/architecture.md#ad-service"
+    adr: "ADR-021-contextual-ads"
+    apiContract: "https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/protos/demo.proto"
+
+  business:
+    criticality: medium
+    value: revenue-secondary
+    owner: marketing-team
+    costCenter: "CC-MARKETING-001"
+
+  requirements:
+    availability: "99.5"
+    latencyP99: "300ms"
+    errorBudget: "0.5"
+    throughput: "500rps"
+
+  risks: []
+
+  targets:
+    - kind: Deployment
+      name: adservice
+    - kind: Service
+      name: adservice
+
+  observability:
+    traceSampling: 0.1
+    metricsInterval: "60s"
+    dashboardPlacement: standard
+    alertChannels:
+      - "marketing-oncall"

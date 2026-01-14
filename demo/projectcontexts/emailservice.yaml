@@ -1,0 +1,48 @@
+apiVersion: contextcore.io/v1
+kind: ProjectContext
+metadata:
+  name: emailservice-context
+  namespace: online-boutique
+  labels:
+    app: emailservice
+    team: notifications
+spec:
+  project:
+    id: "online-boutique"
+    epic: "EPIC-005"
+    tasks:
+      - "TASK-0081"
+      - "TASK-0082"
+      - "TASK-0083"
+
+  design:
+    doc: "https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/docs/architecture.md#email-service"
+    adr: "ADR-019-mock-email-sender"
+    apiContract: "https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/protos/demo.proto"
+
+  business:
+    criticality: medium
+    value: enabler
+    owner: notifications-team
+    costCenter: "CC-NOTIFICATIONS-001"
+
+  requirements:
+    availability: "99.5"
+    latencyP99: "1000ms"
+    errorBudget: "0.5"
+    throughput: "100rps"
+
+  risks: []
+
+  targets:
+    - kind: Deployment
+      name: emailservice
+    - kind: Service
+      name: emailservice
+
+  observability:
+    traceSampling: 0.1
+    metricsInterval: "60s"
+    dashboardPlacement: standard
+    alertChannels:
+      - "notifications-oncall"

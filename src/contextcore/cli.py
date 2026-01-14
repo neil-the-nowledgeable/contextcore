@@ -973,5 +973,279 @@ def metrics_export(project: str, endpoint: str, interval: int):
         time.sleep(interval)
 
 
+# ============================================================================
+# Demo Commands (microservices-demo POC)
+# ============================================================================
+
+@main.group()
+def demo():
+    """Generate and load demo data using Google's microservices-demo.
+
+    This command group provides tools to demonstrate ContextCore's value:
+
+    \b
+    1. Generate realistic 3-month project history as OTel spans
+    2. Load generated spans to Tempo for visualization
+    3. Set up a local kind cluster with the full observability stack
+
+    The demo uses Google's Online Boutique (microservices-demo) as the
+    target application, simulating development of all 11 microservices.
+    """
+    pass
+
+
+@demo.command("generate")
+@click.option("--project", "-p", default="online-boutique", help="Project identifier")
+@click.option("--output", "-o", default="./demo_output", help="Output directory for spans")
+@click.option("--months", "-m", type=int, default=3, help="Duration of project history (months)")
+@click.option("--seed", type=int, help="Random seed for reproducibility")
+@click.option("--format", "output_format", type=click.Choice(["json", "otlp"]), default="json", help="Output format")
+@click.option("--endpoint", envvar="OTEL_EXPORTER_OTLP_ENDPOINT", help="OTLP endpoint (for otlp format)")
+def demo_generate(
+    project: str,
+    output: str,
+    months: int,
+    seed: Optional[int],
+    output_format: str,
+    endpoint: Optional[str],
+):
+    """Generate demo project history for microservices-demo.
+
+    Creates realistic task/sprint data for all 11 microservices as OTel spans.
+
+    \b
+    Examples:
+        # Generate 3-month history to JSON
+        contextcore demo generate --project online-boutique
+
+        # Generate with fixed seed for reproducibility
+        contextcore demo generate --seed 42
+
+        # Generate and export directly to Tempo
+        contextcore demo generate --format otlp --endpoint localhost:4317
+    """
+    from contextcore.demo import generate_demo_data
+
+    click.echo(f"Generating {months}-month project history for {project}")
+    click.echo(f"  Output: {output}")
+    if seed:
+        click.echo(f"  Seed: {seed}")
+
+    stats = generate_demo_data(
+        project=project,
+        output_dir=output if output_format == "json" else None,
+        duration_months=months,
+        seed=seed,
+    )
+
+    click.echo()
+    click.echo("Generation complete!")
+    click.echo(f"  Services: {stats['services']}")
+    click.echo(f"  Epics: {stats['epics']}")
+    click.echo(f"  Stories: {stats['stories']}")
+    click.echo(f"  Tasks: {stats['tasks']}")
+    click.echo(f"  Blockers: {stats['blockers']}")
+    click.echo(f"  Sprints: {stats['sprints']}")
+    click.echo(f"  Total spans: {stats['total_spans']}")
+
+    if output_format == "json" and "output_file" in stats:
+        click.echo()
+        click.echo(f"Spans saved to: {stats['output_file']}")
+        click.echo()
+        click.echo("To load into Tempo:")
+        click.echo(f"  contextcore demo load --file {stats['output_file']} --endpoint localhost:4317")
+
+    if output_format == "otlp":
+        if not endpoint:
+            click.echo("Error: --endpoint required for otlp format", err=True)
+            sys.exit(1)
+
+        from contextcore.demo import load_to_tempo
+
+        click.echo()
+        click.echo(f"Exporting to {endpoint}...")
+        # Note: For direct OTLP export, we'd need to regenerate with OTLP exporter
+        click.echo("(Direct OTLP export during generation not yet implemented)")
+        click.echo("Use 'contextcore demo load' to load from JSON file")
+
+
+@demo.command("load")
+@click.option("--file", "-f", "spans_file", required=True, type=click.Path(exists=True), help="JSON spans file")
+@click.option("--endpoint", "-e", envvar="OTEL_EXPORTER_OTLP_ENDPOINT", default="localhost:4317", help="OTLP endpoint")
+@click.option("--insecure/--secure", default=True, help="Use insecure connection")
+def demo_load(spans_file: str, endpoint: str, insecure: bool):
+    """Load generated spans to Tempo via OTLP.
+
+    \b
+    Examples:
+        contextcore demo load --file ./demo_output/demo_spans.json
+
+        contextcore demo load --file ./demo_output/demo_spans.json --endpoint tempo.local:4317
+    """
+    from contextcore.demo import load_to_tempo
+
+    click.echo(f"Loading spans from {spans_file}")
+    click.echo(f"  Endpoint: {endpoint}")
+
+    result = load_to_tempo(
+        endpoint=endpoint,
+        spans_file=spans_file,
+        insecure=insecure,
+    )
+
+    if result["success"]:
+        click.echo()
+        click.echo(f"Successfully loaded {result['spans_exported']} spans to {endpoint}")
+    else:
+        click.echo()
+        click.echo("Failed to load spans", err=True)
+        sys.exit(1)
+
+
+@demo.command("setup")
+@click.option("--cluster-name", default="contextcore-demo", help="Kind cluster name")
+@click.option("--skip-cluster", is_flag=True, help="Skip cluster creation (use existing)")
+@click.option("--skip-observability", is_flag=True, help="Skip observability stack deployment")
+@click.option("--skip-demo", is_flag=True, help="Skip microservices-demo deployment")
+def demo_setup(cluster_name: str, skip_cluster: bool, skip_observability: bool, skip_demo: bool):
+    """Set up local kind cluster with observability stack.
+
+    Deploys:
+    - Kind cluster
+    - Grafana, Tempo, Mimir, Loki (via Alloy)
+    - ContextCore CRD
+    - microservices-demo with ProjectContext resources
+
+    \b
+    Examples:
+        # Full setup
+        contextcore demo setup
+
+        # Skip cluster creation (use existing)
+        contextcore demo setup --skip-cluster
+    """
+    import subprocess
+    import shutil
+
+    # Check prerequisites
+    missing = []
+    for cmd in ["kind", "kubectl", "helm"]:
+        if not shutil.which(cmd):
+            missing.append(cmd)
+
+    if missing:
+        click.echo(f"Missing required tools: {', '.join(missing)}", err=True)
+        click.echo("Please install them before running setup.")
+        sys.exit(1)
+
+    click.echo("ContextCore Demo Setup")
+    click.echo("=" * 40)
+
+    # Step 1: Create kind cluster
+    if not skip_cluster:
+        click.echo()
+        click.echo("[1/4] Creating kind cluster...")
+        result = subprocess.run(
+            ["kind", "get", "clusters"],
+            capture_output=True,
+            text=True,
+        )
+        if cluster_name in result.stdout.split():
+            click.echo(f"  Cluster '{cluster_name}' already exists")
+        else:
+            result = subprocess.run(
+                ["kind", "create", "cluster", "--name", cluster_name],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                click.echo(f"Error creating cluster: {result.stderr}", err=True)
+                sys.exit(1)
+            click.echo(f"  Created cluster: {cluster_name}")
+    else:
+        click.echo()
+        click.echo("[1/4] Skipping cluster creation")
+
+    # Step 2: Deploy observability stack
+    if not skip_observability:
+        click.echo()
+        click.echo("[2/4] Deploying observability stack...")
+        click.echo("  (Not yet implemented - manual Helm install required)")
+        click.echo()
+        click.echo("  Manual steps:")
+        click.echo("    helm repo add grafana https://grafana.github.io/helm-charts")
+        click.echo("    helm install grafana grafana/grafana -n observability --create-namespace")
+        click.echo("    helm install tempo grafana/tempo -n observability")
+    else:
+        click.echo()
+        click.echo("[2/4] Skipping observability deployment")
+
+    # Step 3: Apply ContextCore CRD
+    click.echo()
+    click.echo("[3/4] Applying ContextCore CRD...")
+    crd_path = os.path.join(os.path.dirname(__file__), "..", "..", "crds", "projectcontext.yaml")
+    if os.path.exists(crd_path):
+        result = subprocess.run(
+            ["kubectl", "apply", "-f", crd_path],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            click.echo("  Applied ProjectContext CRD")
+        else:
+            click.echo(f"  Warning: {result.stderr}")
+    else:
+        click.echo("  CRD file not found - skipping")
+
+    # Step 4: Deploy microservices-demo
+    if not skip_demo:
+        click.echo()
+        click.echo("[4/4] Deploying microservices-demo...")
+        click.echo("  (Not yet implemented)")
+        click.echo()
+        click.echo("  Manual steps:")
+        click.echo("    kubectl create namespace online-boutique")
+        click.echo("    kubectl apply -f https://raw.githubusercontent.com/GoogleCloudPlatform/microservices-demo/main/release/kubernetes-manifests.yaml -n online-boutique")
+    else:
+        click.echo()
+        click.echo("[4/4] Skipping microservices-demo deployment")
+
+    click.echo()
+    click.echo("=" * 40)
+    click.echo("Setup complete!")
+    click.echo()
+    click.echo("Next steps:")
+    click.echo("  1. Generate demo data:")
+    click.echo("     contextcore demo generate")
+    click.echo()
+    click.echo("  2. Load spans to Tempo:")
+    click.echo("     contextcore demo load --file ./demo_output/demo_spans.json")
+    click.echo()
+    click.echo("  3. Access Grafana:")
+    click.echo("     kubectl port-forward svc/grafana 3000:80 -n observability")
+    click.echo("     Open http://localhost:3000")
+
+
+@demo.command("services")
+def demo_services():
+    """List all 11 microservices from Online Boutique.
+
+    Shows service metadata used for ProjectContext generation.
+    """
+    from contextcore.demo import SERVICE_CONFIGS
+
+    click.echo("Online Boutique Microservices")
+    click.echo("=" * 60)
+    click.echo()
+    click.echo(f"{'Service':<25} {'Language':<10} {'Criticality':<10} {'Business Value'}")
+    click.echo("-" * 60)
+
+    for name, config in SERVICE_CONFIGS.items():
+        click.echo(f"{name:<25} {config.language:<10} {config.criticality:<10} {config.business_value}")
+
+    click.echo()
+    click.echo(f"Total: {len(SERVICE_CONFIGS)} services")
+
+
 if __name__ == "__main__":
     main()

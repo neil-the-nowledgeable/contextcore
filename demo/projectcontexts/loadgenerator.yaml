@@ -1,0 +1,45 @@
+apiVersion: contextcore.io/v1
+kind: ProjectContext
+metadata:
+  name: loadgenerator-context
+  namespace: online-boutique
+  labels:
+    app: loadgenerator
+    team: platform
+spec:
+  project:
+    id: "online-boutique"
+    epic: "EPIC-008"
+    tasks:
+      - "TASK-0111"
+      - "TASK-0112"
+      - "TASK-0113"
+
+  design:
+    doc: "https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/docs/architecture.md#load-generator"
+    adr: "ADR-022-locust-load-testing"
+    apiContract: ""
+
+  business:
+    criticality: low
+    value: internal
+    owner: platform-team
+    costCenter: "CC-PLATFORM-002"
+
+  requirements:
+    availability: "-"
+    latencyP99: "-"
+    errorBudget: "-"
+    throughput: "-"
+
+  risks: []
+
+  targets:
+    - kind: Deployment
+      name: loadgenerator
+
+  observability:
+    traceSampling: 0.01
+    metricsInterval: "120s"
+    dashboardPlacement: none
+    alertChannels: []

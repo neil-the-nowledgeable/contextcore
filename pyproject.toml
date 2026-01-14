@@ -65,8 +65,12 @@ sync = [
     "PyGithub>=2.1.0",
     "notion-client>=2.0.0",
 ]
+demo = [
+    # Demo data generation for microservices-demo POC
+    # No additional dependencies needed - uses core OTel SDK
+]
 all = [
-    "contextcore[dev,sync]",
+    "contextcore[dev,sync,demo]",
 ]
 
 [project.scripts]

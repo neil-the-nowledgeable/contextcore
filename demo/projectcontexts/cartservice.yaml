@@ -1,0 +1,55 @@
+apiVersion: contextcore.io/v1
+kind: ProjectContext
+metadata:
+  name: cartservice-context
+  namespace: online-boutique
+  labels:
+    app: cartservice
+    team: commerce
+spec:
+  project:
+    id: "online-boutique"
+    epic: "EPIC-003"
+    tasks:
+      - "TASK-0021"
+      - "TASK-0022"
+      - "TASK-0023"
+
+  design:
+    doc: "https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/docs/architecture.md#cart-service"
+    adr: "ADR-008-redis-cart-backend"
+    apiContract: "https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/protos/demo.proto"
+
+  business:
+    criticality: critical
+    value: revenue-primary
+    owner: commerce-team
+    costCenter: "CC-COMMERCE-003"
+
+  requirements:
+    availability: "99.95"
+    latencyP99: "100ms"
+    errorBudget: "0.05"
+    throughput: "2000rps"
+
+  risks:
+    - type: data-integrity
+      description: "Cart data loss leads to abandoned purchases and lost revenue"
+      priority: P1
+      mitigation: "ADR-009-redis-persistence"
+
+  targets:
+    - kind: Deployment
+      name: cartservice
+    - kind: Service
+      name: cartservice
+    - kind: Deployment
+      name: redis-cart
+
+  observability:
+    traceSampling: 1.0
+    metricsInterval: "10s"
+    dashboardPlacement: featured
+    alertChannels:
+      - "commerce-oncall"
+      - "pagerduty-p1"

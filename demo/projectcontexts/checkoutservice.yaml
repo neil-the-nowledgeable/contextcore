@@ -1,0 +1,57 @@
+apiVersion: contextcore.io/v1
+kind: ProjectContext
+metadata:
+  name: checkoutservice-context
+  namespace: online-boutique
+  labels:
+    app: checkoutservice
+    team: commerce
+spec:
+  project:
+    id: "online-boutique"
+    epic: "EPIC-004"
+    tasks:
+      - "TASK-0041"
+      - "TASK-0042"
+      - "TASK-0043"
+
+  design:
+    doc: "https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/docs/architecture.md#checkout-service"
+    adr: "ADR-005-checkout-orchestration"
+    apiContract: "https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/protos/demo.proto"
+
+  business:
+    criticality: critical
+    value: revenue-primary
+    owner: commerce-team
+    costCenter: "CC-COMMERCE-002"
+
+  requirements:
+    availability: "99.95"
+    latencyP99: "200ms"
+    errorBudget: "0.05"
+    throughput: "500rps"
+
+  risks:
+    - type: financial
+      description: "Handles payment flow - failed transactions directly impact revenue"
+      priority: P1
+      mitigation: "ADR-006-payment-idempotency"
+    - type: data-integrity
+      description: "Order consistency must be maintained across distributed services"
+      priority: P1
+      mitigation: "ADR-007-saga-pattern"
+
+  targets:
+    - kind: Deployment
+      name: checkoutservice
+    - kind: Service
+      name: checkoutservice
+
+  observability:
+    traceSampling: 1.0
+    metricsInterval: "10s"
+    dashboardPlacement: featured
+    alertChannels:
+      - "commerce-oncall"
+      - "pagerduty-p1"

@@ -1,0 +1,59 @@
+apiVersion: contextcore.io/v1
+kind: ProjectContext
+metadata:
+  name: frontend-context
+  namespace: online-boutique
+  labels:
+    app: frontend
+    team: commerce
+spec:
+  project:
+    id: "online-boutique"
+    epic: "EPIC-003"
+    tasks:
+      - "TASK-0031"
+      - "TASK-0032"
+      - "TASK-0033"
+
+  design:
+    doc: "https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/docs/architecture.md"
+    adr: "ADR-001-grpc-web-gateway"
+    apiContract: "https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/protos/demo.proto"
+
+  business:
+    criticality: critical
+    value: revenue-primary
+    owner: commerce-team
+    costCenter: "CC-COMMERCE-001"
+
+  requirements:
+    availability: "99.95"
+    latencyP99: "500ms"
+    errorBudget: "0.05"
+    throughput: "1000rps"
+
+  risks:
+    - type: availability
+      description: "Customer-facing entry point - single point of failure for user experience"
+      priority: P1
+      mitigation: "ADR-003-circuit-breaker"
+    - type: security
+      description: "Handles session cookies and user authentication state"
+      priority: P2
+      mitigation: "ADR-004-session-security"
+
+  targets:
+    - kind: Deployment
+      name: frontend
+    - kind: Service
+      name: frontend
+    - kind: Service
+      name: frontend-external
+
+  observability:
+    traceSampling: 1.0
+    metricsInterval: "10s"
+    dashboardPlacement: featured
+    alertChannels:
+      - "commerce-oncall"
+      - "pagerduty-p1"

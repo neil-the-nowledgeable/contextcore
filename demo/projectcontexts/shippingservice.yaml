@@ -1,0 +1,52 @@
+apiVersion: contextcore.io/v1
+kind: ProjectContext
+metadata:
+  name: shippingservice-context
+  namespace: online-boutique
+  labels:
+    app: shippingservice
+    team: logistics
+spec:
+  project:
+    id: "online-boutique"
+    epic: "EPIC-005"
+    tasks:
+      - "TASK-0071"
+      - "TASK-0072"
+      - "TASK-0073"
+
+  design:
+    doc: "https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/docs/architecture.md#shipping-service"
+    adr: "ADR-017-shipping-estimation"
+    apiContract: "https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/protos/demo.proto"
+
+  business:
+    criticality: high
+    value: revenue-secondary
+    owner: logistics-team
+    costCenter: "CC-LOGISTICS-001"
+
+  requirements:
+    availability: "99.9"
+    latencyP99: "100ms"
+    errorBudget: "0.1"
+    throughput: "1000rps"
+
+  risks:
+    - type: availability
+      description: "Shipping calculation failure blocks checkout completion"
+      priority: P2
+      mitigation: "ADR-018-shipping-fallback"
+
+  targets:
+    - kind: Deployment
+      name: shippingservice
+    - kind: Service
+      name: shippingservice
+
+  observability:
+    traceSampling: 0.5
+    metricsInterval: "30s"
+    dashboardPlacement: standard
+    alertChannels:
+      - "logistics-oncall"

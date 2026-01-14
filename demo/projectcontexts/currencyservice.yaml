@@ -1,0 +1,52 @@
+apiVersion: contextcore.io/v1
+kind: ProjectContext
+metadata:
+  name: currencyservice-context
+  namespace: online-boutique
+  labels:
+    app: currencyservice
+    team: platform
+spec:
+  project:
+    id: "online-boutique"
+    epic: "EPIC-006"
+    tasks:
+      - "TASK-0061"
+      - "TASK-0062"
+      - "TASK-0063"
+
+  design:
+    doc: "https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/docs/architecture.md#currency-service"
+    adr: "ADR-015-ecb-currency-rates"
+    apiContract: "https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/protos/demo.proto"
+
+  business:
+    criticality: high
+    value: enabler
+    owner: platform-team
+    costCenter: "CC-PLATFORM-001"
+
+  requirements:
+    availability: "99.9"
+    latencyP99: "50ms"
+    errorBudget: "0.1"
+    throughput: "5000rps"
+
+  risks:
+    - type: availability
+      description: "High query volume service - performance degradation impacts all pricing"
+      priority: P2
+      mitigation: "ADR-016-currency-caching"
+
+  targets:
+    - kind: Deployment
+      name: currencyservice
+    - kind: Service
+      name: currencyservice
+
+  observability:
+    traceSampling: 0.5
+    metricsInterval: "30s"
+    dashboardPlacement: standard
+    alertChannels:
+      - "platform-oncall"

@@ -1,0 +1,10 @@
+# Base kustomization for Online Boutique (microservices-demo)
+# References the upstream manifests from Google's repository
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: online-boutique
+
+resources:
+  # Pull upstream manifests directly from GitHub
+  - https://raw.githubusercontent.com/GoogleCloudPlatform/microservices-demo/main/release/kubernetes-manifests.yaml
