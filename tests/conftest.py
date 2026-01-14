@@ -2,8 +2,10 @@
 Pytest configuration and fixtures for ContextCore tests.
 """
 
+from __future__ import annotations
+
 import os
-from typing import Generator
+from typing import Dict, Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -15,7 +17,7 @@ import pytest
 
 
 @pytest.fixture(scope="session")
-def test_env() -> dict[str, str]:
+def test_env() -> Dict[str, str]:
     """Test environment variables."""
     return {
         "CONTEXTCORE_PROJECT_ID": "test-project",
@@ -27,7 +29,7 @@ def test_env() -> dict[str, str]:
 
 
 @pytest.fixture(autouse=True)
-def set_test_env(test_env: dict[str, str]) -> Generator[None, None, None]:
+def set_test_env(test_env: Dict[str, str]) -> Generator[None, None, None]:
     """Set test environment variables for each test."""
     original = {}
     for key, value in test_env.items():
@@ -142,7 +144,7 @@ def mock_k8s_deployment() -> MagicMock:
 
 
 @pytest.fixture
-def otel_resource_attributes() -> dict[str, str]:
+def otel_resource_attributes() -> Dict[str, str]:
     """Expected OTel resource attributes from detector."""
     return {
         "project.id": "test-project",

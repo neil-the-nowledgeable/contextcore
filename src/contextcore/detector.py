@@ -20,9 +20,11 @@ All spans/metrics/logs will include attributes like:
     - etc.
 """
 
+from __future__ import annotations
+
 import logging
 import os
-from typing import Optional
+from typing import Dict, Optional
 
 from opentelemetry.sdk.resources import Resource, ResourceDetector
 
@@ -107,7 +109,7 @@ class ProjectContextDetector(ResourceDetector):
         Attempts to read from K8s annotations first, then falls back to
         environment variables for local development.
         """
-        attributes = {}
+        attributes: Dict[str, str] = {}
 
         # Try K8s annotations first
         try:
@@ -127,7 +129,7 @@ class ProjectContextDetector(ResourceDetector):
 
         return Resource.create(attributes)
 
-    def _detect_from_k8s(self) -> dict[str, str]:
+    def _detect_from_k8s(self) -> Dict[str, str]:
         """Read project context from K8s pod annotations."""
         try:
             from kubernetes import client, config
@@ -162,9 +164,9 @@ class ProjectContextDetector(ResourceDetector):
         annotations = pod.metadata.annotations or {}
         return self._parse_annotations(annotations)
 
-    def _detect_from_env(self) -> dict[str, str]:
+    def _detect_from_env(self) -> Dict[str, str]:
         """Read project context from environment variables."""
-        attributes = {}
+        attributes: Dict[str, str] = {}
 
         # Map environment variables to attributes
         env_mapping = {
@@ -198,9 +200,9 @@ class ProjectContextDetector(ResourceDetector):
         # Try environment variable
         return os.environ.get("CONTEXTCORE_NAMESPACE", "default")
 
-    def _parse_annotations(self, annotations: dict[str, str]) -> dict[str, str]:
+    def _parse_annotations(self, annotations: Dict[str, str]) -> Dict[str, str]:
         """Parse contextcore.io annotations into resource attributes."""
-        attributes = {}
+        attributes: Dict[str, str] = {}
 
         for key, value in annotations.items():
             if not key.startswith(ANNOTATION_PREFIX):
@@ -231,7 +233,7 @@ class ProjectContextDetector(ResourceDetector):
         return attributes
 
 
-def get_project_context() -> dict[str, str]:
+def get_project_context() -> Dict[str, str]:
     """
     Convenience function to get project context as a dictionary.
 

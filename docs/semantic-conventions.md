@@ -19,6 +19,8 @@ ContextCore extends OpenTelemetry semantic conventions with project management c
 | `business.*` | `business.criticality` | Business context |
 | `requirement.*` | `requirement.availability` | SLO requirements |
 | `risk.*` | `risk.type` | Risk signals |
+| `task.*` | `task.id` | Task tracking (tasks as spans) |
+| `sprint.*` | `sprint.id` | Sprint tracking |
 | `k8s.projectcontext.*` | `k8s.projectcontext.name` | K8s CRD context |
 
 ---
@@ -156,6 +158,108 @@ ContextCore extends OpenTelemetry semantic conventions with project management c
 
 ---
 
+## Task Attributes (Tasks as Spans)
+
+Tasks are modeled as OpenTelemetry spans. These attributes appear on task spans.
+
+### `task.id`
+- **Type**: `string`
+- **Description**: Unique task identifier
+- **Example**: `"PROJ-123"`, `"JIRA-456"`
+
+### `task.type`
+- **Type**: `string`
+- **Description**: Task hierarchy type
+- **Allowed Values**: `epic`, `story`, `task`, `subtask`, `bug`, `spike`, `incident`
+
+### `task.title`
+- **Type**: `string`
+- **Description**: Task title/summary
+- **Example**: `"Implement user authentication"`
+
+### `task.status`
+- **Type**: `string`
+- **Description**: Current task status
+- **Allowed Values**: `backlog`, `todo`, `in_progress`, `in_review`, `blocked`, `done`, `cancelled`
+
+### `task.priority`
+- **Type**: `string`
+- **Description**: Task priority level
+- **Allowed Values**: `critical`, `high`, `medium`, `low`
+
+### `task.assignee`
+- **Type**: `string`
+- **Description**: Person assigned to the task
+- **Example**: `"alice"`, `"bob@company.com"`
+
+### `task.story_points`
+- **Type**: `int`
+- **Description**: Story point estimate
+- **Example**: `5`, `8`, `13`
+
+### `task.labels`
+- **Type**: `string[]`
+- **Description**: Task labels/tags
+- **Example**: `["frontend", "auth", "security"]`
+
+### `task.url`
+- **Type**: `string` (URL)
+- **Description**: Link to external system (Jira, GitHub, etc.)
+- **Example**: `"https://jira.company.com/browse/PROJ-123"`
+
+### `task.due_date`
+- **Type**: `string` (ISO 8601)
+- **Description**: Task due date
+- **Example**: `"2024-02-15"`
+
+### `task.blocked_by`
+- **Type**: `string`
+- **Description**: Task ID that is blocking this task
+- **Example**: `"PROJ-100"`
+
+---
+
+## Sprint Attributes
+
+Sprints are parent spans that contain task spans.
+
+### `sprint.id`
+- **Type**: `string`
+- **Description**: Sprint identifier
+- **Example**: `"sprint-3"`, `"2024-Q1-S2"`
+
+### `sprint.name`
+- **Type**: `string`
+- **Description**: Sprint name
+- **Example**: `"Sprint 3"`, `"January Week 2"`
+
+### `sprint.goal`
+- **Type**: `string`
+- **Description**: Sprint goal
+- **Example**: `"Complete user authentication flow"`
+
+### `sprint.start_date`
+- **Type**: `string` (ISO 8601)
+- **Description**: Sprint start date
+- **Example**: `"2024-01-15"`
+
+### `sprint.end_date`
+- **Type**: `string` (ISO 8601)
+- **Description**: Sprint end date
+- **Example**: `"2024-01-29"`
+
+### `sprint.planned_points`
+- **Type**: `int`
+- **Description**: Planned story points for sprint
+- **Example**: `34`
+
+### `sprint.completed_points`
+- **Type**: `int`
+- **Description**: Actual story points completed
+- **Example**: `28`
+
+---
+
 ## Kubernetes Attributes
 
 ### `k8s.projectcontext.name`
@@ -237,6 +341,41 @@ ContextCore uses annotations with the `contextcore.io/` prefix:
 
 ---
 
+## Task Span Events
+
+Task spans use events to track lifecycle changes:
+
+| Event Name | Description | Attributes |
+|------------|-------------|------------|
+| `task.created` | Task was created | `task.title`, `task.type` |
+| `task.status_changed` | Status transition | `from`, `to` |
+| `task.blocked` | Task became blocked | `reason`, `blocker_id` |
+| `task.unblocked` | Block removed | - |
+| `task.assigned` | Assignee changed | `from`, `to` |
+| `task.commented` | Comment added | `author`, `text` |
+| `task.completed` | Task finished | - |
+| `task.cancelled` | Task cancelled | `reason` |
+
+---
+
+## Derived Metrics
+
+ContextCore derives these metrics from task spans:
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `task.lead_time` | Histogram | Time from creation to completion (seconds) |
+| `task.cycle_time` | Histogram | Time from in_progress to completion (seconds) |
+| `task.blocked_time` | Histogram | Total time blocked (seconds) |
+| `task.wip` | Gauge | Current work in progress count |
+| `task.throughput` | Counter | Tasks completed |
+| `task.story_points_completed` | Counter | Story points completed |
+| `task.count_by_status` | Gauge | Task count by status |
+| `task.count_by_type` | Gauge | Task count by type |
+| `sprint.velocity` | Gauge | Story points per sprint |
+
+---
+
 ## Cardinality Guidelines
 
 **Safe for metrics labels** (low cardinality):
@@ -245,13 +384,19 @@ ContextCore uses annotations with the `contextcore.io/` prefix:
 - `business.owner`
 - `risk.type`
 - `risk.priority`
+- `task.type`
+- `task.status`
+- `task.priority`
 
 **Avoid in metrics labels** (high cardinality):
 - `project.task` (many unique values)
 - `project.trace_id` (unique per trace)
 - `design.doc` (unique URLs)
+- `task.id` (unique per task)
+- `task.assignee` (may have many values)
 
 Use these high-cardinality attributes in:
-- Trace attributes (searchable)
-- Log attributes (indexed)
+- Trace attributes (searchable in Tempo)
+- Log attributes (indexed in Loki)
 - Alert annotations (contextual)
+- Span attributes (queryable via TraceQL)

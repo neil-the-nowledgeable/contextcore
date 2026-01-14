@@ -28,9 +28,10 @@ Example usage:
 __version__ = "0.1.0"
 __all__ = [
     "ProjectContextDetector",
-    "ProjectContextController",
-    "create_project_context",
-    "annotate_resource",
+    "TaskTracker",
+    "SprintTracker",
+    "TaskMetrics",
+    "get_task_link",
     "__version__",
 ]
 
@@ -40,13 +41,20 @@ def __getattr__(name: str):
     if name == "ProjectContextDetector":
         from contextcore.detector import ProjectContextDetector
         return ProjectContextDetector
-    if name == "ProjectContextController":
-        from contextcore.controller import ProjectContextController
-        return ProjectContextController
-    if name == "create_project_context":
-        from contextcore.api import create_project_context
-        return create_project_context
-    if name == "annotate_resource":
-        from contextcore.api import annotate_resource
-        return annotate_resource
+    if name == "TaskTracker":
+        from contextcore.tracker import TaskTracker
+        return TaskTracker
+    if name == "SprintTracker":
+        from contextcore.tracker import SprintTracker
+        return SprintTracker
+    if name == "TaskMetrics":
+        from contextcore.metrics import TaskMetrics
+        return TaskMetrics
+    if name == "get_task_link":
+        from contextcore.tracker import TaskTracker
+        # Return a helper function
+        def get_task_link(task_id: str, project: str = "default"):
+            tracker = TaskTracker(project=project)
+            return tracker.get_task_link(task_id)
+        return get_task_link
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

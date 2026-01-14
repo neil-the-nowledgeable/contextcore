@@ -201,9 +201,124 @@ Epic: "Checkout Redesign" (span)
                     └── Runtime spans: processPayment, validateCart
 ```
 
+## Tasks as Spans: Project Tracking via OpenTelemetry
+
+A core insight of ContextCore is that **tasks ARE spans**. Project tasks share the same structure as distributed trace spans:
+
+| Task Property | Span Equivalent |
+|---------------|-----------------|
+| Created date | `start_time` |
+| Completed date | `end_time` |
+| Status (todo, in_progress, done) | Span status + events |
+| Task ID, title, assignee | Span attributes |
+| Epic → Story → Task hierarchy | Parent-child spans |
+| Dependencies | Span links |
+| Status changes, comments | Span events |
+
+### Why Store Tasks as Spans?
+
+1. **Unified Telemetry**: Tasks and runtime traces in the same system (Tempo)
+2. **Natural Hierarchy**: Epics contain stories contain tasks (parent-child)
+3. **Time-Series Native**: Lead time, cycle time computed from span duration
+4. **Correlation**: Link task spans to implementation spans
+5. **Query Power**: TraceQL queries across project and runtime data
+
+### Task Lifecycle as Span Events
+
+```
+task:PROJ-123 (span)
+├── start_time: 2024-01-15T09:00:00Z
+├── attributes:
+│   ├── task.id: "PROJ-123"
+│   ├── task.type: "story"
+│   ├── task.title: "Implement user auth"
+│   ├── task.status: "done"
+│   ├── task.priority: "high"
+│   ├── task.assignee: "alice"
+│   └── task.story_points: 5
+├── events:
+│   ├── task.created (09:00)
+│   ├── task.status_changed: todo → in_progress (10:00)
+│   ├── task.blocked: "Waiting on API design" (Day 2)
+│   ├── task.unblocked (Day 3)
+│   ├── task.commented: "Updated API contract" (Day 3)
+│   └── task.completed (Day 4)
+├── links:
+│   └── depends_on: task:PROJ-100 (API design task)
+└── end_time: 2024-01-18T17:00:00Z
+```
+
+### Derived Metrics
+
+From task spans, ContextCore derives standard project management metrics:
+
+| Metric | Calculation |
+|--------|-------------|
+| `task.lead_time` | `end_time - start_time` (histogram) |
+| `task.cycle_time` | `end_time - first_in_progress_event` (histogram) |
+| `task.blocked_time` | Sum of blocked periods (histogram) |
+| `task.wip` | Count of in_progress tasks (gauge) |
+| `task.throughput` | Completed tasks per period (counter) |
+| `sprint.velocity` | Story points per sprint (gauge) |
+
+### Programmatic Usage
+
+```python
+from contextcore import TaskTracker, SprintTracker
+
+# Initialize tracker
+tracker = TaskTracker(project="my-project")
+
+# Track a sprint
+sprint_tracker = SprintTracker(tracker)
+sprint_tracker.start_sprint("sprint-3", name="Sprint 3", goal="Complete auth")
+
+# Track tasks within sprint
+tracker.start_task(
+    task_id="PROJ-123",
+    title="Implement OAuth flow",
+    task_type="story",
+    parent_id="EPIC-42",
+    sprint_id="sprint-3",
+    story_points=5,
+)
+
+# Update task status (adds span event)
+tracker.update_status("PROJ-123", "in_progress")
+
+# Block task (sets ERROR status on span)
+tracker.block_task("PROJ-123", reason="Waiting on security review")
+
+# Complete task (ends span)
+tracker.complete_task("PROJ-123")
+
+# End sprint
+sprint_tracker.end_sprint("sprint-3", completed_points=21)
+```
+
+### Linking Runtime Traces to Tasks
+
+Application code can link runtime spans to task spans:
+
+```python
+from contextcore import get_task_link
+from opentelemetry import trace
+
+# Get link to task span
+task_link = get_task_link("PROJ-123", project="my-project")
+
+# Create implementation span linked to task
+tracer = trace.get_tracer(__name__)
+with tracer.start_as_current_span("implement_oauth", links=[task_link]):
+    # Implementation work...
+    pass
+```
+
+This enables queries like: "Show me all runtime traces for task PROJ-123"
+
 ## Tech Stack
 
-- **Language**: Python 3.11+
+- **Language**: Python 3.9+
 - **CRD Framework**: kopf (Kubernetes Operator Framework)
 - **Telemetry**: OpenTelemetry SDK
 - **Protocol**: OTLP to Grafana Alloy
@@ -223,6 +338,9 @@ ContextCore/
 │       ├── models.py            # Pydantic models for CRD spec
 │       ├── controller.py        # kopf-based K8s controller
 │       ├── detector.py          # OTel Resource Detector
+│       ├── tracker.py           # Task Tracker (tasks as spans)
+│       ├── state.py             # Span state persistence
+│       ├── metrics.py           # Derived project metrics
 │       ├── generators/
 │       │   ├── servicemonitor.py
 │       │   ├── prometheusrule.py
@@ -285,6 +403,24 @@ contextcore generate \
 # Annotate existing deployment
 contextcore annotate deployment/checkout-service \
   --context checkout-context
+
+# Task tracking (tasks as spans)
+contextcore task start --id PROJ-123 --title "Implement auth" --type story
+contextcore task update --id PROJ-123 --status in_progress
+contextcore task block --id PROJ-123 --reason "Waiting on API"
+contextcore task unblock --id PROJ-123
+contextcore task complete --id PROJ-123
+contextcore task list --project my-project
+
+# Sprint tracking
+contextcore sprint start --id sprint-3 --name "Sprint 3" --goal "Complete auth"
+contextcore sprint end --id sprint-3 --points 21
+
+# View metrics
+contextcore metrics summary --project my-project --days 14
+contextcore metrics wip --project my-project
+contextcore metrics blocked --project my-project
+contextcore metrics export --project my-project --endpoint localhost:4317
 ```
 
 ## Semantic Conventions

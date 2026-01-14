@@ -5,8 +5,10 @@ These models provide Python type safety and validation for the ProjectContext
 custom resource, matching the OpenAPI schema defined in crds/projectcontext.yaml.
 """
 
+from __future__ import annotations
+
 from enum import Enum
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -79,7 +81,7 @@ class ProjectSpec(BaseModel):
     """Project identification."""
     id: str = Field(..., description="Project identifier")
     epic: Optional[str] = Field(None, description="Epic ID")
-    tasks: list[str] = Field(default_factory=list, description="Task IDs")
+    tasks: List[str] = Field(default_factory=list, description="Task IDs")
     trace_id: Optional[str] = Field(None, alias="traceId", description="OTel trace ID")
 
 
@@ -88,7 +90,7 @@ class DesignSpec(BaseModel):
     doc: Optional[HttpUrl] = Field(None, description="Design document URL")
     adr: Optional[str] = Field(None, description="ADR identifier or URL")
     api_contract: Optional[HttpUrl] = Field(None, alias="apiContract", description="API spec URL")
-    diagrams: list[HttpUrl] = Field(default_factory=list, description="Diagram URLs")
+    diagrams: List[HttpUrl] = Field(default_factory=list, description="Diagram URLs")
 
 
 class BusinessSpec(BaseModel):
@@ -97,7 +99,7 @@ class BusinessSpec(BaseModel):
     value: Optional[BusinessValue] = Field(None, description="Business value classification")
     owner: Optional[str] = Field(None, description="Owning team")
     cost_center: Optional[str] = Field(None, alias="costCenter", description="Cost center code")
-    stakeholders: list[str] = Field(default_factory=list, description="Stakeholder contacts")
+    stakeholders: List[str] = Field(default_factory=list, description="Stakeholder contacts")
 
 
 class RequirementsSpec(BaseModel):
@@ -116,7 +118,7 @@ class RiskSpec(BaseModel):
     description: Optional[str] = Field(None, description="Risk description")
     priority: Optional[AlertPriority] = Field(None, description="Alert priority")
     mitigation: Optional[str] = Field(None, description="Mitigation reference")
-    controls: list[str] = Field(default_factory=list, description="Controls in place")
+    controls: List[str] = Field(default_factory=list, description="Controls in place")
 
 
 class TargetSpec(BaseModel):
@@ -138,7 +140,7 @@ class ObservabilitySpec(BaseModel):
     dashboard_placement: Optional[DashboardPlacement] = Field(
         None, alias="dashboardPlacement", description="Dashboard visibility"
     )
-    alert_channels: list[str] = Field(
+    alert_channels: List[str] = Field(
         default_factory=list, alias="alertChannels", description="Alert channels"
     )
     runbook: Optional[HttpUrl] = Field(None, description="Runbook URL")
@@ -150,8 +152,8 @@ class ProjectContextSpec(BaseModel):
     design: Optional[DesignSpec] = None
     business: Optional[BusinessSpec] = None
     requirements: Optional[RequirementsSpec] = None
-    risks: list[RiskSpec] = Field(default_factory=list)
-    targets: list[TargetSpec] = Field(..., min_length=1)
+    risks: List[RiskSpec] = Field(default_factory=list)
+    targets: List[TargetSpec] = Field(..., min_length=1)
     observability: Optional[ObservabilitySpec] = None
 
     class Config:
@@ -161,7 +163,7 @@ class ProjectContextSpec(BaseModel):
 class GeneratedArtifacts(BaseModel):
     """Status of generated observability artifacts."""
     service_monitor: Optional[str] = Field(None, alias="serviceMonitor")
-    prometheus_rules: list[str] = Field(default_factory=list, alias="prometheusRules")
+    prometheus_rules: List[str] = Field(default_factory=list, alias="prometheusRules")
     dashboard: Optional[str] = None
 
 
@@ -169,7 +171,7 @@ class ProjectContextStatus(BaseModel):
     """ProjectContext status."""
     phase: str = "Pending"
     generated_artifacts: Optional[GeneratedArtifacts] = Field(None, alias="generatedArtifacts")
-    annotated_resources: list[str] = Field(default_factory=list, alias="annotatedResources")
+    annotated_resources: List[str] = Field(default_factory=list, alias="annotatedResources")
     last_sync_time: Optional[str] = Field(None, alias="lastSyncTime")
 
 

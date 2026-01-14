@@ -1,5 +1,5 @@
 """
-ContextCore CLI - Manage ProjectContext resources.
+ContextCore CLI - Manage ProjectContext resources and track tasks as spans.
 
 Commands:
     contextcore create     Create a new ProjectContext
@@ -7,11 +7,15 @@ Commands:
     contextcore generate   Generate observability artifacts
     contextcore sync       Sync from external project tools
     contextcore controller Run the controller locally
+    contextcore task       Track project tasks as OTel spans
 """
 
+from __future__ import annotations
+
 import json
+import os
 import sys
-from typing import Optional
+from typing import List, Optional
 
 import click
 import yaml
@@ -472,6 +476,501 @@ def controller(kubeconfig: Optional[str], namespace: str):
     click.echo(f"  kubeconfig: {kubeconfig or 'in-cluster'}")
     click.echo(f"  namespace: {namespace or 'all'}")
     click.echo("(Controller not yet implemented - use kopf run)")
+
+
+# ============================================================================
+# Task Tracking Commands (Tasks as Spans)
+# ============================================================================
+
+# Global tracker instance (lazy loaded)
+_tracker = None
+
+
+def _get_tracker(project: str):
+    """Get or create tracker instance."""
+    global _tracker
+    if _tracker is None or _tracker.project != project:
+        from contextcore.tracker import TaskTracker
+        _tracker = TaskTracker(project=project)
+    return _tracker
+
+
+@main.group()
+def task():
+    """Track project tasks as OpenTelemetry spans.
+
+    Tasks are modeled as spans with full lifecycle tracking:
+    - start: Creates a span
+    - update: Adds span events
+    - block/unblock: Sets span status
+    - complete: Ends the span
+
+    View tasks in Grafana Tempo as trace hierarchies.
+    """
+    pass
+
+
+@task.command("start")
+@click.option("--id", "task_id", required=True, help="Task identifier (e.g., PROJ-123)")
+@click.option("--title", "-t", required=True, help="Task title")
+@click.option("--project", "-p", envvar="CONTEXTCORE_PROJECT", default="default", help="Project ID")
+@click.option(
+    "--type",
+    "task_type",
+    type=click.Choice(["epic", "story", "task", "subtask", "bug", "spike", "incident"]),
+    default="task",
+    help="Task type",
+)
+@click.option(
+    "--status",
+    type=click.Choice(["backlog", "todo", "in_progress"]),
+    default="todo",
+    help="Initial status",
+)
+@click.option(
+    "--priority",
+    type=click.Choice(["critical", "high", "medium", "low"]),
+    help="Priority level",
+)
+@click.option("--assignee", "-a", help="Person assigned")
+@click.option("--points", type=int, help="Story points")
+@click.option("--parent", help="Parent task ID (epic or story)")
+@click.option("--depends-on", multiple=True, help="Task IDs this depends on")
+@click.option("--label", multiple=True, help="Labels/tags")
+@click.option("--url", help="External URL (Jira, GitHub, etc.)")
+@click.option("--sprint", help="Sprint ID")
+def task_start(
+    task_id: str,
+    title: str,
+    project: str,
+    task_type: str,
+    status: str,
+    priority: Optional[str],
+    assignee: Optional[str],
+    points: Optional[int],
+    parent: Optional[str],
+    depends_on: tuple,
+    label: tuple,
+    url: Optional[str],
+    sprint: Optional[str],
+):
+    """Start a new task (creates a span).
+
+    Example:
+        contextcore task start --id PROJ-123 --title "Implement auth" --type story
+    """
+    tracker = _get_tracker(project)
+
+    ctx = tracker.start_task(
+        task_id=task_id,
+        title=title,
+        task_type=task_type,
+        status=status,
+        priority=priority,
+        assignee=assignee,
+        story_points=points,
+        labels=list(label) if label else None,
+        parent_id=parent,
+        depends_on=list(depends_on) if depends_on else None,
+        url=url,
+        sprint_id=sprint,
+    )
+
+    click.echo(f"Started {task_type}: {task_id}")
+    click.echo(f"  Title: {title}")
+    click.echo(f"  Trace ID: {format(ctx.trace_id, '032x')}")
+    if parent:
+        click.echo(f"  Parent: {parent}")
+
+
+@task.command("update")
+@click.option("--id", "task_id", required=True, help="Task identifier")
+@click.option("--project", "-p", envvar="CONTEXTCORE_PROJECT", default="default", help="Project ID")
+@click.option(
+    "--status",
+    type=click.Choice(["backlog", "todo", "in_progress", "in_review", "blocked", "done"]),
+    help="New status",
+)
+@click.option("--assignee", "-a", help="Reassign to")
+@click.option("--points", type=int, help="Update story points")
+def task_update(
+    task_id: str,
+    project: str,
+    status: Optional[str],
+    assignee: Optional[str],
+    points: Optional[int],
+):
+    """Update a task (adds span events).
+
+    Example:
+        contextcore task update --id PROJ-123 --status in_progress
+    """
+    tracker = _get_tracker(project)
+
+    if status:
+        tracker.update_status(task_id, status)
+        click.echo(f"Task {task_id}: status → {status}")
+
+    if assignee:
+        tracker.assign_task(task_id, assignee)
+        click.echo(f"Task {task_id}: assigned → {assignee}")
+
+
+@task.command("block")
+@click.option("--id", "task_id", required=True, help="Task identifier")
+@click.option("--project", "-p", envvar="CONTEXTCORE_PROJECT", default="default", help="Project ID")
+@click.option("--reason", "-r", required=True, help="Why is it blocked?")
+@click.option("--by", "blocked_by", help="Blocking task ID")
+def task_block(task_id: str, project: str, reason: str, blocked_by: Optional[str]):
+    """Mark task as blocked (adds event, sets ERROR status).
+
+    Example:
+        contextcore task block --id PROJ-123 --reason "Waiting on API design" --by PROJ-100
+    """
+    tracker = _get_tracker(project)
+    tracker.block_task(task_id, reason=reason, blocked_by=blocked_by)
+    click.echo(f"Task {task_id}: BLOCKED - {reason}")
+    if blocked_by:
+        click.echo(f"  Blocked by: {blocked_by}")
+
+
+@task.command("unblock")
+@click.option("--id", "task_id", required=True, help="Task identifier")
+@click.option("--project", "-p", envvar="CONTEXTCORE_PROJECT", default="default", help="Project ID")
+@click.option(
+    "--status",
+    default="in_progress",
+    help="Status after unblocking",
+)
+def task_unblock(task_id: str, project: str, status: str):
+    """Remove blocker from task.
+
+    Example:
+        contextcore task unblock --id PROJ-123
+    """
+    tracker = _get_tracker(project)
+    tracker.unblock_task(task_id, new_status=status)
+    click.echo(f"Task {task_id}: unblocked → {status}")
+
+
+@task.command("complete")
+@click.option("--id", "task_id", required=True, help="Task identifier")
+@click.option("--project", "-p", envvar="CONTEXTCORE_PROJECT", default="default", help="Project ID")
+def task_complete(task_id: str, project: str):
+    """Complete a task (ends the span).
+
+    Example:
+        contextcore task complete --id PROJ-123
+    """
+    tracker = _get_tracker(project)
+    tracker.complete_task(task_id)
+    click.echo(f"Task {task_id}: COMPLETED")
+
+
+@task.command("cancel")
+@click.option("--id", "task_id", required=True, help="Task identifier")
+@click.option("--project", "-p", envvar="CONTEXTCORE_PROJECT", default="default", help="Project ID")
+@click.option("--reason", "-r", help="Cancellation reason")
+def task_cancel(task_id: str, project: str, reason: Optional[str]):
+    """Cancel a task (ends span with cancelled status).
+
+    Example:
+        contextcore task cancel --id PROJ-123 --reason "No longer needed"
+    """
+    tracker = _get_tracker(project)
+    tracker.cancel_task(task_id, reason=reason)
+    click.echo(f"Task {task_id}: CANCELLED")
+    if reason:
+        click.echo(f"  Reason: {reason}")
+
+
+@task.command("comment")
+@click.option("--id", "task_id", required=True, help="Task identifier")
+@click.option("--project", "-p", envvar="CONTEXTCORE_PROJECT", default="default", help="Project ID")
+@click.option("--author", "-a", default=lambda: os.environ.get("USER", "unknown"), help="Comment author")
+@click.option("--text", "-t", required=True, help="Comment text")
+def task_comment(task_id: str, project: str, author: str, text: str):
+    """Add a comment to task (as span event).
+
+    Example:
+        contextcore task comment --id PROJ-123 --text "Updated the API contract"
+    """
+    tracker = _get_tracker(project)
+    tracker.add_comment(task_id, author=author, text=text)
+    click.echo(f"Task {task_id}: comment by {author}")
+
+
+@task.command("list")
+@click.option("--project", "-p", envvar="CONTEXTCORE_PROJECT", default="default", help="Project ID")
+def task_list(project: str):
+    """List active (incomplete) tasks.
+
+    Example:
+        contextcore task list --project my-project
+    """
+    tracker = _get_tracker(project)
+    active = tracker.get_active_tasks()
+
+    if not active:
+        click.echo("No active tasks")
+        return
+
+    click.echo(f"Active tasks in {project}:")
+    for task_id in active:
+        click.echo(f"  - {task_id}")
+
+
+# ============================================================================
+# Sprint Commands
+# ============================================================================
+
+@main.group()
+def sprint():
+    """Track sprints as parent spans."""
+    pass
+
+
+@sprint.command("start")
+@click.option("--id", "sprint_id", required=True, help="Sprint identifier")
+@click.option("--name", "-n", required=True, help="Sprint name")
+@click.option("--project", "-p", envvar="CONTEXTCORE_PROJECT", default="default", help="Project ID")
+@click.option("--goal", "-g", help="Sprint goal")
+@click.option("--start-date", help="Start date (ISO format)")
+@click.option("--end-date", help="End date (ISO format)")
+@click.option("--points", type=int, help="Planned story points")
+def sprint_start(
+    sprint_id: str,
+    name: str,
+    project: str,
+    goal: Optional[str],
+    start_date: Optional[str],
+    end_date: Optional[str],
+    points: Optional[int],
+):
+    """Start a new sprint.
+
+    Example:
+        contextcore sprint start --id sprint-3 --name "Sprint 3" --goal "Complete auth"
+    """
+    from contextcore.tracker import SprintTracker, TaskTracker
+
+    tracker = _get_tracker(project)
+    sprint_tracker = SprintTracker(tracker)
+
+    ctx = sprint_tracker.start_sprint(
+        sprint_id=sprint_id,
+        name=name,
+        goal=goal,
+        start_date=start_date,
+        end_date=end_date,
+        planned_points=points,
+    )
+
+    click.echo(f"Started sprint: {sprint_id}")
+    click.echo(f"  Name: {name}")
+    if goal:
+        click.echo(f"  Goal: {goal}")
+
+
+@sprint.command("end")
+@click.option("--id", "sprint_id", required=True, help="Sprint identifier")
+@click.option("--project", "-p", envvar="CONTEXTCORE_PROJECT", default="default", help="Project ID")
+@click.option("--points", type=int, help="Completed story points")
+@click.option("--notes", help="Retrospective notes")
+def sprint_end(
+    sprint_id: str,
+    project: str,
+    points: Optional[int],
+    notes: Optional[str],
+):
+    """End a sprint.
+
+    Example:
+        contextcore sprint end --id sprint-3 --points 21
+    """
+    from contextcore.tracker import SprintTracker
+
+    tracker = _get_tracker(project)
+    sprint_tracker = SprintTracker(tracker)
+    sprint_tracker.end_sprint(sprint_id, completed_points=points, notes=notes)
+
+    click.echo(f"Ended sprint: {sprint_id}")
+    if points:
+        click.echo(f"  Completed points: {points}")
+
+
+# ============================================================================
+# Metrics Commands
+# ============================================================================
+
+@main.group()
+def metrics():
+    """View derived project metrics from task spans.
+
+    Metrics include:
+    - Lead time (creation to completion)
+    - Cycle time (in_progress to completion)
+    - Throughput (tasks completed per period)
+    - WIP (work in progress count)
+    - Velocity (story points per sprint)
+    """
+    pass
+
+
+@metrics.command("summary")
+@click.option("--project", "-p", envvar="CONTEXTCORE_PROJECT", default="default", help="Project ID")
+@click.option("--days", "-d", type=int, default=30, help="Days to analyze")
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text")
+def metrics_summary(project: str, days: int, output_format: str):
+    """Show summary metrics for a project.
+
+    Example:
+        contextcore metrics summary --project my-project --days 14
+    """
+    from contextcore.metrics import TaskMetrics
+
+    metrics_collector = TaskMetrics(project=project)
+    summary = metrics_collector.get_summary(days=days)
+
+    if output_format == "json":
+        click.echo(json.dumps(summary, indent=2))
+    else:
+        click.echo(f"Project Metrics: {project}")
+        click.echo(f"  Period: last {days} days")
+        click.echo()
+        click.echo("Throughput:")
+        click.echo(f"  Tasks completed: {summary['tasks_completed']}")
+        click.echo(f"  Story points: {summary['story_points_completed']}")
+        click.echo()
+        click.echo("Current State:")
+        click.echo(f"  Active tasks: {summary['tasks_active']}")
+        click.echo(f"  Work in progress: {summary['wip']}")
+        click.echo(f"  Blocked: {summary['blocked']}")
+        click.echo()
+        if summary['avg_lead_time_hours']:
+            click.echo(f"Lead Time (avg): {summary['avg_lead_time_hours']:.1f} hours")
+        if summary['avg_cycle_time_hours']:
+            click.echo(f"Cycle Time (avg): {summary['avg_cycle_time_hours']:.1f} hours")
+
+        if summary['status_breakdown']:
+            click.echo()
+            click.echo("Status Breakdown:")
+            for status, count in summary['status_breakdown'].items():
+                click.echo(f"  {status}: {count}")
+
+
+@metrics.command("wip")
+@click.option("--project", "-p", envvar="CONTEXTCORE_PROJECT", default="default", help="Project ID")
+def metrics_wip(project: str):
+    """Show current work in progress.
+
+    Example:
+        contextcore metrics wip --project my-project
+    """
+    from contextcore.state import StateManager
+
+    state = StateManager(project)
+    active = state.get_active_spans()
+
+    wip = []
+    for task_id, span_state in active.items():
+        if span_state.attributes.get("task.status") == "in_progress":
+            wip.append({
+                "id": task_id,
+                "title": span_state.attributes.get("task.title", ""),
+                "type": span_state.attributes.get("task.type", "task"),
+                "assignee": span_state.attributes.get("task.assignee", "unassigned"),
+            })
+
+    if not wip:
+        click.echo("No tasks in progress")
+        return
+
+    click.echo(f"Work in Progress ({len(wip)} tasks):")
+    for task in wip:
+        click.echo(f"  [{task['type']}] {task['id']}: {task['title']}")
+        click.echo(f"           Assignee: {task['assignee']}")
+
+
+@metrics.command("blocked")
+@click.option("--project", "-p", envvar="CONTEXTCORE_PROJECT", default="default", help="Project ID")
+def metrics_blocked(project: str):
+    """Show currently blocked tasks.
+
+    Example:
+        contextcore metrics blocked --project my-project
+    """
+    from contextcore.state import StateManager
+
+    state = StateManager(project)
+    active = state.get_active_spans()
+
+    blocked = []
+    for task_id, span_state in active.items():
+        if span_state.attributes.get("task.status") == "blocked":
+            # Find blocking reason from events
+            reason = "Unknown reason"
+            for event in reversed(span_state.events):
+                if event.get("name") == "task.blocked":
+                    reason = event.get("attributes", {}).get("reason", reason)
+                    break
+
+            blocked.append({
+                "id": task_id,
+                "title": span_state.attributes.get("task.title", ""),
+                "reason": reason,
+                "blocked_by": span_state.attributes.get("task.blocked_by"),
+            })
+
+    if not blocked:
+        click.echo("No blocked tasks")
+        return
+
+    click.echo(f"Blocked Tasks ({len(blocked)}):")
+    for task in blocked:
+        click.echo(f"  {task['id']}: {task['title']}")
+        click.echo(f"    Reason: {task['reason']}")
+        if task['blocked_by']:
+            click.echo(f"    Blocked by: {task['blocked_by']}")
+
+
+@metrics.command("export")
+@click.option("--project", "-p", envvar="CONTEXTCORE_PROJECT", default="default", help="Project ID")
+@click.option("--endpoint", envvar="OTEL_EXPORTER_OTLP_ENDPOINT", default="localhost:4317", help="OTLP endpoint")
+@click.option("--interval", type=int, default=60, help="Export interval in seconds")
+def metrics_export(project: str, endpoint: str, interval: int):
+    """Start exporting metrics to OTLP endpoint.
+
+    Runs continuously, exporting metrics at the specified interval.
+
+    Example:
+        contextcore metrics export --project my-project --endpoint localhost:4317
+    """
+    import signal
+    import time
+    from contextcore.metrics import TaskMetrics
+
+    click.echo(f"Starting metrics export for {project}")
+    click.echo(f"  Endpoint: {endpoint}")
+    click.echo(f"  Interval: {interval}s")
+    click.echo("Press Ctrl+C to stop")
+
+    metrics_collector = TaskMetrics(
+        project=project,
+        export_interval_ms=interval * 1000,
+    )
+
+    def shutdown(signum, frame):
+        click.echo("\nShutting down...")
+        metrics_collector.shutdown()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, shutdown)
+    signal.signal(signal.SIGTERM, shutdown)
+
+    # Keep running until interrupted
+    while True:
+        time.sleep(interval)
 
 
 if __name__ == "__main__":
