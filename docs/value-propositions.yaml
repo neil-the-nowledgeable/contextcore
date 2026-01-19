@@ -1,0 +1,235 @@
+# ContextCore Value Propositions
+# Machine-readable format for generating marketing materials, dashboards, and documentation
+
+mission:
+  statement: >
+    Eliminate manual status reporting to the extent possible through extrapolation
+    of existing artifact metadata of your applications and systems, regardless of
+    the programming language, infrastructure, and runtime environments used, and
+    provide context for the generation of observability strategies based on system
+    construction.
+
+  tagline: "Project Management Observability Framework"
+  subtitle: "A natural extension of OpenTelemetry for unified project and operational telemetry"
+
+core_positioning:
+  what_it_is:
+    - "Open source project management observability framework"
+    - "Natural extension of OpenTelemetry patterns"
+    - "SDK for tasks-as-spans telemetry"
+    - "Semantic conventions for project metadata"
+    - "OTLP export to any compatible backend"
+
+  what_it_is_not:
+    - "Not an observability backend"
+    - "Not a replacement for Jira/Linear/GitHub Issues"
+    - "Not a new system to deploy and maintain"
+    - "Not a new database"
+    - "Not a new login context"
+
+key_benefits:
+  - id: eliminate_silo
+    title: "Eliminate the Project Management Data Silo"
+    description: >
+      Traditional PM tools create a data silo not designed for developers or development
+      workflows. ContextCore puts project data where developers already work — in their
+      observability stack.
+    problems_solved:
+      - "PM tools require context switching"
+      - "Manual data entry leads to stale, incomplete data"
+      - "Different query languages can't correlate with ops data"
+      - "Developers avoid PM tools"
+    result: "Project data lives where developers already work"
+
+  - id: eliminate_toil
+    title: "Eliminate Developer Toil"
+    description: >
+      Stop asking developers to write status reports. The information already exists
+      in their artifacts.
+    toil_eliminated:
+      - task: "Weekly status emails"
+        solution: "Auto-generated from commit/PR activity"
+      - task: "Manual Jira updates"
+        solution: "Status derived from git activity"
+      - task: "Sprint retro data prep"
+        solution: "Metrics computed from span data"
+      - task: "'What's the status?' pings"
+        solution: "Self-service dashboards"
+      - task: "Duplicate entry (git + Jira)"
+        solution: "Single source of truth"
+    time_saved: "2-4 hours per developer per week"
+
+  - id: eliminate_dependence
+    title: "Eliminate Dependence on Developer Status Reports"
+    description: >
+      Project visibility should not depend on developers remembering to update tickets.
+      Status is derived, not reported.
+    problems_solved:
+      - "Tickets marked 'in progress' for weeks"
+      - "No updates until completion"
+      - "Inconsistent update quality across developers"
+      - "'I forgot to update the ticket'"
+      - "Blocked tasks not marked"
+    result: "Uniform extrapolation applied to all, regardless of diligence"
+
+  - id: observability_strategy
+    title: "Business-Aware Observability Strategy Generation"
+    description: >
+      Incorporate business metadata with operational metadata to auto-generate
+      observability strategies for thoughtful incident response.
+    derivations:
+      - input: "criticality: critical"
+        output: "100% trace sampling, 10s metrics, P1 alerts"
+      - input: "business.owner: commerce-team"
+        output: "Alert routing to #commerce-oncall"
+      - input: "design.adr: ADR-015"
+        output: "Runbook link in alert annotations"
+      - input: "risks[].type: security"
+        output: "Extended audit logging, anomaly detection"
+    result: "Alerts include full business context for thoughtful incident response"
+
+  - id: single_language
+    title: "Single Language for All Stakeholders"
+    description: >
+      One system (Grafana), one query language (TraceQL/PromQL), unified for
+      developers, managers, leadership, and incident response.
+    stakeholders:
+      - role: "Developers"
+        use_case: "Debug, monitor code"
+        dashboard: "Service dashboards + task correlation"
+      - role: "Project Managers"
+        use_case: "Sprint progress, WIP"
+        dashboard: "Kanban/burndown views"
+      - role: "Leadership"
+        use_case: "Portfolio health"
+        dashboard: "Executive summary"
+      - role: "Operators"
+        use_case: "Incident response"
+        dashboard: "Operational + context"
+      - role: "Auditors"
+        use_case: "Compliance evidence"
+        dashboard: "Audit trail queries"
+    result: "Same queries for status reports, sprint reviews, executive dashboards"
+
+differentiation:
+  vs_developer_portals:
+    comparison: "Backstage, Cortex, etc."
+    key_difference: "New system to deploy vs. existing infrastructure"
+    details:
+      - dimension: "Philosophy"
+        portal: "New unified portal"
+        contextcore: "Unify view in existing infrastructure"
+      - dimension: "Infrastructure"
+        portal: "New application to deploy/maintain"
+        contextcore: "Uses observability stack you already run"
+      - dimension: "Database"
+        portal: "New persistence layer"
+        contextcore: "Tempo, Mimir, Loki (already running)"
+      - dimension: "Authentication"
+        portal: "Another login/session"
+        contextcore: "Same Grafana access"
+      - dimension: "Adoption"
+        portal: "Migrate teams to new portal"
+        contextcore: "Zero new tools for developers"
+
+  vs_pm_tool_plugins:
+    comparison: "Jira plugins, integrations"
+    key_difference: "PM tools not designed for time-series telemetry"
+    problems:
+      - "Data model mismatch (records vs. time-series)"
+      - "Query limitations (JQL ≠ PromQL/TraceQL)"
+      - "Scale limitations"
+      - "Batch-oriented, not real-time"
+      - "Developers still avoid PM tools"
+
+  natural_evolution:
+    description: "ContextCore is the natural evolution of observability"
+    timeline:
+      - era: "2010s"
+        insight: "Centralize logs for search"
+        tools: "ELK Stack, Splunk"
+      - era: "2015s"
+        insight: "Add time-series metrics"
+        tools: "Prometheus, InfluxDB"
+      - era: "2018s"
+        insight: "Trace requests across services"
+        tools: "Jaeger, Zipkin"
+      - era: "2019"
+        insight: "Unify with standard semantics"
+        tools: "OpenTelemetry"
+      - era: "2024+"
+        insight: "Extend to project management"
+        tools: "ContextCore"
+
+technical_approach:
+  tasks_as_spans:
+    description: "Project tasks modeled as OpenTelemetry spans"
+    mappings:
+      - otel: "Trace"
+        pm: "Epic/Project lifecycle"
+      - otel: "Span"
+        pm: "Task with duration, status, hierarchy"
+      - otel: "Events"
+        pm: "Status transitions, comments, blockers"
+      - otel: "Links"
+        pm: "Dependencies, commit associations"
+      - otel: "Metrics"
+        pm: "Velocity, WIP, cycle time, burndown"
+      - otel: "Logs"
+        pm: "Audit trail of all changes"
+
+  vendor_agnostic:
+    description: "Works with any OTLP-compatible backend"
+    open_source:
+      - "Jaeger (traces)"
+      - "Prometheus (metrics)"
+      - "Loki (logs)"
+      - "Zipkin (traces)"
+    commercial:
+      - "Datadog"
+      - "New Relic"
+      - "Honeycomb"
+      - "Dynatrace"
+      - "Splunk"
+    reference_implementation:
+      - "Grafana (visualization)"
+      - "Tempo (traces/spans)"
+      - "Mimir (metrics)"
+      - "Loki (logs)"
+
+  automatic_derivation:
+    description: "Status derived from artifact metadata"
+    signals:
+      - source: "First commit on task"
+        derived: "todo → in_progress"
+      - source: "PR opened"
+        derived: "in_progress → in_review"
+      - source: "PR merged"
+        derived: "in_review → done"
+      - source: "CI failure"
+        derived: "Task marked at_risk"
+      - source: "No commits for 7 days"
+        derived: "Stale task alert"
+
+agnostic_dimensions:
+  - dimension: "Programming Language"
+    approach: "Extracts from git, CI, deployment (not code)"
+  - dimension: "Project Management Tool"
+    approach: "Adapters for Jira, GitHub, Linear, Notion, etc."
+  - dimension: "Development Workflow"
+    approach: "Scrum, Kanban, custom — workflow-agnostic"
+  - dimension: "Infrastructure"
+    approach: "Cloud, on-prem, hybrid — platform-agnostic"
+  - dimension: "Observability Backend"
+    approach: "Any OTLP-compatible receiver"
+  - dimension: "CI/CD Pipeline"
+    approach: "GitHub Actions, GitLab CI, Jenkins, etc."
+
+future_capabilities:
+  note: "Out of scope for initial releases but designed into data model"
+  capabilities:
+    - "ML-driven forecasting"
+    - "Anomaly detection in task flow"
+    - "Capacity planning correlation"
+    - "Risk prediction"
+    - "Bottleneck analysis"
