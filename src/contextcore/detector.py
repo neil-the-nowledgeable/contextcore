@@ -130,9 +130,15 @@ class ProjectContextDetector(ResourceDetector):
         return Resource.create(attributes)
 
     def _detect_from_k8s(self) -> Dict[str, str]:
-        """Read project context from K8s pod annotations."""
+        """
+        Read project context from K8s pod annotations.
+
+        Includes timeout handling for K8s API calls to prevent blocking
+        during cluster startup or API server unavailability.
+        """
         try:
             from kubernetes import client, config
+            from kubernetes.client.rest import ApiException
         except ImportError:
             logger.debug("kubernetes package not installed, skipping K8s detection")
             return {}
@@ -144,21 +150,49 @@ class ProjectContextDetector(ResourceDetector):
         if not pod_name or not namespace:
             return {}
 
-        # Load kubeconfig
+        # Load kubeconfig with timeout consideration
         try:
             if self._kubeconfig:
                 config.load_kube_config(config_file=self._kubeconfig)
             else:
                 config.load_incluster_config()
         except Exception:
-            config.load_kube_config()
+            try:
+                config.load_kube_config()
+            except Exception as e:
+                logger.debug(f"Could not load kubeconfig: {e}")
+                return {}
 
-        # Get pod annotations
+        # Get pod annotations with explicit timeout
         v1 = client.CoreV1Api()
         try:
-            pod = v1.read_namespaced_pod(name=pod_name, namespace=namespace)
+            # _request_timeout is a tuple of (connect_timeout, read_timeout) in seconds
+            pod = v1.read_namespaced_pod(
+                name=pod_name,
+                namespace=namespace,
+                _request_timeout=(3, 5)  # 3s connect, 5s read
+            )
+        except ApiException as e:
+            if e.status == 503:
+                logger.warning(
+                    f"K8s API unavailable (503) when reading pod {namespace}/{pod_name}. "
+                    f"Using environment variable fallback."
+                )
+            elif e.status == 404:
+                logger.debug(f"Pod {namespace}/{pod_name} not found")
+            else:
+                logger.debug(f"K8s API error reading pod {namespace}/{pod_name}: {e.status} {e.reason}")
+            return {}
         except Exception as e:
-            logger.debug(f"Could not read pod {namespace}/{pod_name}: {e}")
+            # Handle timeouts and connection errors
+            error_name = type(e).__name__
+            if "timeout" in error_name.lower() or "timeout" in str(e).lower():
+                logger.warning(
+                    f"K8s API timeout when reading pod {namespace}/{pod_name}. "
+                    f"Using environment variable fallback."
+                )
+            else:
+                logger.debug(f"Could not read pod {namespace}/{pod_name}: {e}")
             return {}
 
         annotations = pod.metadata.annotations or {}
@@ -180,6 +214,7 @@ class ProjectContextDetector(ResourceDetector):
             "CONTEXTCORE_ADR": "design.adr",
             "CONTEXTCORE_SLO_AVAILABILITY": "requirement.availability",
             "CONTEXTCORE_SLO_LATENCY_P99": "requirement.latency_p99",
+            "CONTEXTCORE_NAMESPACE": "k8s.namespace.name",
         }
 
         for env_var, attr_name in env_mapping.items():

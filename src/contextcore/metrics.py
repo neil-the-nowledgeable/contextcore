@@ -14,30 +14,41 @@ These metrics are exposed via OpenTelemetry for Prometheus/Mimir scraping.
 
 from __future__ import annotations
 
+import atexit
 import logging
 import os
+import socket
 from datetime import datetime, timezone, timedelta
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from opentelemetry import metrics
 from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.sdk.metrics.export import (
+    ConsoleMetricExporter,
+    PeriodicExportingMetricReader,
+)
 from opentelemetry.sdk.resources import Resource
 
+from contextcore.contracts.metrics import MetricName
 from contextcore.state import StateManager, SpanState
 
 logger = logging.getLogger(__name__)
 
-# Metric names following OTel semantic conventions
-LEAD_TIME_METRIC = "task.lead_time"
-CYCLE_TIME_METRIC = "task.cycle_time"
-BLOCKED_TIME_METRIC = "task.blocked_time"
-WIP_METRIC = "task.wip"
-THROUGHPUT_METRIC = "task.throughput"
-VELOCITY_METRIC = "sprint.velocity"
-STORY_POINTS_COMPLETED = "task.story_points_completed"
-TASK_COUNT_BY_STATUS = "task.count_by_status"
-TASK_COUNT_BY_TYPE = "task.count_by_type"
+# Export mode tracking
+METRICS_EXPORT_MODE_OTLP = "otlp"
+METRICS_EXPORT_MODE_CONSOLE = "console"
+METRICS_EXPORT_MODE_NONE = "none"
+
+# Metric names from central contracts (ensures consistency)
+LEAD_TIME_METRIC = MetricName.TASK_LEAD_TIME.value
+CYCLE_TIME_METRIC = MetricName.TASK_CYCLE_TIME.value
+BLOCKED_TIME_METRIC = MetricName.TASK_BLOCKED_TIME.value
+WIP_METRIC = MetricName.TASK_WIP.value
+THROUGHPUT_METRIC = MetricName.TASK_THROUGHPUT.value
+VELOCITY_METRIC = MetricName.SPRINT_VELOCITY.value
+STORY_POINTS_COMPLETED = MetricName.TASK_STORY_POINTS_COMPLETED.value
+TASK_COUNT_BY_STATUS = MetricName.TASK_COUNT_BY_STATUS.value
+TASK_COUNT_BY_TYPE = MetricName.TASK_COUNT_BY_TYPE.value
 
 
 class TaskMetrics:
@@ -68,6 +79,8 @@ class TaskMetrics:
         """
         self.project = project
         self._state = StateManager(project, state_dir)
+        self._export_mode = METRICS_EXPORT_MODE_NONE
+        self._shutdown_called = False
 
         # Initialize OTel metrics
         resource = Resource.create({
@@ -82,30 +95,126 @@ class TaskMetrics:
                 exporter,
                 export_interval_millis=export_interval_ms,
             )
+            self._export_mode = METRICS_EXPORT_MODE_OTLP
         else:
             reader = self._setup_default_reader(export_interval_ms)
 
+        # Create provider without setting global (avoids conflicts with other metrics users)
         self._provider = MeterProvider(resource=resource, metric_readers=[reader] if reader else [])
-        metrics.set_meter_provider(self._provider)
-        self._meter = metrics.get_meter("contextcore.metrics")
+        self._meter = self._provider.get_meter("contextcore.metrics")
 
         # Create instruments
         self._setup_instruments()
 
+        # Register shutdown handler
+        atexit.register(self._atexit_shutdown)
+
+    def _atexit_shutdown(self) -> None:
+        """Shutdown handler called at process exit."""
+        try:
+            self._provider.force_flush(timeout_millis=5000)
+            self._provider.shutdown()
+        except Exception as e:
+            logger.debug(f"Error during metrics atexit shutdown: {e}")
+
+    def _check_endpoint_available(self, endpoint: str, timeout: float = 2.0) -> bool:
+        """
+        Check if OTLP endpoint is reachable.
+
+        Args:
+            endpoint: Host:port string
+            timeout: Connection timeout in seconds
+
+        Returns:
+            True if endpoint accepts connections
+        """
+        try:
+            if "://" in endpoint:
+                from urllib.parse import urlparse
+                parsed = urlparse(endpoint)
+                host = parsed.hostname or "localhost"
+                port = parsed.port or 4317
+            else:
+                parts = endpoint.split(":")
+                host = parts[0] if parts else "localhost"
+                port = int(parts[1]) if len(parts) > 1 else 4317
+
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(timeout)
+            result = sock.connect_ex((host, port))
+            sock.close()
+            return result == 0
+
+        except (socket.timeout, socket.error, ValueError, OSError) as e:
+            logger.debug(f"OTLP metrics endpoint check failed: {e}")
+            return False
+
     def _setup_default_reader(self, export_interval_ms: int) -> Optional[PeriodicExportingMetricReader]:
-        """Set up default OTLP metric exporter."""
+        """
+        Set up default OTLP metric exporter with fallback handling.
+
+        Checks endpoint availability first. Falls back to console exporter if
+        CONTEXTCORE_FALLBACK_CONSOLE is set and OTLP is unavailable.
+        """
+        endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
+        fallback_to_console = os.environ.get("CONTEXTCORE_FALLBACK_CONSOLE", "").lower() in ("1", "true", "yes")
+
         try:
             from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
 
-            endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
-            exporter = OTLPMetricExporter(endpoint=endpoint, insecure=True)
-            return PeriodicExportingMetricReader(
-                exporter,
-                export_interval_millis=export_interval_ms,
-            )
+            if self._check_endpoint_available(endpoint):
+                exporter = OTLPMetricExporter(endpoint=endpoint, insecure=True)
+                self._export_mode = METRICS_EXPORT_MODE_OTLP
+                logger.info(f"Configured OTLP metrics exporter to {endpoint}")
+                return PeriodicExportingMetricReader(
+                    exporter,
+                    export_interval_millis=export_interval_ms,
+                )
+            else:
+                logger.warning(
+                    f"OTLP metrics endpoint {endpoint} not reachable. "
+                    f"Metrics will not be exported."
+                )
+                if fallback_to_console:
+                    self._export_mode = METRICS_EXPORT_MODE_CONSOLE
+                    logger.info("Enabled console metrics exporter as fallback")
+                    return PeriodicExportingMetricReader(
+                        ConsoleMetricExporter(),
+                        export_interval_millis=export_interval_ms,
+                    )
+                return None
+
         except ImportError:
             logger.warning("OTLP metric exporter not available")
             return None
+
+    @property
+    def export_mode(self) -> str:
+        """Current export mode: 'otlp', 'console', or 'none'."""
+        return self._export_mode
+
+    def shutdown(self) -> None:
+        """
+        Flush and shutdown the metrics provider.
+
+        Safe to call multiple times.
+        """
+        if self._shutdown_called:
+            return
+
+        self._shutdown_called = True
+
+        try:
+            atexit.unregister(self._atexit_shutdown)
+        except Exception:
+            pass
+
+        try:
+            self._provider.force_flush(timeout_millis=5000)
+            self._provider.shutdown()
+            logger.debug("TaskMetrics shutdown complete")
+        except Exception as e:
+            logger.warning(f"Error during TaskMetrics shutdown: {e}")
 
     def _setup_instruments(self) -> None:
         """Create OTel metric instruments."""

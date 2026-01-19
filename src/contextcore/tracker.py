@@ -29,49 +29,29 @@ Example:
 
 from __future__ import annotations
 
+import atexit
 import logging
 import os
+import socket
 from datetime import datetime, timezone
-from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider, Span
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.trace import Link, SpanKind, Status, StatusCode
+
+from contextcore.contracts.types import TaskStatus, TaskType, Priority
+from contextcore.logger import TaskLogger
+from contextcore.state import StateManager, SpanState, format_trace_id, format_span_id
 
 logger = logging.getLogger(__name__)
 
-
-class TaskType(str, Enum):
-    """Task hierarchy types."""
-    EPIC = "epic"
-    STORY = "story"
-    TASK = "task"
-    SUBTASK = "subtask"
-    BUG = "bug"
-    SPIKE = "spike"
-    INCIDENT = "incident"
-
-
-class TaskStatus(str, Enum):
-    """Task lifecycle statuses."""
-    BACKLOG = "backlog"
-    TODO = "todo"
-    IN_PROGRESS = "in_progress"
-    IN_REVIEW = "in_review"
-    BLOCKED = "blocked"
-    DONE = "done"
-    CANCELLED = "cancelled"
-
-
-class Priority(str, Enum):
-    """Task priority levels."""
-    CRITICAL = "critical"
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
+# Export mode tracking
+EXPORT_MODE_OTLP = "otlp"
+EXPORT_MODE_CONSOLE = "console"
+EXPORT_MODE_NONE = "none"
 
 
 # Semantic convention attribute names
@@ -86,6 +66,10 @@ TASK_LABELS = "task.labels"
 TASK_URL = "task.url"
 TASK_DUE_DATE = "task.due_date"
 TASK_BLOCKED_BY = "task.blocked_by"
+TASK_PERCENT_COMPLETE = "task.percent_complete"
+TASK_SUBTASK_COUNT = "task.subtask_count"
+TASK_SUBTASK_COMPLETED = "task.subtask_completed"
+TASK_PARENT_ID = "task.parent_id"
 
 PROJECT_ID = "project.id"
 PROJECT_NAME = "project.name"
@@ -126,6 +110,15 @@ class TaskTracker:
         self.state_dir = state_dir or os.path.expanduser("~/.contextcore/state")
         self._active_spans: Dict[str, Span] = {}
         self._span_contexts: Dict[str, trace.SpanContext] = {}
+        self._parent_map: Dict[str, str] = {}  # child_id -> parent_id
+        self._children_map: Dict[str, List[str]] = {}  # parent_id -> [child_ids]
+        self._shutdown_called = False
+
+        # Initialize structured logger for Loki
+        self._task_logger = TaskLogger(project=project, service_name=service_name)
+
+        # Initialize state manager for persistence
+        self._state_manager = StateManager(project=project, state_dir=state_dir)
 
         # Initialize OTel
         resource = Resource.create({
@@ -136,29 +129,113 @@ class TaskTracker:
         })
 
         self._provider = TracerProvider(resource=resource)
+        self._export_mode = EXPORT_MODE_NONE
 
         if exporter:
             self._provider.add_span_processor(BatchSpanProcessor(exporter))
+            self._export_mode = EXPORT_MODE_OTLP
         else:
             self._setup_default_exporter()
 
-        trace.set_tracer_provider(self._provider)
-        self._tracer = trace.get_tracer("contextcore.tracker")
+        # Use tracer from our own provider (don't set global to avoid test conflicts)
+        self._tracer = self._provider.get_tracer("contextcore.tracker")
 
         # Load persisted state
         self._load_state()
 
+        # Register shutdown handler to ensure spans are flushed
+        atexit.register(self._atexit_shutdown)
+
+    def _atexit_shutdown(self) -> None:
+        """Shutdown handler called at process exit."""
+        try:
+            self._provider.force_flush(timeout_millis=5000)
+            self._provider.shutdown()
+        except Exception as e:
+            logger.debug(f"Error during atexit shutdown: {e}")
+
+    def _check_endpoint_available(self, endpoint: str, timeout: float = 2.0) -> bool:
+        """
+        Check if OTLP endpoint is reachable.
+
+        Args:
+            endpoint: Host:port string (e.g., "localhost:4317")
+            timeout: Connection timeout in seconds
+
+        Returns:
+            True if endpoint accepts connections, False otherwise
+        """
+        try:
+            # Parse host and port
+            if "://" in endpoint:
+                # Handle URLs like http://localhost:4317
+                from urllib.parse import urlparse
+                parsed = urlparse(endpoint)
+                host = parsed.hostname or "localhost"
+                port = parsed.port or 4317
+            else:
+                # Handle host:port format
+                parts = endpoint.split(":")
+                host = parts[0] if parts else "localhost"
+                port = int(parts[1]) if len(parts) > 1 else 4317
+
+            # Attempt TCP connection
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(timeout)
+            result = sock.connect_ex((host, port))
+            sock.close()
+
+            if result == 0:
+                logger.debug(f"OTLP endpoint {host}:{port} is reachable")
+                return True
+            else:
+                logger.debug(f"OTLP endpoint {host}:{port} connection failed: error code {result}")
+                return False
+
+        except (socket.timeout, socket.error, ValueError, OSError) as e:
+            logger.debug(f"OTLP endpoint check failed: {e}")
+            return False
+
     def _setup_default_exporter(self) -> None:
-        """Set up OTLP exporter to Alloy."""
+        """
+        Set up OTLP exporter to Alloy with fallback handling.
+
+        Checks endpoint availability first to avoid silent failures.
+        Falls back to console exporter in debug mode if OTLP unavailable.
+        """
+        endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
+        fallback_to_console = os.environ.get("CONTEXTCORE_FALLBACK_CONSOLE", "").lower() in ("1", "true", "yes")
+
         try:
             from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
-            endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
-            exporter = OTLPSpanExporter(endpoint=endpoint, insecure=True)
-            self._provider.add_span_processor(BatchSpanProcessor(exporter))
-            logger.info(f"Configured OTLP exporter to {endpoint}")
+            # Check if endpoint is reachable before configuring
+            if self._check_endpoint_available(endpoint):
+                exporter = OTLPSpanExporter(endpoint=endpoint, insecure=True)
+                self._provider.add_span_processor(BatchSpanProcessor(exporter))
+                self._export_mode = EXPORT_MODE_OTLP
+                logger.info(f"Configured OTLP exporter to {endpoint}")
+            else:
+                logger.warning(
+                    f"OTLP endpoint {endpoint} not reachable. "
+                    f"Spans will be persisted locally but not exported. "
+                    f"Set CONTEXTCORE_FALLBACK_CONSOLE=1 to enable console export."
+                )
+                if fallback_to_console:
+                    self._provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
+                    self._export_mode = EXPORT_MODE_CONSOLE
+                    logger.info("Enabled console span exporter as fallback")
+                else:
+                    self._export_mode = EXPORT_MODE_NONE
+
         except ImportError:
             logger.warning("OTLP exporter not available, spans will not be exported")
+            self._export_mode = EXPORT_MODE_NONE
+
+    @property
+    def export_mode(self) -> str:
+        """Current export mode: 'otlp', 'console', or 'none'."""
+        return self._export_mode
 
     def start_task(
         self,
@@ -225,6 +302,13 @@ class TaskTracker:
             attributes[TASK_DUE_DATE] = due_date
         if sprint_id:
             attributes[SPRINT_ID] = sprint_id
+        if parent_id:
+            attributes[TASK_PARENT_ID] = parent_id
+
+        # Initialize progress tracking
+        attributes[TASK_PERCENT_COMPLETE] = 0.0
+        attributes[TASK_SUBTASK_COUNT] = 0
+        attributes[TASK_SUBTASK_COMPLETED] = 0
 
         attributes.update(extra_attributes)
 
@@ -268,8 +352,29 @@ class TaskTracker:
         self._active_spans[task_id] = span
         self._span_contexts[task_id] = span.get_span_context()
 
+        # Track parent-child relationships
+        if parent_id:
+            self._parent_map[task_id] = parent_id
+            if parent_id not in self._children_map:
+                self._children_map[parent_id] = []
+            self._children_map[parent_id].append(task_id)
+            # Increment parent's subtask count
+            self._increment_subtask_count(parent_id)
+
         # Persist state
         self._save_state()
+
+        # Log to Loki
+        self._task_logger.log_task_created(
+            task_id=task_id,
+            title=title,
+            task_type=task_type,
+            priority=priority,
+            assignee=assignee,
+            story_points=story_points,
+            sprint_id=sprint_id,
+            parent_id=parent_id,
+        )
 
         logger.info(f"Started task span: {task_id} ({task_type})")
         return span.get_span_context()
@@ -310,6 +415,22 @@ class TaskTracker:
             span.set_status(Status(StatusCode.OK))
 
         self._save_state()
+
+        # Log to Loki
+        task_type = None
+        sprint_id = None
+        if hasattr(span, '_attributes'):
+            task_type = span._attributes.get(TASK_TYPE)
+            sprint_id = span._attributes.get(SPRINT_ID)
+
+        self._task_logger.log_status_changed(
+            task_id=task_id,
+            from_status=old_status,
+            to_status=new_status,
+            task_type=task_type,
+            sprint_id=sprint_id,
+        )
+
         logger.info(f"Task {task_id}: {old_status} → {new_status}")
 
     def block_task(
@@ -340,6 +461,22 @@ class TaskTracker:
         span.set_status(Status(StatusCode.ERROR, f"Blocked: {reason}"))
 
         self._save_state()
+
+        # Log to Loki
+        task_type = None
+        sprint_id = None
+        if hasattr(span, '_attributes'):
+            task_type = span._attributes.get(TASK_TYPE)
+            sprint_id = span._attributes.get(SPRINT_ID)
+
+        self._task_logger.log_blocked(
+            task_id=task_id,
+            reason=reason,
+            blocked_by=blocked_by,
+            task_type=task_type,
+            sprint_id=sprint_id,
+        )
+
         logger.info(f"Task {task_id} blocked: {reason}")
 
     def unblock_task(self, task_id: str, new_status: str = "in_progress") -> None:
@@ -359,6 +496,20 @@ class TaskTracker:
         span.set_status(Status(StatusCode.OK))
 
         self._save_state()
+
+        # Log to Loki
+        task_type = None
+        sprint_id = None
+        if hasattr(span, '_attributes'):
+            task_type = span._attributes.get(TASK_TYPE)
+            sprint_id = span._attributes.get(SPRINT_ID)
+
+        self._task_logger.log_unblocked(
+            task_id=task_id,
+            task_type=task_type,
+            sprint_id=sprint_id,
+        )
+
         logger.info(f"Task {task_id} unblocked → {new_status}")
 
     def add_comment(self, task_id: str, author: str, text: str) -> None:
@@ -415,6 +566,8 @@ class TaskTracker:
         """
         Complete a task (ends the span with OK status).
 
+        Also updates parent's progress if this task has a parent.
+
         Args:
             task_id: Task identifier
         """
@@ -422,15 +575,41 @@ class TaskTracker:
         if not span:
             return
 
+        # Mark as 100% complete
+        span.set_attribute(TASK_PERCENT_COMPLETE, 100.0)
         span.add_event("task.completed")
         span.set_attribute(TASK_STATUS, TaskStatus.DONE.value)
         span.set_status(Status(StatusCode.OK))
         span.end()
 
+        # Get task info before removing span
+        task_type = None
+        sprint_id = None
+        story_points = None
+        if hasattr(span, '_attributes'):
+            task_type = span._attributes.get(TASK_TYPE)
+            sprint_id = span._attributes.get(SPRINT_ID)
+            story_points = span._attributes.get(TASK_STORY_POINTS)
+
+        # Update parent's progress
+        if task_id in self._parent_map:
+            parent_id = self._parent_map[task_id]
+            self._update_parent_progress(parent_id, completed=True)
+
         # Remove from active spans but keep context for linking
         del self._active_spans[task_id]
 
-        self._save_state()
+        # Archive completed span state
+        self._state_manager.remove_span(task_id)
+
+        # Log to Loki
+        self._task_logger.log_completed(
+            task_id=task_id,
+            task_type=task_type,
+            story_points=story_points,
+            sprint_id=sprint_id,
+        )
+
         logger.info(f"Task {task_id} completed")
 
     def cancel_task(self, task_id: str, reason: Optional[str] = None) -> None:
@@ -454,9 +633,26 @@ class TaskTracker:
         span.set_status(Status(StatusCode.OK))
         span.end()
 
+        # Get task info before removing span
+        task_type = None
+        sprint_id = None
+        if hasattr(span, '_attributes'):
+            task_type = span._attributes.get(TASK_TYPE)
+            sprint_id = span._attributes.get(SPRINT_ID)
+
         del self._active_spans[task_id]
 
-        self._save_state()
+        # Archive cancelled span state
+        self._state_manager.remove_span(task_id)
+
+        # Log to Loki
+        self._task_logger.log_cancelled(
+            task_id=task_id,
+            reason=reason,
+            task_type=task_type,
+            sprint_id=sprint_id,
+        )
+
         logger.info(f"Task {task_id} cancelled")
 
     def get_task_link(self, task_id: str) -> Optional[Link]:
@@ -487,21 +683,259 @@ class TaskTracker:
             return None
         return self._active_spans[task_id]
 
+    def _increment_subtask_count(self, parent_id: str) -> None:
+        """Increment subtask count on parent span."""
+        span = self._get_span(parent_id)
+        if not span:
+            return
+
+        current = 0
+        if hasattr(span, '_attributes') and TASK_SUBTASK_COUNT in span._attributes:
+            current = span._attributes[TASK_SUBTASK_COUNT]
+
+        span.set_attribute(TASK_SUBTASK_COUNT, current + 1)
+
+    def _update_parent_progress(self, parent_id: str, completed: bool = True) -> None:
+        """
+        Update parent's progress when a child completes.
+
+        Uses simple count method: percent = (completed / total) * 100
+
+        Args:
+            parent_id: Parent task ID
+            completed: Whether child was completed (vs cancelled)
+        """
+        span = self._get_span(parent_id)
+        if not span:
+            return
+
+        # Get current counts
+        subtask_count = 0
+        subtask_completed = 0
+        task_type = None
+        sprint_id = None
+
+        if hasattr(span, '_attributes'):
+            subtask_count = span._attributes.get(TASK_SUBTASK_COUNT, 0)
+            subtask_completed = span._attributes.get(TASK_SUBTASK_COMPLETED, 0)
+            task_type = span._attributes.get(TASK_TYPE)
+            sprint_id = span._attributes.get(SPRINT_ID)
+
+        # Increment completed count
+        if completed:
+            subtask_completed += 1
+            span.set_attribute(TASK_SUBTASK_COMPLETED, subtask_completed)
+
+        # Calculate percent complete (simple count method)
+        if subtask_count > 0:
+            percent = (subtask_completed / subtask_count) * 100
+            span.set_attribute(TASK_PERCENT_COMPLETE, percent)
+
+            # Add progress event
+            span.add_event(
+                "task.progress_updated",
+                attributes={
+                    "subtask_completed": subtask_completed,
+                    "subtask_count": subtask_count,
+                    "percent_complete": percent,
+                }
+            )
+
+            # Log to Loki for metrics derivation
+            self._task_logger.log_progress_updated(
+                task_id=parent_id,
+                percent_complete=percent,
+                task_type=task_type,
+                sprint_id=sprint_id,
+                source="subtask",
+                subtask_completed=subtask_completed,
+                subtask_count=subtask_count,
+            )
+
+            logger.info(f"Task {parent_id}: {subtask_completed}/{subtask_count} ({percent:.1f}%)")
+
+    def set_progress(self, task_id: str, percent: float) -> None:
+        """
+        Manually set task progress percentage.
+
+        Use for tasks without subtasks where progress is tracked manually.
+
+        Args:
+            task_id: Task identifier
+            percent: Progress percentage (0-100)
+        """
+        span = self._get_span(task_id)
+        if not span:
+            return
+
+        percent = max(0.0, min(100.0, percent))  # Clamp to 0-100
+        span.set_attribute(TASK_PERCENT_COMPLETE, percent)
+        span.add_event(
+            "task.progress_updated",
+            attributes={"percent_complete": percent, "source": "manual"}
+        )
+
+        self._save_state()
+
+        # Get task info for logging
+        task_type = None
+        sprint_id = None
+        if hasattr(span, '_attributes'):
+            task_type = span._attributes.get(TASK_TYPE)
+            sprint_id = span._attributes.get(SPRINT_ID)
+
+        # Log to Loki for metrics derivation
+        self._task_logger.log_progress_updated(
+            task_id=task_id,
+            percent_complete=percent,
+            task_type=task_type,
+            sprint_id=sprint_id,
+            source="manual",
+        )
+
+        logger.info(f"Task {task_id} progress: {percent:.1f}%")
+
+    def get_progress(self, task_id: str) -> Optional[float]:
+        """
+        Get current progress percentage for a task.
+
+        Args:
+            task_id: Task identifier
+
+        Returns:
+            Progress percentage (0-100) or None if task not found
+        """
+        span = self._get_span(task_id)
+        if not span:
+            return None
+
+        if hasattr(span, '_attributes') and TASK_PERCENT_COMPLETE in span._attributes:
+            return span._attributes[TASK_PERCENT_COMPLETE]
+        return 0.0
+
     def _load_state(self) -> None:
-        """Load persisted span state from disk."""
-        # TODO: Implement state persistence for long-running spans
-        # This requires serializing span context and recreating spans
-        pass
+        """
+        Load persisted span state from disk.
+
+        Reconstructs parent-child relationships and span contexts from saved state.
+        Note: OTel spans cannot be fully reconstructed, but we restore enough
+        context for linking and progress tracking.
+        """
+        saved_states = self._state_manager.get_active_spans()
+
+        for task_id, state in saved_states.items():
+            # Restore span context for linking
+            from opentelemetry.trace import SpanContext, TraceFlags
+            from contextcore.state import parse_trace_id, parse_span_id
+
+            try:
+                span_context = SpanContext(
+                    trace_id=parse_trace_id(state.trace_id),
+                    span_id=parse_span_id(state.span_id),
+                    is_remote=False,
+                    trace_flags=TraceFlags(0x01),  # SAMPLED
+                )
+                self._span_contexts[task_id] = span_context
+
+                # Restore parent-child relationships
+                parent_id = state.attributes.get(TASK_PARENT_ID)
+                if parent_id:
+                    self._parent_map[task_id] = parent_id
+                    if parent_id not in self._children_map:
+                        self._children_map[parent_id] = []
+                    if task_id not in self._children_map[parent_id]:
+                        self._children_map[parent_id].append(task_id)
+
+                logger.debug(f"Restored state for task: {task_id}")
+
+            except Exception as e:
+                logger.warning(f"Failed to restore state for {task_id}: {e}")
 
     def _save_state(self) -> None:
-        """Persist active span state to disk."""
-        # TODO: Implement state persistence
-        pass
+        """
+        Persist active span state to disk.
+
+        Saves span metadata for restoration across process restarts.
+        """
+        for task_id, span in self._active_spans.items():
+            try:
+                ctx = span.get_span_context()
+
+                # Get parent span ID if exists
+                parent_span_id = None
+                if task_id in self._parent_map:
+                    parent_id = self._parent_map[task_id]
+                    if parent_id in self._span_contexts:
+                        parent_span_id = format_span_id(self._span_contexts[parent_id].span_id)
+
+                # Build attributes dict
+                attributes = {}
+                if hasattr(span, '_attributes'):
+                    attributes = dict(span._attributes)
+
+                # Build events list from span (if accessible)
+                events = []
+                if hasattr(span, '_events'):
+                    for event in span._events:
+                        events.append({
+                            "name": event.name,
+                            "timestamp": datetime.fromtimestamp(
+                                event.timestamp / 1e9, tz=timezone.utc
+                            ).isoformat() if event.timestamp else None,
+                            "attributes": dict(event.attributes) if event.attributes else {},
+                        })
+
+                # Get span status
+                status = "UNSET"
+                status_desc = None
+                if hasattr(span, '_status') and span._status:
+                    status = span._status.status_code.name
+                    status_desc = span._status.description
+
+                state = SpanState(
+                    task_id=task_id,
+                    span_name=span.name,
+                    trace_id=format_trace_id(ctx.trace_id),
+                    span_id=format_span_id(ctx.span_id),
+                    parent_span_id=parent_span_id,
+                    start_time=datetime.fromtimestamp(
+                        span.start_time / 1e9, tz=timezone.utc
+                    ).isoformat() if hasattr(span, 'start_time') and span.start_time else datetime.now(timezone.utc).isoformat(),
+                    attributes=attributes,
+                    events=events,
+                    status=status,
+                    status_description=status_desc,
+                )
+
+                self._state_manager.save_span(state)
+
+            except Exception as e:
+                logger.warning(f"Failed to save state for {task_id}: {e}")
 
     def shutdown(self) -> None:
-        """Flush and shutdown the tracker."""
-        self._provider.force_flush()
-        self._provider.shutdown()
+        """
+        Flush and shutdown the tracker.
+
+        Safe to call multiple times - subsequent calls are no-ops.
+        Also called automatically at process exit via atexit.
+        """
+        if getattr(self, '_shutdown_called', False):
+            return
+
+        self._shutdown_called = True
+
+        try:
+            # Unregister atexit handler to avoid duplicate shutdown
+            atexit.unregister(self._atexit_shutdown)
+        except Exception:
+            pass  # atexit.unregister may fail if not registered
+
+        try:
+            self._provider.force_flush(timeout_millis=5000)
+            self._provider.shutdown()
+            logger.debug("TaskTracker shutdown complete")
+        except Exception as e:
+            logger.warning(f"Error during TaskTracker shutdown: {e}")
 
 
 class SprintTracker:
