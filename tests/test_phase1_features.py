@@ -14,18 +14,35 @@ from unittest.mock import MagicMock
 
 import pytest
 
-# Mock heavy dependencies before importing contextcore.operator
-sys.modules["kopf"] = MagicMock()
-sys.modules["kubernetes"] = MagicMock()
-sys.modules["kubernetes.client"] = MagicMock()
-sys.modules["kubernetes.config"] = MagicMock()
-sys.modules["kubernetes.client.rest"] = MagicMock()
-sys.modules["opentelemetry"] = MagicMock()
-sys.modules["opentelemetry.trace"] = MagicMock()
-sys.modules["opentelemetry.sdk"] = MagicMock()
-sys.modules["opentelemetry.sdk.resources"] = MagicMock()
-sys.modules["opentelemetry.sdk.trace"] = MagicMock()
-sys.modules["opentelemetry.sdk.trace.export"] = MagicMock()
+# Store original modules to restore after tests
+_original_modules = {}
+
+def _mock_heavy_dependencies():
+    """Mock heavy dependencies before importing contextcore.operator."""
+    global _original_modules
+    modules_to_mock = [
+        "kopf",
+        "kubernetes",
+        "kubernetes.client",
+        "kubernetes.config",
+        "kubernetes.client.rest",
+    ]
+    for mod in modules_to_mock:
+        _original_modules[mod] = sys.modules.get(mod)
+        sys.modules[mod] = MagicMock()
+
+def _restore_modules():
+    """Restore original modules after tests."""
+    global _original_modules
+    for mod, original in _original_modules.items():
+        if original is None:
+            sys.modules.pop(mod, None)
+        else:
+            sys.modules[mod] = original
+    _original_modules.clear()
+
+# Mock only non-OTel dependencies (OTel is used by other tests)
+_mock_heavy_dependencies()
 
 from contextcore.operator import (
     _build_enriched_annotations,
@@ -402,3 +419,15 @@ class TestRunbookEdgeCases:
 
         # Description should be truncated (50 chars in table)
         assert "A" * 51 not in runbook
+
+
+# ============================================================================
+# Module cleanup - restore mocked modules
+# ============================================================================
+
+
+@pytest.fixture(scope="module", autouse=True)
+def cleanup_mocks():
+    """Restore mocked modules after all tests in this module complete."""
+    yield
+    _restore_modules()

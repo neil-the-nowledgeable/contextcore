@@ -113,6 +113,8 @@ class TaskTracker:
         self._parent_map: Dict[str, str] = {}  # child_id -> parent_id
         self._children_map: Dict[str, List[str]] = {}  # parent_id -> [child_ids]
         self._shutdown_called = False
+        # Store task attributes separately to avoid relying on span._attributes (internal API)
+        self._task_attributes: Dict[str, Dict[str, Any]] = {}
 
         # Initialize structured logger for Loki
         self._task_logger = TaskLogger(project=project, service_name=service_name)
@@ -237,6 +239,53 @@ class TaskTracker:
         """Current export mode: 'otlp', 'console', or 'none'."""
         return self._export_mode
 
+    def _get_task_attr(self, task_id: str, key: str, default: Any = None) -> Any:
+        """
+        Get a task attribute value.
+
+        Uses the internal _task_attributes dictionary instead of span._attributes
+        to avoid relying on OTel SDK internal APIs.
+
+        Args:
+            task_id: Task identifier
+            key: Attribute key
+            default: Default value if not found
+
+        Returns:
+            Attribute value or default
+        """
+        if task_id in self._task_attributes:
+            return self._task_attributes[task_id].get(key, default)
+        return default
+
+    def _set_task_attr(self, task_id: str, key: str, value: Any) -> None:
+        """
+        Set a task attribute value.
+
+        Updates both the span (via set_attribute) and the internal tracking dict.
+
+        Args:
+            task_id: Task identifier
+            key: Attribute key
+            value: Attribute value
+        """
+        if task_id in self._active_spans:
+            self._active_spans[task_id].set_attribute(key, value)
+        if task_id in self._task_attributes:
+            self._task_attributes[task_id][key] = value
+
+    def _get_task_attrs(self, task_id: str) -> Dict[str, Any]:
+        """
+        Get all attributes for a task.
+
+        Args:
+            task_id: Task identifier
+
+        Returns:
+            Copy of task attributes dict, or empty dict if not found
+        """
+        return self._task_attributes.get(task_id, {}).copy()
+
     def start_task(
         self,
         task_id: str,
@@ -348,9 +397,10 @@ class TaskTracker:
             }
         )
 
-        # Store span
+        # Store span and its attributes
         self._active_spans[task_id] = span
         self._span_contexts[task_id] = span.get_span_context()
+        self._task_attributes[task_id] = attributes.copy()
 
         # Track parent-child relationships
         if parent_id:
@@ -391,10 +441,8 @@ class TaskTracker:
         if not span:
             return
 
-        # Get current status
-        old_status = "unknown"
-        if hasattr(span, '_attributes') and TASK_STATUS in span._attributes:
-            old_status = span._attributes[TASK_STATUS]
+        # Get current status from our attributes dict
+        old_status = self._get_task_attr(task_id, TASK_STATUS, "unknown")
 
         # Add status change event
         span.add_event(
@@ -405,8 +453,8 @@ class TaskTracker:
             }
         )
 
-        # Update attribute
-        span.set_attribute(TASK_STATUS, new_status)
+        # Update attribute in both span and our tracking dict
+        self._set_task_attr(task_id, TASK_STATUS, new_status)
 
         # Handle blocked status
         if new_status == TaskStatus.BLOCKED.value:
@@ -417,11 +465,8 @@ class TaskTracker:
         self._save_state()
 
         # Log to Loki
-        task_type = None
-        sprint_id = None
-        if hasattr(span, '_attributes'):
-            task_type = span._attributes.get(TASK_TYPE)
-            sprint_id = span._attributes.get(SPRINT_ID)
+        task_type = self._get_task_attr(task_id, TASK_TYPE)
+        sprint_id = self._get_task_attr(task_id, SPRINT_ID)
 
         self._task_logger.log_status_changed(
             task_id=task_id,
@@ -454,20 +499,17 @@ class TaskTracker:
         event_attrs: Dict[str, Any] = {"reason": reason}
         if blocked_by:
             event_attrs["blocker_id"] = blocked_by
-            span.set_attribute(TASK_BLOCKED_BY, blocked_by)
+            self._set_task_attr(task_id, TASK_BLOCKED_BY, blocked_by)
 
         span.add_event("task.blocked", attributes=event_attrs)
-        span.set_attribute(TASK_STATUS, TaskStatus.BLOCKED.value)
+        self._set_task_attr(task_id, TASK_STATUS, TaskStatus.BLOCKED.value)
         span.set_status(Status(StatusCode.ERROR, f"Blocked: {reason}"))
 
         self._save_state()
 
         # Log to Loki
-        task_type = None
-        sprint_id = None
-        if hasattr(span, '_attributes'):
-            task_type = span._attributes.get(TASK_TYPE)
-            sprint_id = span._attributes.get(SPRINT_ID)
+        task_type = self._get_task_attr(task_id, TASK_TYPE)
+        sprint_id = self._get_task_attr(task_id, SPRINT_ID)
 
         self._task_logger.log_blocked(
             task_id=task_id,
@@ -492,17 +534,14 @@ class TaskTracker:
             return
 
         span.add_event("task.unblocked")
-        span.set_attribute(TASK_STATUS, new_status)
+        self._set_task_attr(task_id, TASK_STATUS, new_status)
         span.set_status(Status(StatusCode.OK))
 
         self._save_state()
 
         # Log to Loki
-        task_type = None
-        sprint_id = None
-        if hasattr(span, '_attributes'):
-            task_type = span._attributes.get(TASK_TYPE)
-            sprint_id = span._attributes.get(SPRINT_ID)
+        task_type = self._get_task_attr(task_id, TASK_TYPE)
+        sprint_id = self._get_task_attr(task_id, SPRINT_ID)
 
         self._task_logger.log_unblocked(
             task_id=task_id,
@@ -546,9 +585,7 @@ class TaskTracker:
         if not span:
             return
 
-        old_assignee = None
-        if hasattr(span, '_attributes') and TASK_ASSIGNEE in span._attributes:
-            old_assignee = span._attributes[TASK_ASSIGNEE]
+        old_assignee = self._get_task_attr(task_id, TASK_ASSIGNEE)
 
         span.add_event(
             "task.assigned",
@@ -557,7 +594,7 @@ class TaskTracker:
                 "to": assignee,
             }
         )
-        span.set_attribute(TASK_ASSIGNEE, assignee)
+        self._set_task_attr(task_id, TASK_ASSIGNEE, assignee)
 
         self._save_state()
         logger.info(f"Task {task_id} assigned to {assignee}")
@@ -576,20 +613,16 @@ class TaskTracker:
             return
 
         # Mark as 100% complete
-        span.set_attribute(TASK_PERCENT_COMPLETE, 100.0)
+        self._set_task_attr(task_id, TASK_PERCENT_COMPLETE, 100.0)
         span.add_event("task.completed")
-        span.set_attribute(TASK_STATUS, TaskStatus.DONE.value)
+        self._set_task_attr(task_id, TASK_STATUS, TaskStatus.DONE.value)
         span.set_status(Status(StatusCode.OK))
         span.end()
 
-        # Get task info before removing span
-        task_type = None
-        sprint_id = None
-        story_points = None
-        if hasattr(span, '_attributes'):
-            task_type = span._attributes.get(TASK_TYPE)
-            sprint_id = span._attributes.get(SPRINT_ID)
-            story_points = span._attributes.get(TASK_STORY_POINTS)
+        # Get task info before removing span (from our tracking dict)
+        task_type = self._get_task_attr(task_id, TASK_TYPE)
+        sprint_id = self._get_task_attr(task_id, SPRINT_ID)
+        story_points = self._get_task_attr(task_id, TASK_STORY_POINTS)
 
         # Update parent's progress
         if task_id in self._parent_map:
@@ -598,6 +631,8 @@ class TaskTracker:
 
         # Remove from active spans but keep context for linking
         del self._active_spans[task_id]
+        # Also clean up attributes tracking (keep for a bit for any late lookups)
+        self._task_attributes.pop(task_id, None)
 
         # Archive completed span state
         self._state_manager.remove_span(task_id)
@@ -629,18 +664,16 @@ class TaskTracker:
             event_attrs["reason"] = reason
 
         span.add_event("task.cancelled", attributes=event_attrs)
-        span.set_attribute(TASK_STATUS, TaskStatus.CANCELLED.value)
+        self._set_task_attr(task_id, TASK_STATUS, TaskStatus.CANCELLED.value)
         span.set_status(Status(StatusCode.OK))
         span.end()
 
-        # Get task info before removing span
-        task_type = None
-        sprint_id = None
-        if hasattr(span, '_attributes'):
-            task_type = span._attributes.get(TASK_TYPE)
-            sprint_id = span._attributes.get(SPRINT_ID)
+        # Get task info before removing (from our tracking dict)
+        task_type = self._get_task_attr(task_id, TASK_TYPE)
+        sprint_id = self._get_task_attr(task_id, SPRINT_ID)
 
         del self._active_spans[task_id]
+        self._task_attributes.pop(task_id, None)
 
         # Archive cancelled span state
         self._state_manager.remove_span(task_id)
@@ -689,11 +722,8 @@ class TaskTracker:
         if not span:
             return
 
-        current = 0
-        if hasattr(span, '_attributes') and TASK_SUBTASK_COUNT in span._attributes:
-            current = span._attributes[TASK_SUBTASK_COUNT]
-
-        span.set_attribute(TASK_SUBTASK_COUNT, current + 1)
+        current = self._get_task_attr(parent_id, TASK_SUBTASK_COUNT, 0)
+        self._set_task_attr(parent_id, TASK_SUBTASK_COUNT, current + 1)
 
     def _update_parent_progress(self, parent_id: str, completed: bool = True) -> None:
         """
@@ -709,27 +739,21 @@ class TaskTracker:
         if not span:
             return
 
-        # Get current counts
-        subtask_count = 0
-        subtask_completed = 0
-        task_type = None
-        sprint_id = None
-
-        if hasattr(span, '_attributes'):
-            subtask_count = span._attributes.get(TASK_SUBTASK_COUNT, 0)
-            subtask_completed = span._attributes.get(TASK_SUBTASK_COMPLETED, 0)
-            task_type = span._attributes.get(TASK_TYPE)
-            sprint_id = span._attributes.get(SPRINT_ID)
+        # Get current counts from our tracking dict
+        subtask_count = self._get_task_attr(parent_id, TASK_SUBTASK_COUNT, 0)
+        subtask_completed = self._get_task_attr(parent_id, TASK_SUBTASK_COMPLETED, 0)
+        task_type = self._get_task_attr(parent_id, TASK_TYPE)
+        sprint_id = self._get_task_attr(parent_id, SPRINT_ID)
 
         # Increment completed count
         if completed:
             subtask_completed += 1
-            span.set_attribute(TASK_SUBTASK_COMPLETED, subtask_completed)
+            self._set_task_attr(parent_id, TASK_SUBTASK_COMPLETED, subtask_completed)
 
         # Calculate percent complete (simple count method)
         if subtask_count > 0:
             percent = (subtask_completed / subtask_count) * 100
-            span.set_attribute(TASK_PERCENT_COMPLETE, percent)
+            self._set_task_attr(parent_id, TASK_PERCENT_COMPLETE, percent)
 
             # Add progress event
             span.add_event(
@@ -769,7 +793,7 @@ class TaskTracker:
             return
 
         percent = max(0.0, min(100.0, percent))  # Clamp to 0-100
-        span.set_attribute(TASK_PERCENT_COMPLETE, percent)
+        self._set_task_attr(task_id, TASK_PERCENT_COMPLETE, percent)
         span.add_event(
             "task.progress_updated",
             attributes={"percent_complete": percent, "source": "manual"}
@@ -777,12 +801,9 @@ class TaskTracker:
 
         self._save_state()
 
-        # Get task info for logging
-        task_type = None
-        sprint_id = None
-        if hasattr(span, '_attributes'):
-            task_type = span._attributes.get(TASK_TYPE)
-            sprint_id = span._attributes.get(SPRINT_ID)
+        # Get task info for logging (from our tracking dict)
+        task_type = self._get_task_attr(task_id, TASK_TYPE)
+        sprint_id = self._get_task_attr(task_id, SPRINT_ID)
 
         # Log to Loki for metrics derivation
         self._task_logger.log_progress_updated(
@@ -805,13 +826,11 @@ class TaskTracker:
         Returns:
             Progress percentage (0-100) or None if task not found
         """
-        span = self._get_span(task_id)
-        if not span:
+        if task_id not in self._active_spans:
+            logger.warning(f"Task {task_id} not found in active spans")
             return None
 
-        if hasattr(span, '_attributes') and TASK_PERCENT_COMPLETE in span._attributes:
-            return span._attributes[TASK_PERCENT_COMPLETE]
-        return 0.0
+        return self._get_task_attr(task_id, TASK_PERCENT_COMPLETE, 0.0)
 
     def _load_state(self) -> None:
         """
@@ -868,10 +887,8 @@ class TaskTracker:
                     if parent_id in self._span_contexts:
                         parent_span_id = format_span_id(self._span_contexts[parent_id].span_id)
 
-                # Build attributes dict
-                attributes = {}
-                if hasattr(span, '_attributes'):
-                    attributes = dict(span._attributes)
+                # Build attributes dict from our tracking dict (avoids span._attributes internal API)
+                attributes = self._get_task_attrs(task_id)
 
                 # Build events list from span (if accessible)
                 events = []

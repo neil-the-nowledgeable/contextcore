@@ -9,20 +9,85 @@ process restarts. This module handles:
 3. Managing span lifecycle across restarts
 
 State is stored as JSON files in ~/.contextcore/state/<project>/
+
+Thread and process safety is achieved through file locking.
 """
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
+import sys
 import tempfile
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Generator, List, Optional, IO
 
 logger = logging.getLogger(__name__)
+
+
+# Cross-platform file locking
+if sys.platform == "win32":
+    import msvcrt
+
+    def _lock_file(f: IO, exclusive: bool = True) -> None:
+        """Lock file on Windows."""
+        msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK if exclusive else msvcrt.LK_NBRLCK, 1)
+
+    def _unlock_file(f: IO) -> None:
+        """Unlock file on Windows."""
+        msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+else:
+    import fcntl
+
+    def _lock_file(f: IO, exclusive: bool = True) -> None:
+        """Lock file on Unix."""
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
+
+    def _unlock_file(f: IO) -> None:
+        """Unlock file on Unix."""
+        fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+
+
+@contextlib.contextmanager
+def file_lock(path: Path, exclusive: bool = True) -> Generator[IO, None, None]:
+    """
+    Context manager for file locking.
+
+    Creates a lock file adjacent to the target file and acquires a lock on it.
+    This prevents race conditions when multiple processes access the same state.
+
+    Args:
+        path: Path to the file being protected
+        exclusive: If True, acquire exclusive (write) lock; otherwise shared (read) lock
+
+    Yields:
+        The lock file handle (for context manager protocol)
+
+    Example:
+        with file_lock(state_file):
+            with open(state_file, 'w') as f:
+                json.dump(data, f)
+    """
+    lock_path = path.with_suffix(path.suffix + ".lock")
+
+    # Create lock file if it doesn't exist
+    lock_path.touch(exist_ok=True)
+
+    lock_file = open(lock_path, "r+" if lock_path.exists() else "w+")
+    try:
+        _lock_file(lock_file, exclusive)
+        yield lock_file
+    finally:
+        try:
+            _unlock_file(lock_file)
+        except Exception:
+            pass  # Ignore unlock errors
+        finally:
+            lock_file.close()
 
 # Fallback directory if default state dir is not writable
 _FALLBACK_STATE_DIR = Path(tempfile.gettempdir()) / "contextcore" / "state"
@@ -234,9 +299,10 @@ class StateManager:
 
     def save_span(self, state: SpanState) -> None:
         """
-        Save span state to disk.
+        Save span state to disk with file locking.
 
         Automatically populates schema version and timestamps if not set.
+        Uses file locking to prevent race conditions in multi-process scenarios.
 
         Args:
             state: SpanState to persist
@@ -253,8 +319,9 @@ class StateManager:
 
         file_path = self.project_dir / f"{state.task_id}.json"
         try:
-            with open(file_path, 'w') as f:
-                json.dump(state.to_dict(), f, indent=2)
+            with file_lock(file_path, exclusive=True):
+                with open(file_path, 'w') as f:
+                    json.dump(state.to_dict(), f, indent=2)
             self._active_spans[state.task_id] = state
             logger.debug(f"Saved span state: {state.task_id} (schema v{SCHEMA_VERSION})")
         except Exception as e:
@@ -262,9 +329,10 @@ class StateManager:
 
     def load_span(self, task_id: str) -> Optional[SpanState]:
         """
-        Load span state from disk.
+        Load span state from disk with file locking.
 
         Automatically migrates state from older schema versions if needed.
+        Uses shared (read) lock to allow concurrent reads.
 
         Args:
             task_id: Task identifier
@@ -280,14 +348,15 @@ class StateManager:
             return None
 
         try:
-            with open(file_path) as f:
-                data = json.load(f)
+            with file_lock(file_path, exclusive=False):  # Shared lock for reading
+                with open(file_path) as f:
+                    data = json.load(f)
 
             old_version = data.get("schema_version", 1)
             state = SpanState.from_dict(data)
             self._active_spans[task_id] = state
 
-            # If state was migrated, re-save with new schema
+            # If state was migrated, re-save with new schema (save_span has its own lock)
             if old_version < SCHEMA_VERSION:
                 logger.info(f"Migrated state for {task_id} from schema v{old_version} to v{SCHEMA_VERSION}")
                 self.save_span(state)
@@ -305,6 +374,8 @@ class StateManager:
         Remove span state (called when span completes).
 
         Moves to completed directory for historical queries.
+        Uses exclusive file locking to prevent race conditions during
+        the read-modify-write-delete sequence.
 
         Args:
             task_id: Task identifier
@@ -317,18 +388,26 @@ class StateManager:
 
         if file_path.exists():
             try:
-                # Load, add end time, save to completed
-                with open(file_path) as f:
-                    data = json.load(f)
-                data["end_time"] = datetime.now(timezone.utc).isoformat()
+                # Use exclusive lock for the entire read-modify-write-delete operation
+                with file_lock(file_path, exclusive=True):
+                    # Re-check existence after acquiring lock (another process may have removed it)
+                    if not file_path.exists():
+                        logger.debug(f"Span already removed by another process: {task_id}")
+                        self._active_spans.pop(task_id, None)
+                        return
 
-                completed_path = completed_dir / f"{task_id}.json"
-                with open(completed_path, 'w') as f:
-                    json.dump(data, f, indent=2)
+                    # Load, add end time, save to completed
+                    with open(file_path) as f:
+                        data = json.load(f)
+                    data["end_time"] = datetime.now(timezone.utc).isoformat()
 
-                # Remove active file
-                file_path.unlink()
-                logger.debug(f"Moved span to completed: {task_id}")
+                    completed_path = completed_dir / f"{task_id}.json"
+                    with open(completed_path, 'w') as f:
+                        json.dump(data, f, indent=2)
+
+                    # Remove active file
+                    file_path.unlink()
+                    logger.debug(f"Moved span to completed: {task_id}")
 
             except Exception as e:
                 logger.error(f"Failed to archive span {task_id}: {e}")
@@ -390,61 +469,130 @@ class StateManager:
 
         return spans
 
+    def _atomic_update(
+        self,
+        task_id: str,
+        updater: callable,
+        error_message: str,
+    ) -> bool:
+        """
+        Atomically update a span state with file locking.
+
+        Holds an exclusive lock for the entire read-modify-write cycle
+        to prevent lost updates from concurrent modifications.
+
+        Args:
+            task_id: Task identifier
+            updater: Function that takes SpanState and modifies it in place
+            error_message: Message to log if span not found
+
+        Returns:
+            True if update was successful, False otherwise
+        """
+        file_path = self.project_dir / f"{task_id}.json"
+
+        if not file_path.exists():
+            logger.warning(error_message)
+            return False
+
+        try:
+            with file_lock(file_path, exclusive=True):
+                # Re-check existence after acquiring lock
+                if not file_path.exists():
+                    logger.warning(error_message)
+                    return False
+
+                # Load current state
+                with open(file_path) as f:
+                    data = json.load(f)
+
+                state = SpanState.from_dict(data)
+
+                # Apply the update
+                updater(state)
+
+                # Ensure schema version is current
+                state.schema_version = SCHEMA_VERSION
+
+                # Write back
+                with open(file_path, 'w') as f:
+                    json.dump(state.to_dict(), f, indent=2)
+
+                # Update cache
+                self._active_spans[task_id] = state
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to update span {task_id}: {e}")
+            return False
+
     def add_event(self, task_id: str, event_name: str, attributes: Dict[str, Any]) -> None:
         """
-        Add an event to a span's state.
+        Add an event to a span's state atomically.
+
+        Uses file locking to prevent lost updates from concurrent modifications.
 
         Args:
             task_id: Task identifier
             event_name: Event name
             attributes: Event attributes
         """
-        state = self.load_span(task_id)
-        if not state:
-            logger.warning(f"Cannot add event to unknown span: {task_id}")
-            return
-
         event = {
             "name": event_name,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "attributes": attributes,
         }
-        state.events.append(event)
-        self.save_span(state)
+
+        def updater(state: SpanState) -> None:
+            state.events.append(event)
+
+        self._atomic_update(
+            task_id,
+            updater,
+            f"Cannot add event to unknown span: {task_id}",
+        )
 
     def update_attribute(self, task_id: str, key: str, value: Any) -> None:
         """
-        Update a span attribute.
+        Update a span attribute atomically.
+
+        Uses file locking to prevent lost updates from concurrent modifications.
 
         Args:
             task_id: Task identifier
             key: Attribute key
             value: Attribute value
         """
-        state = self.load_span(task_id)
-        if not state:
-            logger.warning(f"Cannot update attribute on unknown span: {task_id}")
-            return
+        def updater(state: SpanState) -> None:
+            state.attributes[key] = value
 
-        state.attributes[key] = value
-        self.save_span(state)
+        self._atomic_update(
+            task_id,
+            updater,
+            f"Cannot update attribute on unknown span: {task_id}",
+        )
 
     def update_status(self, task_id: str, status: str, description: Optional[str] = None) -> None:
         """
-        Update span status.
+        Update span status atomically.
+
+        Uses file locking to prevent lost updates from concurrent modifications.
 
         Args:
             task_id: Task identifier
             status: New status ("OK", "ERROR", "UNSET")
             description: Status description
         """
-        state = self.load_span(task_id)
-        if not state:
-            return
+        def updater(state: SpanState) -> None:
+            state.status = status
+            state.status_description = description
 
-        state.status = status
-        state.status_description = description
-        self.save_span(state)
+        self._atomic_update(
+            task_id,
+            updater,
+            f"Cannot update status on unknown span: {task_id}",
+        )
 
 
 def format_trace_id(trace_id: int) -> str:

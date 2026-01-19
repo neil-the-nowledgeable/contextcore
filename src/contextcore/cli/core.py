@@ -2,8 +2,10 @@
 
 import json
 import os
+import shutil
+import subprocess
 import sys
-from typing import Optional
+from typing import Optional, Tuple
 
 import click
 import yaml
@@ -11,22 +13,105 @@ import yaml
 from ._generators import generate_service_monitor, generate_prometheus_rule, generate_dashboard
 
 
+class SubprocessError(click.ClickException):
+    """Rich error for subprocess failures with context."""
+
+    def __init__(self, cmd: list, returncode: int, stdout: str, stderr: str, context: str = ""):
+        self.cmd = cmd
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+        self.context = context
+        super().__init__(self._format_message())
+
+    def _format_message(self) -> str:
+        parts = []
+        if self.context:
+            parts.append(self.context)
+        parts.append(f"Command: {' '.join(self.cmd)}")
+        parts.append(f"Exit code: {self.returncode}")
+        if self.stderr:
+            parts.append(f"Error: {self.stderr.strip()}")
+        if self.stdout and self.returncode != 0:
+            parts.append(f"Output: {self.stdout.strip()}")
+        return "\n".join(parts)
+
+
+def _check_kubectl_available() -> None:
+    """Check if kubectl is available in PATH."""
+    if not shutil.which("kubectl"):
+        raise click.ClickException(
+            "kubectl not found in PATH.\n"
+            "Install kubectl: https://kubernetes.io/docs/tasks/tools/\n"
+            "Or set KUBECONFIG environment variable."
+        )
+
+
+def _run_kubectl(args: list, input_text: str = None, context: str = "") -> Tuple[str, str]:
+    """
+    Run kubectl command with consistent error handling.
+
+    Args:
+        args: kubectl arguments (e.g., ["get", "pods", "-n", "default"])
+        input_text: Optional stdin input
+        context: Description of what the command is doing (for error messages)
+
+    Returns:
+        Tuple of (stdout, stderr)
+
+    Raises:
+        SubprocessError: On non-zero exit code
+        click.ClickException: If kubectl not found
+    """
+    _check_kubectl_available()
+
+    cmd = ["kubectl"] + args
+    try:
+        result = subprocess.run(
+            cmd,
+            input=input_text,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        raise click.ClickException(
+            f"Command timed out after 30 seconds: {' '.join(cmd)}\n"
+            f"Context: {context or 'Running kubectl'}"
+        )
+    except FileNotFoundError:
+        raise click.ClickException(
+            "kubectl not found. Install kubectl or ensure it's in your PATH."
+        )
+
+    if result.returncode != 0:
+        raise SubprocessError(
+            cmd=cmd,
+            returncode=result.returncode,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            context=context,
+        )
+
+    return result.stdout, result.stderr
+
+
 def _get_project_context_spec(project: str, namespace: str = "default") -> Optional[dict]:
     """Fetch ProjectContext spec from Kubernetes cluster."""
-    import subprocess
-
     if "/" in project:
         namespace, name = project.split("/", 1)
     else:
         name = project
 
-    cmd = ["kubectl", "get", "projectcontext", name, "-n", namespace, "-o", "json"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
+    try:
+        stdout, _ = _run_kubectl(
+            ["get", "projectcontext", name, "-n", namespace, "-o", "json"],
+            context=f"Fetching ProjectContext '{name}' from namespace '{namespace}'"
+        )
+        pc = json.loads(stdout)
+        return pc.get("spec", {})
+    except SubprocessError:
         return None
-
-    pc = json.loads(result.stdout)
-    return pc.get("spec", {})
 
 
 @click.command()
@@ -94,13 +179,13 @@ def create(name: str, namespace: str, project: str, epic: Optional[str], task: t
         click.echo(json.dumps(resource, indent=2))
 
     if apply:
-        import subprocess
         yaml_content = yaml.dump(resource)
-        result = subprocess.run(["kubectl", "apply", "-f", "-"], input=yaml_content, capture_output=True, text=True)
-        if result.returncode != 0:
-            click.echo(f"Error applying: {result.stderr}", err=True)
-            sys.exit(1)
-        click.echo(result.stdout)
+        stdout, _ = _run_kubectl(
+            ["apply", "-f", "-"],
+            input_text=yaml_content,
+            context=f"Applying ProjectContext '{name}' to namespace '{namespace}'"
+        )
+        click.echo(stdout)
 
 
 @click.command()
@@ -109,19 +194,17 @@ def create(name: str, namespace: str, project: str, epic: Optional[str], task: t
 @click.option("--namespace", "-n", default="default", help="Namespace")
 def annotate(resource: str, context: str, namespace: str):
     """Annotate a K8s resource with ProjectContext reference."""
-    import subprocess
-
     if "/" not in resource:
-        click.echo("Resource should be in format kind/name", err=True)
-        sys.exit(1)
+        raise click.ClickException(
+            f"Resource should be in format kind/name (e.g., deployment/my-app)\n"
+            f"Got: {resource}"
+        )
 
     annotation = f"contextcore.io/projectcontext={context}"
-    cmd = ["kubectl", "annotate", resource, annotation, "-n", namespace, "--overwrite"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        click.echo(f"Error: {result.stderr}", err=True)
-        sys.exit(1)
-
+    _run_kubectl(
+        ["annotate", resource, annotation, "-n", namespace, "--overwrite"],
+        context=f"Annotating {resource} in namespace '{namespace}' with ProjectContext '{context}'"
+    )
     click.echo(f"Annotated {resource} with {annotation}")
 
 
@@ -134,21 +217,18 @@ def annotate(resource: str, context: str, namespace: str):
 @click.option("--all", "generate_all", is_flag=True, help="Generate all artifacts")
 def generate(context: str, output: str, service_monitor: bool, prometheus_rule: bool, dashboard: bool, generate_all: bool):
     """Generate observability artifacts from ProjectContext."""
-    import subprocess
-
     if "/" in context:
         namespace, name = context.split("/", 1)
     else:
         namespace = "default"
         name = context
 
-    cmd = ["kubectl", "get", "projectcontext", name, "-n", namespace, "-o", "json"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        click.echo(f"Error getting ProjectContext: {result.stderr}", err=True)
-        sys.exit(1)
+    stdout, _ = _run_kubectl(
+        ["get", "projectcontext", name, "-n", namespace, "-o", "json"],
+        context=f"Fetching ProjectContext '{name}' from namespace '{namespace}'"
+    )
 
-    pc = json.loads(result.stdout)
+    pc = json.loads(stdout)
     spec = pc.get("spec", {})
 
     os.makedirs(output, exist_ok=True)
@@ -232,11 +312,17 @@ def runbook(project: str, namespace: str, output: Optional[str], output_format: 
 @click.option("--namespace", default="", help="Namespace to watch (empty for all)")
 def controller(kubeconfig: Optional[str], namespace: str):
     """Run the ContextCore controller locally."""
-    import subprocess
-
     click.echo("Starting ContextCore controller...")
     click.echo(f"  kubeconfig: {kubeconfig or 'in-cluster'}")
     click.echo(f"  namespace: {namespace or 'all'}")
+
+    # Check if kopf is available
+    if not shutil.which("kopf"):
+        raise click.ClickException(
+            "kopf not found in PATH.\n"
+            "Install with: pip install kopf\n"
+            "Or ensure kopf is in your PATH."
+        )
 
     cmd = ["kopf", "run", "-m", "contextcore.operator", "--verbose"]
     if namespace:
@@ -245,10 +331,16 @@ def controller(kubeconfig: Optional[str], namespace: str):
     click.echo(f"  Running: {' '.join(cmd)}")
 
     try:
-        subprocess.run(cmd, check=True)
+        result = subprocess.run(cmd)
+        if result.returncode != 0:
+            raise click.ClickException(
+                f"Controller exited with error.\n"
+                f"Exit code: {result.returncode}\n"
+                f"Command: {' '.join(cmd)}"
+            )
     except FileNotFoundError:
-        click.echo("Error: kopf not found. Install with: pip install kopf", err=True)
-        sys.exit(1)
-    except subprocess.CalledProcessError as e:
-        click.echo(f"Controller exited with error: {e.returncode}", err=True)
-        sys.exit(e.returncode)
+        raise click.ClickException(
+            "kopf executable not found.\n"
+            "Install with: pip install kopf\n"
+            "Or ensure kopf is accessible in your PATH."
+        )
