@@ -1,0 +1,188 @@
+# ContextCore Project Context
+# This file defines project metadata that Claude Code uses for context-aware assistance
+# Updated: 2026-01-21
+
+project:
+  id: "contextcore"
+  name: "ContextCore"
+  epic: "PROJECT-O11Y"
+  description: |
+    Project management observability framework modeling tasks as OpenTelemetry spans.
+    Dual-telemetry architecture: spans to Tempo (hierarchy, timing, TraceQL) and
+    structured logs to Loki (events, status changes, metrics derivation via recording rules).
+
+# Current implementation status
+status:
+  phase: "Phase 4 - OTel GenAI Alignment"
+  recentChanges:
+    - "OTel GenAI semantic convention alignment (dual-emit agent.* + gen_ai.*)"
+    - "HistoricalTaskTracker now emits both spans AND logs for demo data"
+    - "Exporter supports pushing logs to Loki via push API"
+    - "Portfolio dashboard updated with 6 dashboards provisioned"
+    - "Dashboard $project variables fixed to default to 'contextcore'"
+    - "Identified task tracking vs deliverable validation gap"
+  nextSteps:
+    - "Verify demo data appears in both Tempo and Loki"
+    - "Create agent insights dashboard for gen_ai.* attributes"
+    - "Implement Loki recording rules for task_percent_complete metrics"
+    - "Add deliverable validation to task completion criteria"
+
+business:
+  criticality: critical
+  owner: "observability-team"
+  value: "Eliminates manual status reporting by deriving project health from artifact metadata"
+  costCenter: "platform-engineering"
+
+  risks:
+    - risk: "OTLP exporter failure blocks project health reporting"
+      priority: P1
+      mitigation: "Implement fallback to file-based persistence with async retry"
+      scope:
+        - "src/contextcore/tracker.py"
+        - "src/contextcore/state.py"
+
+    - risk: "Kubernetes controller restart loses in-flight span state"
+      priority: P1
+      mitigation: "Persist span state to ConfigMap before OTLP export"
+      scope:
+        - "src/contextcore/state.py"
+        - "src/contextcore/detector.py"
+
+    - risk: "Agent insight queries exceed latency budget"
+      priority: P2
+      mitigation: "Add caching layer with 5-minute TTL for insight queries"
+      scope:
+        - "src/contextcore/agent/insights.py"
+
+    - risk: "VSCode extension activation delays editor startup"
+      priority: P2
+      mitigation: "Lazy-load Kubernetes provider, defer context loading"
+      scope:
+        - "extensions/vscode/**"
+
+    - risk: "Dashboard provisioning fails silently on Grafana API errors"
+      priority: P3
+      mitigation: "Add retry logic and user-visible error notifications"
+      scope:
+        - "src/contextcore/dashboards/provisioner.py"
+
+    - risk: "Portfolio dashboard shows no data without both Loki AND Tempo data"
+      priority: P2
+      mitigation: "Demo generator now emits dual telemetry (spans + logs)"
+      scope:
+        - "src/contextcore/demo/generator.py"
+        - "src/contextcore/demo/exporter.py"
+
+    - risk: "Metrics derivation requires Loki recording rules not yet deployed"
+      priority: P2
+      mitigation: "Document recording rules in semantic-conventions.md, add provisioning"
+      scope:
+        - "docs/semantic-conventions.md"
+        - "loki/rules/"
+
+    - risk: "Task 'done' status tracks execution, not deliverable completion"
+      priority: P2
+      mitigation: |
+        Task tracking captures workflow execution status (ran successfully) but not
+        whether expected deliverables were produced. Add deliverable validation:
+        1. Post-completion hooks that verify expected outputs exist
+        2. Span events with deliverable checksums or existence checks
+        3. Dashboard panels showing tasks vs verified deliverables
+      scope:
+        - "src/contextcore/tracker.py"
+        - "docs/semantic-conventions.md"
+      lesson: |
+        Discovered via phase tasks that marked 11 tasks as 'done' in Tempo but
+        expected document sections were not created. Execution ≠ completion.
+
+requirements:
+  availability: "99.9%"
+  latencyP99: "500ms"
+  latencyP50: "100ms"
+  dataRetention: "30 days"
+  throughput: "1000 spans/second"
+  errorBudget: "0.1%"
+
+design:
+  adr: "docs/adr/001-tasks-as-spans.md"
+  doc: "docs/CLAUDE-full.md"
+  apiContract: "docs/semantic-conventions.md"
+  agentProtocol: "docs/agent-communication-protocol.md"
+  otelGenaiMigration: "docs/OTEL_GENAI_MIGRATION_GUIDE.md"
+  otelGenaiGapAnalysis: "docs/OTEL_GENAI_GAP_ANALYSIS.md"
+
+# Dashboards (6 total, provisioned to Grafana)
+dashboards:
+  provisioned:
+    - id: "contextcore-portfolio"
+      name: "Project Portfolio Overview"
+      file: "grafana/provisioning/dashboards/json/portfolio.json"
+      datasources: ["Loki", "mimir"]
+    - id: "contextcore-installation"
+      name: "Installation Verification"
+      file: "grafana/provisioning/dashboards/json/installation.json"
+      datasources: ["Prometheus/mimir"]
+    - id: "contextcore-value"
+      name: "Value Capabilities Explorer"
+      file: "grafana/provisioning/dashboards/json/value-capabilities.json"
+      datasources: ["Tempo"]
+    - id: "contextcore-progress"
+      name: "Project Progress"
+      file: "grafana/provisioning/dashboards/json/project-progress.json"
+      datasources: ["Tempo"]
+    - id: "contextcore-sprint"
+      name: "Sprint Metrics"
+      file: "grafana/provisioning/dashboards/json/sprint-metrics.json"
+      datasources: ["Tempo"]
+    - id: "contextcore-ops"
+      name: "Project Operations"
+      file: "grafana/provisioning/dashboards/json/project-operations.json"
+      datasources: ["Tempo"]
+  needed:
+    - "Agent Insights Dashboard (gen_ai.* attributes)"
+    - "Agent Handoffs Dashboard (handoff.* + gen_ai.tool.*)"
+
+targets:
+  - kind: Deployment
+    name: contextcore-controller
+    namespace: contextcore-system
+  - kind: Service
+    name: contextcore-api
+    namespace: contextcore-system
+
+designDecisions:
+  - decision: "Model tasks as OpenTelemetry spans for unified observability"
+    confidence: 0.95
+    rationale: "Spans have same structure as tasks (start, end, status, hierarchy)"
+
+  - decision: "Export via OTLP for vendor independence"
+    confidence: 0.92
+    rationale: "Avoid lock-in, works with any OTLP-compatible backend"
+
+  - decision: "Use Pydantic v2 for CRD schema validation"
+    confidence: 0.88
+    rationale: "Strict validation, good error messages, Python-native"
+
+  - decision: "Store agent insights as spans in Tempo"
+    confidence: 0.85
+    rationale: "Reuse existing infrastructure, enables time-range queries"
+
+  - decision: "Dual-emit spans (Tempo) AND logs (Loki) for complete observability"
+    confidence: 0.90
+    rationale: |
+      Portfolio dashboard requires both: Tempo for task hierarchy/timing queries,
+      Loki for event streams and metrics derivation via recording rules.
+      Mimir metrics are derived from Loki logs, not directly emitted.
+
+  - decision: "Align with OTel GenAI semantic conventions via dual-emit"
+    confidence: 0.88
+    rationale: |
+      Emit both agent.* (legacy) and gen_ai.* (OTel standard) attributes during
+      migration period. Controlled by CONTEXTCORE_OTEL_MODE env var.
+      See docs/OTEL_GENAI_MIGRATION_GUIDE.md for migration path.
+
+  - decision: "Demo generator emits both spans and logs"
+    confidence: 0.92
+    rationale: |
+      HistoricalTaskTracker now uses HistoricalTaskLogger to emit logs with
+      historical timestamps alongside spans. Enables full dashboard testing.

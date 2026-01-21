@@ -1,15 +1,21 @@
 """
-Span export utilities for demo data.
+Telemetry export utilities for demo data.
 
-Supports exporting collected spans to:
+Supports exporting collected spans and logs to:
 - JSON files for later loading
-- OTLP endpoint (Tempo) for direct ingestion
+- OTLP endpoint (Tempo) for span ingestion
+- Loki endpoint for log ingestion
+
+The dual export (spans + logs) supports the ContextCore architecture where:
+- Tempo stores task spans for TraceQL queries
+- Loki stores structured logs for LogQL queries and metrics derivation
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import requests
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -118,6 +124,147 @@ def load_spans_from_file(filepath: str) -> List[Dict[str, Any]]:
 
     logger.info(f"Loaded {data['span_count']} spans from {filepath}")
     return data["spans"]
+
+
+def save_logs_to_file(logs: List[Dict[str, Any]], filepath: str) -> None:
+    """
+    Save logs to a JSON file.
+
+    Args:
+        logs: List of log entry dictionaries
+        filepath: Output file path
+    """
+    data = {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "log_count": len(logs),
+        "logs": logs,
+    }
+
+    with open(filepath, "w") as f:
+        json.dump(data, f, indent=2, default=str)
+
+    logger.info(f"Saved {len(logs)} logs to {filepath}")
+
+
+def load_logs_from_file(filepath: str) -> List[Dict[str, Any]]:
+    """
+    Load logs from a JSON file.
+
+    Args:
+        filepath: Input file path
+
+    Returns:
+        List of log dictionaries
+    """
+    with open(filepath) as f:
+        data = json.load(f)
+
+    logger.info(f"Loaded {data['log_count']} logs from {filepath}")
+    return data["logs"]
+
+
+def load_to_loki(
+    endpoint: str,
+    logs_file: Optional[str] = None,
+    logs: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """
+    Load logs to Loki via push API.
+
+    Args:
+        endpoint: Loki push endpoint (e.g., http://localhost:3100/loki/api/v1/push)
+        logs_file: Path to JSON file with logs (alternative to logs param)
+        logs: List of log dictionaries (alternative to logs_file param)
+
+    Returns:
+        Statistics about the export
+    """
+    if logs_file:
+        log_entries = load_logs_from_file(logs_file)
+    elif logs:
+        log_entries = logs
+    else:
+        raise ValueError("Either logs_file or logs must be provided")
+
+    # Group logs by service label for efficient Loki push
+    streams: Dict[str, List[List]] = {}
+
+    for log_entry in log_entries:
+        # Build label set
+        service = log_entry.get("service", "contextcore")
+        project_id = log_entry.get("project_id", "unknown")
+
+        label_key = f'{{service="{service}", project_id="{project_id}"}}'
+
+        if label_key not in streams:
+            streams[label_key] = []
+
+        # Convert timestamp to nanoseconds
+        ts = log_entry.get("timestamp", datetime.utcnow().isoformat())
+        if isinstance(ts, str):
+            dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            ts_ns = str(int(dt.timestamp() * 1e9))
+        else:
+            ts_ns = str(int(ts * 1e9))
+
+        # Log line is the full JSON entry
+        log_line = json.dumps(log_entry, default=str)
+
+        streams[label_key].append([ts_ns, log_line])
+
+    # Build Loki push payload
+    payload = {
+        "streams": [
+            {
+                "stream": json.loads(label_key.replace("{", '{"').replace("=", '":"').replace(", ", '","').replace("}", '"}')),
+                "values": values
+            }
+            for label_key, values in streams.items()
+        ]
+    }
+
+    # Actually, Loki expects a specific format. Let me fix this:
+    loki_streams = []
+    for label_key, values in streams.items():
+        # Parse labels from the key
+        labels = {}
+        label_key_clean = label_key.strip("{}")
+        for part in label_key_clean.split(", "):
+            k, v = part.split("=")
+            labels[k] = v.strip('"')
+
+        loki_streams.append({
+            "stream": labels,
+            "values": values
+        })
+
+    payload = {"streams": loki_streams}
+
+    # Push to Loki
+    try:
+        response = requests.post(
+            endpoint,
+            json=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        response.raise_for_status()
+
+        logger.info(f"Pushed {len(log_entries)} logs to Loki at {endpoint}")
+        return {
+            "endpoint": endpoint,
+            "logs_pushed": len(log_entries),
+            "streams": len(loki_streams),
+            "success": True,
+        }
+
+    except requests.RequestException as e:
+        logger.error(f"Failed to push logs to Loki: {e}")
+        return {
+            "endpoint": endpoint,
+            "logs_pushed": 0,
+            "success": False,
+            "error": str(e),
+        }
 
 
 def load_to_tempo(

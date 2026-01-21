@@ -18,12 +18,14 @@ Semantic conventions for agent-to-agent, agent-to-human, and human-to-agent comm
 
 ### Attribute Reference
 
-| Namespace | Purpose | Token Cost |
-|-----------|---------|------------|
-| `agent.*` | Agent identity and session | ~50 |
-| `insight.*` | Agent-generated knowledge | ~100 |
-| `guidance.*` | Human-to-agent direction | ~75 |
-| `handoff.*` | Agent-to-agent delegation | ~80 |
+| Namespace | Purpose | OTel GenAI Equivalent | Token Cost |
+|-----------|---------|-----------------------|------------|
+| `agent.*` | Agent identity and session | `gen_ai.agent.*` | ~50 |
+| `insight.*` | Agent-generated knowledge | (Custom Extension) | ~100 |
+| `guidance.*` | Human-to-agent direction | (Custom Extension) | ~75 |
+| `handoff.*` | Agent-to-agent delegation | `gen_ai.tool.*` | ~80 |
+
+> **Note**: ContextCore v2.0+ emits `gen_ai.*` attributes alongside legacy attributes. See [Migration Guide](OTEL_GENAI_MIGRATION_GUIDE.md).
 
 ---
 

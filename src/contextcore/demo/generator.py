@@ -3,10 +3,14 @@ Historical Task Tracker and Demo Data Generator.
 
 Extends TaskTracker with time manipulation support to create backdated spans
 for demonstrating project-to-operations correlation.
+
+Emits BOTH spans (for Tempo) AND logs (for Loki) to support the full
+ContextCore dual-telemetry architecture.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import random
@@ -24,18 +28,202 @@ from contextcore.tracker import TaskTracker, TaskType, TaskStatus
 logger = logging.getLogger(__name__)
 
 
+class HistoricalTaskLogger:
+    """
+    Logger that collects structured log entries with historical timestamps.
+
+    Unlike TaskLogger which emits logs immediately, this class collects
+    log entries for batch export alongside spans.
+    """
+
+    def __init__(self, project: str, service_name: str = "contextcore"):
+        """
+        Initialize historical logger.
+
+        Args:
+            project: Project identifier
+            service_name: Service name for log attribution
+        """
+        self.project = project
+        self.service_name = service_name
+        self._logs: List[Dict[str, Any]] = []
+
+    def _emit(
+        self,
+        event: str,
+        task_id: str,
+        timestamp: datetime,
+        level: str = "info",
+        task_type: Optional[str] = None,
+        task_title: Optional[str] = None,
+        sprint_id: Optional[str] = None,
+        **extra_fields: Any,
+    ) -> None:
+        """Collect a structured log entry with historical timestamp."""
+        entry = {
+            "timestamp": timestamp.isoformat(),
+            "level": level,
+            "event": event,
+            "service": self.service_name,
+            "project_id": self.project,
+            "task_id": task_id,
+            "trigger": "demo",
+        }
+
+        if task_type:
+            entry["task_type"] = task_type
+        if task_title:
+            entry["task_title"] = task_title
+        if sprint_id:
+            entry["sprint_id"] = sprint_id
+
+        entry.update(extra_fields)
+        self._logs.append(entry)
+
+    def log_task_created(
+        self,
+        task_id: str,
+        title: str,
+        timestamp: datetime,
+        task_type: str = "task",
+        priority: Optional[str] = None,
+        assignee: Optional[str] = None,
+        story_points: Optional[int] = None,
+        sprint_id: Optional[str] = None,
+        parent_id: Optional[str] = None,
+    ) -> None:
+        """Log task creation event."""
+        self._emit(
+            event="task.created",
+            task_id=task_id,
+            timestamp=timestamp,
+            task_type=task_type,
+            task_title=title,
+            sprint_id=sprint_id,
+            priority=priority,
+            assignee=assignee,
+            story_points=story_points,
+            parent_id=parent_id,
+        )
+
+    def log_status_changed(
+        self,
+        task_id: str,
+        from_status: str,
+        to_status: str,
+        timestamp: datetime,
+        task_type: Optional[str] = None,
+        sprint_id: Optional[str] = None,
+    ) -> None:
+        """Log status transition event."""
+        self._emit(
+            event="task.status_changed",
+            task_id=task_id,
+            timestamp=timestamp,
+            task_type=task_type,
+            sprint_id=sprint_id,
+            from_status=from_status,
+            to_status=to_status,
+        )
+
+    def log_blocked(
+        self,
+        task_id: str,
+        reason: str,
+        timestamp: datetime,
+        blocked_by: Optional[str] = None,
+        task_type: Optional[str] = None,
+        sprint_id: Optional[str] = None,
+    ) -> None:
+        """Log task blocked event."""
+        self._emit(
+            event="task.blocked",
+            task_id=task_id,
+            timestamp=timestamp,
+            task_type=task_type,
+            sprint_id=sprint_id,
+            level="warn",
+            reason=reason,
+            blocked_by=blocked_by,
+        )
+
+    def log_unblocked(
+        self,
+        task_id: str,
+        timestamp: datetime,
+        task_type: Optional[str] = None,
+        sprint_id: Optional[str] = None,
+    ) -> None:
+        """Log task unblocked event."""
+        self._emit(
+            event="task.unblocked",
+            task_id=task_id,
+            timestamp=timestamp,
+            task_type=task_type,
+            sprint_id=sprint_id,
+        )
+
+    def log_completed(
+        self,
+        task_id: str,
+        timestamp: datetime,
+        task_type: Optional[str] = None,
+        story_points: Optional[int] = None,
+        sprint_id: Optional[str] = None,
+    ) -> None:
+        """Log task completion event."""
+        self._emit(
+            event="task.completed",
+            task_id=task_id,
+            timestamp=timestamp,
+            task_type=task_type,
+            sprint_id=sprint_id,
+            story_points=story_points,
+        )
+
+    def log_progress_updated(
+        self,
+        task_id: str,
+        percent_complete: float,
+        timestamp: datetime,
+        task_type: Optional[str] = None,
+        sprint_id: Optional[str] = None,
+        source: str = "manual",
+    ) -> None:
+        """Log task progress update event."""
+        self._emit(
+            event="task.progress_updated",
+            task_id=task_id,
+            timestamp=timestamp,
+            task_type=task_type,
+            sprint_id=sprint_id,
+            percent_complete=percent_complete,
+            source=source,
+        )
+
+    def get_logs(self) -> List[Dict[str, Any]]:
+        """Get all collected log entries."""
+        return self._logs.copy()
+
+    def clear(self) -> None:
+        """Clear collected logs."""
+        self._logs.clear()
+
+
 class HistoricalTaskTracker(TaskTracker):
     """
     TaskTracker with support for historical (backdated) spans.
 
     Extends the base TaskTracker to allow creating spans with arbitrary
     start and end times, enabling generation of realistic demo data.
+
+    Emits BOTH spans (Tempo) AND logs (Loki) for full observability.
     """
 
     def __init__(
         self,
         project: str,
-        service_name: str = "contextcore-demo",
+        service_name: str = "contextcore",
         exporter: Optional[SpanExporter] = None,
     ):
         """
@@ -49,10 +237,16 @@ class HistoricalTaskTracker(TaskTracker):
         self.project = project
         self._spans: List[Dict[str, Any]] = []  # Store spans for batch export
 
+        # Initialize historical logger for Loki
+        self._task_logger = HistoricalTaskLogger(project=project, service_name=service_name)
+
+        # Track task metadata for logging
+        self._task_metadata: Dict[str, Dict[str, Any]] = {}
+
         # Initialize OTel with custom exporter
         resource = Resource.create({
             "service.name": service_name,
-            "service.namespace": "contextcore-demo",
+            "service.namespace": "contextcore",
             "project.id": project,
         })
 
@@ -172,6 +366,28 @@ class HistoricalTaskTracker(TaskTracker):
         self._active_spans[task_id] = span
         self._span_contexts[task_id] = span.get_span_context()
 
+        # Store metadata for later logging
+        self._task_metadata[task_id] = {
+            "task_type": task_type,
+            "title": title,
+            "sprint_id": sprint_id,
+            "story_points": story_points,
+            "status": status,
+        }
+
+        # Log to Loki
+        self._task_logger.log_task_created(
+            task_id=task_id,
+            title=title,
+            timestamp=start_time,
+            task_type=task_type,
+            priority=priority,
+            assignee=assignee,
+            story_points=story_points,
+            sprint_id=sprint_id,
+            parent_id=parent_id,
+        )
+
         logger.debug(f"Started historical task: {task_id} at {start_time}")
         return span.get_span_context()
 
@@ -218,10 +434,9 @@ class HistoricalTaskTracker(TaskTracker):
             logger.warning(f"Task {task_id} not found")
             return
 
-        # Get current status
-        old_status = "unknown"
-        if hasattr(span, '_attributes') and "task.status" in span._attributes:
-            old_status = span._attributes["task.status"]
+        # Get current status from metadata
+        metadata = self._task_metadata.get(task_id, {})
+        old_status = metadata.get("status", "unknown")
 
         # Add status change event
         self.add_event_at(
@@ -232,6 +447,20 @@ class HistoricalTaskTracker(TaskTracker):
         )
 
         span.set_attribute("task.status", new_status)
+
+        # Update metadata
+        if task_id in self._task_metadata:
+            self._task_metadata[task_id]["status"] = new_status
+
+        # Log to Loki
+        self._task_logger.log_status_changed(
+            task_id=task_id,
+            from_status=old_status,
+            to_status=new_status,
+            timestamp=timestamp,
+            task_type=metadata.get("task_type"),
+            sprint_id=metadata.get("sprint_id"),
+        )
 
         # Set span status for blocked
         if new_status == TaskStatus.BLOCKED.value:
@@ -268,6 +497,21 @@ class HistoricalTaskTracker(TaskTracker):
         span.set_attribute("task.status", TaskStatus.BLOCKED.value)
         span.set_status(Status(StatusCode.ERROR, f"Blocked: {reason}"))
 
+        # Update metadata
+        if task_id in self._task_metadata:
+            self._task_metadata[task_id]["status"] = TaskStatus.BLOCKED.value
+
+        # Log to Loki
+        metadata = self._task_metadata.get(task_id, {})
+        self._task_logger.log_blocked(
+            task_id=task_id,
+            reason=reason,
+            timestamp=timestamp,
+            blocked_by=blocked_by,
+            task_type=metadata.get("task_type"),
+            sprint_id=metadata.get("sprint_id"),
+        )
+
     def unblock_task_at(
         self,
         task_id: str,
@@ -287,6 +531,16 @@ class HistoricalTaskTracker(TaskTracker):
             return
 
         self.add_event_at(task_id, "task.unblocked", timestamp)
+
+        # Log unblock to Loki (before status change to capture the unblock event)
+        metadata = self._task_metadata.get(task_id, {})
+        self._task_logger.log_unblocked(
+            task_id=task_id,
+            timestamp=timestamp,
+            task_type=metadata.get("task_type"),
+            sprint_id=metadata.get("sprint_id"),
+        )
+
         self.update_status_at(task_id, new_status, timestamp)
         span.set_status(Status(StatusCode.OK))
 
@@ -310,7 +564,28 @@ class HistoricalTaskTracker(TaskTracker):
         span.set_status(Status(StatusCode.OK))
         span.end(end_time=end_time_ns)
 
+        # Log to Loki
+        metadata = self._task_metadata.get(task_id, {})
+        self._task_logger.log_completed(
+            task_id=task_id,
+            timestamp=end_time,
+            task_type=metadata.get("task_type"),
+            story_points=metadata.get("story_points"),
+            sprint_id=metadata.get("sprint_id"),
+        )
+
+        # Also log progress update for metrics derivation
+        self._task_logger.log_progress_updated(
+            task_id=task_id,
+            percent_complete=100.0,
+            timestamp=end_time,
+            task_type=metadata.get("task_type"),
+            sprint_id=metadata.get("sprint_id"),
+            source="completion",
+        )
+
         del self._active_spans[task_id]
+        self._task_metadata.pop(task_id, None)
         logger.debug(f"Completed task: {task_id} at {end_time}")
 
     def get_collected_spans(self) -> List[ReadableSpan]:
@@ -318,6 +593,10 @@ class HistoricalTaskTracker(TaskTracker):
         if hasattr(self, '_collector'):
             return self._collector.get_spans()
         return []
+
+    def get_collected_logs(self) -> List[Dict[str, Any]]:
+        """Get all logs collected by the internal logger."""
+        return self._task_logger.get_logs()
 
     def flush(self) -> None:
         """Force flush all spans."""
@@ -361,6 +640,9 @@ def generate_demo_data(
     """
     Generate demo project data for the microservices-demo application.
 
+    Generates BOTH spans (for Tempo) AND logs (for Loki) to support
+    the full ContextCore dual-telemetry architecture.
+
     Args:
         project: Project identifier
         output_dir: Directory to save generated data
@@ -386,17 +668,30 @@ def generate_demo_data(
     # Flush and collect spans
     tracker.flush()
     spans = tracker.get_collected_spans()
+    logs = tracker.get_collected_logs()
 
     stats["total_spans"] = len(spans)
+    stats["total_logs"] = len(logs)
 
     # Save to output directory if specified
     if output_dir:
-        from contextcore.demo.exporter import save_spans_to_file
+        from contextcore.demo.exporter import save_spans_to_file, save_logs_to_file
         os.makedirs(output_dir, exist_ok=True)
-        save_spans_to_file(spans, os.path.join(output_dir, "demo_spans.json"))
-        stats["output_file"] = os.path.join(output_dir, "demo_spans.json")
+
+        # Save spans
+        spans_file = os.path.join(output_dir, "demo_spans.json")
+        save_spans_to_file(spans, spans_file)
+        stats["spans_file"] = spans_file
+
+        # Save logs
+        logs_file = os.path.join(output_dir, "demo_logs.json")
+        save_logs_to_file(logs, logs_file)
+        stats["logs_file"] = logs_file
+
+        # Keep backward compatibility
+        stats["output_file"] = spans_file
 
     tracker.shutdown()
 
-    logger.info(f"Generated {stats['total_spans']} spans for {project}")
+    logger.info(f"Generated {stats['total_spans']} spans and {stats['total_logs']} logs for {project}")
     return stats

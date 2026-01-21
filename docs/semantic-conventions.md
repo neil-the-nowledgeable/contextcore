@@ -67,6 +67,26 @@ label_values(task_count_by_status{project="myproject"}, task_status)
 
 ---
 
+## OTel GenAI Alignment
+
+ContextCore aligns with the [OpenTelemetry GenAI Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) to ensure interoperability.
+
+### Dual-Emit Compatibility
+ContextCore currently emits both legacy attributes (`agent.*`) and new OTel attributes (`gen_ai.*`) to support migration. See the [Migration Guide](OTEL_GENAI_MIGRATION_GUIDE.md) for details.
+
+### Attribute Mapping
+
+| ContextCore | OTel GenAI | Description |
+|-------------|------------|-------------|
+| `agent.id` | `gen_ai.agent.id` | Agent identifier |
+| `agent.session_id` | `gen_ai.conversation.id` | Session/Thread ID |
+| `handoff.capability_id` | `gen_ai.tool.name` | Tool/Capability name |
+| - | `gen_ai.system` | Provider (e.g. `openai`) |
+| - | `gen_ai.request.model` | Model (e.g. `gpt-4o`) |
+| - | `gen_ai.operation.name` | Operation type (e.g. `task`, `insight.emit`) |
+
+---
+
 ## Where Attributes Appear
 
 ContextCore attributes appear on:
