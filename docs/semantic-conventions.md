@@ -72,7 +72,39 @@ label_values(task_count_by_status{project="myproject"}, task_status)
 ContextCore aligns with the [OpenTelemetry GenAI Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) to ensure interoperability.
 
 ### Dual-Emit Compatibility
-ContextCore currently emits both legacy attributes (`agent.*`) and new OTel attributes (`gen_ai.*`) to support migration. See the [Migration Guide](OTEL_GENAI_MIGRATION_GUIDE.md) for details.
+
+ContextCore currently emits both legacy attributes (`agent.*`) and new OTel attributes (`gen_ai.*`) to support migration. Control this behavior with the `CONTEXTCORE_OTEL_MODE` environment variable:
+
+| Mode | Value | Behavior |
+|------|-------|----------|
+| **Dual** | `dual` | Emits both legacy and OTel attributes (default) |
+| **Legacy** | `legacy` | Emits only `agent.*` attributes |
+| **OTel** | `otel` | Emits only `gen_ai.*` attributes (target state) |
+
+```bash
+# Example: Enable OTel-only mode for testing
+export CONTEXTCORE_OTEL_MODE=otel
+```
+
+See the [Migration Guide](OTEL_GENAI_MIGRATION_GUIDE.md) for details.
+
+### Compat Module
+
+The `contextcore.compat.otel_genai` module provides the dual-emit layer:
+
+```python
+from contextcore.compat.otel_genai import AttributeMapper, get_emit_mode, OtelEmitMode
+
+# Check current mode
+mode = get_emit_mode()  # Returns OtelEmitMode.DUAL by default
+
+# Use mapper to transform attributes
+mapper = AttributeMapper()
+attrs = {"agent.id": "claude-code", "agent.session_id": "sess-123"}
+mapped = mapper.map_attributes(attrs)
+# In DUAL mode: {"agent.id": "claude-code", "agent.session_id": "sess-123",
+#                "gen_ai.agent.id": "claude-code", "gen_ai.conversation.id": "sess-123"}
+```
 
 ### Attribute Mapping
 
@@ -894,14 +926,16 @@ Installation verification attributes use the `contextcore.install.*` namespace.
 
 ### Installation Metrics
 
-| Metric | Type | Description | Labels |
-|--------|------|-------------|--------|
-| `contextcore.install.completeness` | Gauge | Overall completeness % | `installation_id` |
-| `contextcore.install.requirement.status` | Gauge | Per-requirement status (1=passed, 0=failed) | `requirement_id`, `requirement_name`, `category`, `critical` |
-| `contextcore.install.category.completeness` | Gauge | Category completeness % | `installation_id`, `category` |
-| `contextcore.install.critical.met` | Gauge | Critical requirements passed | `installation_id` |
-| `contextcore.install.critical.total` | Gauge | Total critical requirements | `installation_id` |
-| `contextcore.install.verification.duration` | Histogram | Verification duration (ms) | `installation_id` |
+**OTel to Prometheus name mapping**: The Alloy/Prometheus exporter adds unit suffixes.
+
+| OTel Metric | Prometheus Metric | Type | Description | Labels |
+|-------------|-------------------|------|-------------|--------|
+| `contextcore.install.completeness` | `contextcore_install_completeness_percent` | Gauge | Overall completeness % | `installation_id` |
+| `contextcore.install.requirement.status` | `contextcore_install_requirement_status_ratio` | Gauge | Per-requirement status (1=passed, 0=failed) | `requirement_id`, `requirement_name`, `category`, `critical` |
+| `contextcore.install.category.completeness` | `contextcore_install_category_completeness_percent` | Gauge | Category completeness % | `installation_id`, `category` |
+| `contextcore.install.critical.met` | `contextcore_install_critical_met_ratio` | Gauge | Critical requirements passed | `installation_id` |
+| `contextcore.install.critical.total` | `contextcore_install_critical_total_ratio` | Gauge | Total critical requirements | `installation_id` |
+| `contextcore.install.verification.duration` | `contextcore_install_verification_duration_milliseconds` | Histogram | Verification duration (ms) | `installation_id` |
 
 ### Installation Spans
 
@@ -1008,21 +1042,26 @@ ContextCore tracks these requirements organized by category:
 
 ### PromQL Queries for Installation
 
+**Note**: OTel to Prometheus conversion adds unit suffixes:
+- `%` -> `_percent`
+- `1` (unitless) -> `_ratio`
+- `ms` -> `_milliseconds`
+
 ```promql
-# Overall installation completeness
-contextcore_install_completeness{installation_id="contextcore"}
+# Overall installation completeness (note: _percent suffix)
+contextcore_install_completeness_percent{installation_id="contextcore"}
 
-# Failed requirements count
-count(contextcore_install_requirement_status == 0)
+# Failed requirements count (note: _ratio suffix)
+count(contextcore_install_requirement_status_ratio == 0)
 
-# Critical requirements status
-contextcore_install_critical_met / contextcore_install_critical_total * 100
+# Critical requirements status (note: _ratio suffix)
+contextcore_install_critical_met_ratio / contextcore_install_critical_total_ratio * 100
 
-# Category completeness
-contextcore_install_category_completeness{category="infrastructure"}
+# Category completeness (note: _percent suffix)
+contextcore_install_category_completeness_percent{category="infrastructure"}
 
-# Verification duration trend
-histogram_quantile(0.95, rate(contextcore_install_verification_duration_bucket[1h]))
+# Verification duration trend (note: _milliseconds suffix)
+histogram_quantile(0.95, rate(contextcore_install_verification_duration_milliseconds_bucket[1h]))
 ```
 
 ### CLI Usage

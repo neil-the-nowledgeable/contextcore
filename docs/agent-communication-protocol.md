@@ -2,6 +2,8 @@
 
 Standard protocols for agent-to-agent, agent-to-human, and human-to-agent communication in ContextCore.
 
+> **OTel GenAI Alignment (v2.0+)**: ContextCore is migrating to [OTel GenAI Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/). By default, the SDK emits **both** legacy `agent.*` attributes and new `gen_ai.*` attributes. Control this with `CONTEXTCORE_OTEL_MODE` environment variable (`dual`|`legacy`|`otel`). See [Migration Guide](OTEL_GENAI_MIGRATION_GUIDE.md).
+
 ---
 
 ## Agent-to-Agent Communication (Machine-Readable)
@@ -46,8 +48,16 @@ insight_span:
 
     # Context linking
     project.id: string             # Project this insight belongs to
-    agent.id: string               # Agent that generated insight
-    agent.session_id: string       # Session context
+
+    # Agent identity (dual-emit in v2.0+)
+    agent.id: string               # Legacy: Agent that generated insight
+    gen_ai.agent.id: string        # OTel GenAI: Same value as agent.id
+    agent.session_id: string       # Legacy: Session context
+    gen_ai.conversation.id: string # OTel GenAI: Same value as agent.session_id
+
+    # OTel GenAI operation context (v2.0+)
+    gen_ai.system: string          # e.g., "anthropic", "openai"
+    gen_ai.operation.name: string  # e.g., "insight.emit"
 
     # Optional
     insight.rationale: string      # Why this insight
@@ -66,6 +76,8 @@ insight_span:
       attributes:
         link.relationship: "evidence"
 ```
+
+> **Attribute Mapping**: In dual-emit mode (default), both `agent.id` and `gen_ai.agent.id` are set to the same value. This allows gradual migration of queries from legacy to OTel conventions.
 
 ### Example: Decision Insight
 
@@ -100,6 +112,7 @@ Agents query insights from other agents via TraceQL.
 
 ### Query Patterns
 
+**Legacy attributes** (pre-v2.0):
 ```
 # Recent decisions for this project
 { insight.type = "decision" && project.id = "checkout" } | select(insight.summary, insight.confidence)
@@ -116,6 +129,20 @@ Agents query insights from other agents via TraceQL.
 # Recent insights (last 2 hours)
 { insight.type =~ "decision|recommendation" } | select(insight.summary) | rate() > 0
 ```
+
+**OTel GenAI attributes** (v2.0+, recommended for new queries):
+```
+# Insights from specific agent (OTel GenAI)
+{ span.gen_ai.agent.id = "o11y-specialist" && span.project.id = "checkout" }
+
+# Filter by conversation/session (OTel GenAI)
+{ span.gen_ai.conversation.id = "session-abc123" && span.insight.type = "decision" }
+
+# Filter by AI system provider
+{ span.gen_ai.system = "anthropic" && span.insight.type = "recommendation" }
+```
+
+> **Migration Note**: Both query patterns work in dual-emit mode. Transition to `gen_ai.*` attributes before `CONTEXTCORE_OTEL_MODE=otel` becomes default in v3.0.
 
 ### Python SDK Query
 
@@ -150,7 +177,7 @@ Structured task delegation between agents.
 ```yaml
 handoff_message:
   # Identity
-  id: string                      # Unique handoff ID
+  id: string                      # Unique handoff ID (maps to gen_ai.tool.call.id)
   from_agent: string              # Delegating agent
   to_agent: string                # Receiving agent (or capability ID)
 
@@ -174,6 +201,15 @@ handoff_message:
   created_at: timestamp
   result_trace_id: string         # Trace ID containing result
 ```
+
+**OTel GenAI Mapping (v2.0+)**:
+
+| Handoff Field | Legacy Attribute | OTel GenAI Attribute |
+|---------------|------------------|---------------------|
+| `id` | `handoff.id` | `gen_ai.tool.call.id` |
+| `capability_id` | `handoff.capability_id` | `gen_ai.tool.name` |
+| `inputs` | `handoff.inputs` | `gen_ai.tool.call.arguments` (JSON) |
+| - | - | `gen_ai.tool.type` = `"agent_handoff"` |
 
 ### Handoff Flow
 
@@ -468,10 +504,12 @@ agent_view = querier.get_insights(
 ### Design Principles
 
 1. **OTel-Native**: All agent communication uses OpenTelemetry primitives (spans, events, attributes)
-2. **Query-First**: Data stored for query access, not document parsing
-3. **Typed Schemas**: No natural language parsing for structured operations
-4. **Audience-Aware**: Every piece of data knows its intended consumer
-5. **Linked**: Insights link to evidence; handoffs link to results
+2. **OTel GenAI Aligned**: Attributes follow [OTel GenAI Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) for ecosystem interoperability
+3. **Query-First**: Data stored for query access, not document parsing
+4. **Typed Schemas**: No natural language parsing for structured operations
+5. **Audience-Aware**: Every piece of data knows its intended consumer
+6. **Linked**: Insights link to evidence; handoffs link to results
+7. **Dual-Emit Compatible**: SDK supports gradual migration from legacy to OTel GenAI conventions
 
 ### Anti-Patterns
 

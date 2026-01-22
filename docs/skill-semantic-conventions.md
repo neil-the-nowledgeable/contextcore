@@ -2,6 +2,8 @@
 
 This document defines the semantic conventions for storing skill capabilities as OpenTelemetry spans in Tempo.
 
+> **OTel GenAI Alignment (v2.0+)**: ContextCore is migrating to [OTel GenAI Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/). Agent-related attributes are now dual-emitted with both legacy `agent.*` and new `gen_ai.*` equivalents. See [Migration Guide](OTEL_GENAI_MIGRATION_GUIDE.md).
+
 ## Overview
 
 Skills are stored as hierarchical spans following the same pattern as tasks:
@@ -36,6 +38,17 @@ All skill-related spans include agent attribution:
 | `agent.id` | string | Yes | Agent that registered/invoked (e.g., "claude-code") |
 | `agent.session_id` | string | Yes | Session identifier for grouping |
 | `project.id` | string | No | Project context for linking |
+
+**OTel GenAI Equivalents (v2.0+)**:
+
+In dual-emit mode (default), the following OTel GenAI attributes are also emitted:
+
+| Legacy Attribute | OTel GenAI Attribute | Description |
+|------------------|---------------------|-------------|
+| `agent.id` | `gen_ai.agent.id` | Agent identifier |
+| `agent.session_id` | `gen_ai.conversation.id` | Session/conversation context |
+| - | `gen_ai.system` | AI provider (e.g., "anthropic") |
+| - | `gen_ai.operation.name` | Operation type (e.g., "skill.emit")
 
 ## Skill Attributes
 
@@ -307,13 +320,27 @@ event:
 ### Find Capabilities Registered by Agent (New)
 
 ```traceql
+# Legacy attribute
 { agent.id = "claude-code" && name =~ "capability:.*" }
+
+# OTel GenAI attribute (v2.0+)
+{ span.gen_ai.agent.id = "claude-code" && name =~ "capability:.*" }
 ```
 
 ### Find Capabilities in Session (New)
 
 ```traceql
+# Legacy attribute
 { agent.session_id = "session-abc123" }
+
+# OTel GenAI attribute (v2.0+)
+{ span.gen_ai.conversation.id = "session-abc123" }
+```
+
+### Find Capabilities by AI Provider (v2.0+)
+
+```traceql
+{ span.gen_ai.system = "anthropic" && name =~ "capability:.*" }
 ```
 
 ### Find Recently Updated Capabilities (New)

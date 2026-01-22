@@ -2,11 +2,26 @@
 
 This file provides guidance to Claude Code for the ContextCore project.
 
+## Project Context
+
+See @.contextcore.yaml for live project metadata including:
+- Business criticality and ownership
+- Active risks with priorities (P1-P4) and mitigations
+- SLO requirements (availability, latency, throughput)
+- Design decisions with confidence scores
+
+### Quick Commands
+
+- `/project-context` - Display full project context summary
+- `/show-risks` - Show active risks sorted by priority
+
 ## Project Summary
 
 **ContextCore** is a project management observability framework that models project tasks as OpenTelemetry spans. It eliminates manual status reporting by deriving project health from existing artifact metadata (commits, PRs, CI results) and exports via OTLP to any compatible backend.
 
 **Core insight**: Tasks share the same structure as distributed trace spans—start time, end time, status, hierarchy, events. By storing tasks in observability infrastructure, you get unified querying, time-series persistence, and correlation with runtime telemetry.
+
+**Architecture**: Dual-telemetry emission—spans to Tempo (hierarchy, timing, TraceQL) and structured logs to Loki (events, status changes, metrics derivation via recording rules). Mimir metrics are derived from Loki logs, not directly emitted.
 
 ## Tech Stack
 
@@ -29,29 +44,64 @@ ContextCore/
 │   ├── metrics.py           # Derived project metrics
 │   ├── logger.py            # TaskLogger (structured logs)
 │   ├── detector.py          # OTel Resource Detector
-│   ├── cli.py               # CLI interface
+│   ├── cli/                 # CLI commands (modular)
+│   │   ├── install.py       # Installation verification
+│   │   ├── task.py          # Task management
+│   │   ├── demo.py          # Demo data generation
+│   │   └── dashboards.py    # Dashboard provisioning
 │   ├── dashboards/          # Dashboard provisioning
-│   │   ├── __init__.py
-│   │   ├── provisioner.py   # Grafana API dashboard provisioning
-│   │   ├── portfolio.json   # Portfolio Overview dashboard JSON
-│   │   └── project.json     # Project Details dashboard JSON
+│   │   └── provisioner.py   # Grafana API dashboard provisioning
 │   ├── agent/               # Agent communication layer
 │   │   ├── insights.py      # InsightEmitter, InsightQuerier
 │   │   ├── guidance.py      # GuidanceReader
 │   │   ├── handoff.py       # Agent-to-agent handoffs
 │   │   └── personalization.py
+│   ├── compat/              # OTel compatibility layer
+│   │   └── otel_genai.py    # Dual-emit for OTel GenAI conventions
 │   ├── skill/               # Skill telemetry
-│   └── demo/                # Demo data generation
+│   ├── demo/                # Demo data generation
+│   │   ├── generator.py     # HistoricalTaskTracker
+│   │   └── exporter.py      # Dual-emit to Tempo/Loki
+│   └── install/             # Installation verification
+│       ├── requirements.py  # Verification requirements
+│       └── verifier.py      # Verification engine
+├── examples/                # Practical examples
+│   ├── 01_basic_task_tracking.py
+│   ├── 02_agent_insights.py
+│   └── 03_artifact_status_derivation.py
+├── grafana/provisioning/    # Grafana auto-provisioning
+│   ├── dashboards/json/     # 6 provisioned dashboards
+│   │   ├── portfolio.json
+│   │   ├── installation.json
+│   │   ├── value-capabilities.json
+│   │   ├── project-progress.json
+│   │   ├── sprint-metrics.json
+│   │   └── project-operations.json
+│   └── datasources/         # Datasource configs
 ├── crds/
 │   └── projectcontext.yaml  # CRD definition
 ├── helm/contextcore/        # Helm chart
+├── extensions/
+│   └── vscode/              # VSCode extension
+│       ├── src/             # TypeScript source
+│       └── package.json     # Extension manifest
 ├── docs/
 │   ├── semantic-conventions.md
 │   ├── agent-semantic-conventions.md
 │   ├── agent-communication-protocol.md
+│   ├── OTEL_GENAI_MIGRATION_GUIDE.md  # OTel GenAI migration
+│   ├── OTEL_GENAI_GAP_ANALYSIS.md     # Gap analysis
 │   └── dashboards/          # Dashboard specifications
 │       ├── PROJECT_PORTFOLIO_OVERVIEW.md
 │       └── PROJECT_DETAILS.md
+├── plans/                   # Phase implementation plans
+│   └── PHASE4_UNIFIED_ALIGNMENT.md
+├── .claude/                 # Claude Code configuration
+│   ├── hooks/               # SessionStart and prompt hooks
+│   ├── commands/            # Slash commands (/project-context, /show-risks)
+│   ├── rules/               # Path-specific rules
+│   └── settings.json        # Hook configuration
+├── .contextcore.yaml        # Project context (risks, SLOs, decisions)
 └── tests/
 ```
 
@@ -91,7 +141,92 @@ contextcore dashboards provision --grafana-url URL  # Explicit Grafana URL
 contextcore dashboards provision --dry-run          # Preview without applying
 contextcore dashboards list                         # Show provisioned dashboards
 contextcore dashboards delete                       # Remove ContextCore dashboards
+
+# Installation verification (self-monitoring)
+contextcore install init                            # Initialize and seed dashboard metrics
+contextcore install verify                          # Full verification with telemetry
+contextcore install verify --no-telemetry           # Skip emitting metrics
+contextcore install verify --format json            # JSON output for automation
+contextcore install verify --category infrastructure # Check specific category
+contextcore install status                          # Quick status check (no telemetry)
 ```
+
+## Installation Monitoring (Self-Monitoring)
+
+ContextCore monitors its own installation status via the verification system. This enables observability of the observability stack itself.
+
+### Quick Setup (Recommended)
+
+Use the `make full-setup` command for a complete installation with dashboard data:
+
+```bash
+# Complete setup: start stack, wait for ready, seed metrics
+make full-setup
+
+# View dashboard
+open http://localhost:3000/d/contextcore-installation
+```
+
+### Step-by-Step Setup
+
+1. **Start the observability stack**:
+   ```bash
+   make up              # Start Docker Compose stack
+   make wait-ready      # Wait for all services to be healthy
+   ```
+
+2. **Initialize ContextCore and seed metrics**:
+   ```bash
+   contextcore install init    # Verify + seed dashboard metrics
+   # Or separately:
+   make seed-metrics           # Just seed metrics to dashboard
+   ```
+
+3. **View dashboard**: Open `http://localhost:3000/d/contextcore-installation`
+
+### Kubernetes Deployment
+
+```bash
+kubectl apply -k k8s/observability/
+contextcore install init --endpoint tempo.observability:4317
+```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GRAFANA_URL` | `http://localhost:3000` | Grafana base URL |
+| `GRAFANA_USER` | `admin` | Grafana admin username |
+| `GRAFANA_PASSWORD` | `admin` | Grafana admin password |
+| `TEMPO_URL` | `http://localhost:3200` | Tempo base URL |
+| `MIMIR_URL` | `http://localhost:9009` | Mimir base URL |
+| `LOKI_URL` | `http://localhost:3100` | Loki base URL |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `localhost:4317` | OTLP gRPC endpoint |
+| `CONTEXTCORE_OTEL_MODE` | `dual` | OTel emit mode: `dual`, `legacy`, or `otel` |
+
+### OTel GenAI Semantic Conventions
+
+ContextCore is migrating to [OTel GenAI Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/). The `CONTEXTCORE_OTEL_MODE` environment variable controls attribute emission:
+
+| Mode | Behavior |
+|------|----------|
+| `dual` | Emits both `agent.*` (legacy) and `gen_ai.*` (OTel standard) - **default** |
+| `legacy` | Emits only `agent.*` attributes (rollback option) |
+| `otel` | Emits only `gen_ai.*` attributes (target state) |
+
+See [docs/OTEL_GENAI_MIGRATION_GUIDE.md](docs/OTEL_GENAI_MIGRATION_GUIDE.md) for migration details.
+
+### Metric Naming Convention
+
+OTel metrics are converted to Prometheus format with unit suffixes:
+
+| OTel Metric | Prometheus Metric |
+|-------------|-------------------|
+| `contextcore.install.completeness` (unit: %) | `contextcore_install_completeness_percent` |
+| `contextcore.install.requirement.status` (unit: 1) | `contextcore_install_requirement_status_ratio` |
+| `contextcore.install.verification.duration` (unit: ms) | `contextcore_install_verification_duration_milliseconds` |
+
+See [docs/semantic-conventions.md](docs/semantic-conventions.md) for complete metric reference.
 
 ## Key Patterns
 
@@ -239,5 +374,15 @@ questions = reader.get_open_questions()
 - [docs/semantic-conventions.md](docs/semantic-conventions.md) — Full attribute reference
 - [docs/agent-semantic-conventions.md](docs/agent-semantic-conventions.md) — Agent attributes
 - [docs/agent-communication-protocol.md](docs/agent-communication-protocol.md) — Agent integration
+- [docs/OTEL_GENAI_MIGRATION_GUIDE.md](docs/OTEL_GENAI_MIGRATION_GUIDE.md) — OTel GenAI migration guide
+- [docs/OTEL_GENAI_GAP_ANALYSIS.md](docs/OTEL_GENAI_GAP_ANALYSIS.md) — OTel GenAI gap analysis
 - [docs/dashboards/PROJECT_PORTFOLIO_OVERVIEW.md](docs/dashboards/PROJECT_PORTFOLIO_OVERVIEW.md) — Portfolio dashboard spec
 - [docs/dashboards/PROJECT_DETAILS.md](docs/dashboards/PROJECT_DETAILS.md) — Project details dashboard spec
+
+## Examples
+
+The `examples/` directory contains practical demonstrations:
+
+- `01_basic_task_tracking.py` — Task lifecycle management with spans
+- `02_agent_insights.py` — Agent insight emission and querying
+- `03_artifact_status_derivation.py` — Deriving project status from artifacts
