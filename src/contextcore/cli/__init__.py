@@ -51,6 +51,9 @@ from .slo_tests import slo_tests
 # Phase 3 commands
 from .graph import graph
 
+# TUI commands
+from .tui import tui
+
 
 @click.group()
 @click.version_option()
@@ -89,6 +92,9 @@ main.add_command(slo_tests, name="slo-tests")
 
 # Phase 3 command groups
 main.add_command(graph)
+
+# TUI command group
+main.add_command(tui)
 
 
 if __name__ == "__main__":

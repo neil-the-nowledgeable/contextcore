@@ -1,0 +1,231 @@
+/* ContextCore TUI Global Styles */
+
+/* Base Application Styles */
+App {
+    background: $surface;
+}
+
+/* Screen Container */
+Screen {
+    background: $surface;
+    padding: 1;
+}
+
+/* Card/Container Styles */
+.card {
+    background: $panel;
+    border: solid $primary;
+    padding: 1 2;
+    margin: 1;
+}
+
+.card-header {
+    background: $primary-background;
+    color: $text;
+    padding: 1 2;
+    border-bottom: solid $primary;
+    text-style: bold;
+    text-align: center;
+}
+
+.card-body {
+    padding: 2;
+}
+
+/* Typography */
+.title {
+    color: $accent;
+    text-style: bold;
+    text-align: center;
+    margin: 1 0;
+}
+
+.subtitle {
+    color: $text-muted;
+    text-align: center;
+    margin-bottom: 2;
+}
+
+.heading {
+    color: $text;
+    text-style: bold;
+    margin: 1 0;
+}
+
+.text-primary {
+    color: $text;
+}
+
+.text-secondary {
+    color: $text-muted;
+}
+
+.text-muted {
+    color: $text-disabled;
+}
+
+/* Status Indicators */
+.status-success {
+    color: $success;
+    text-style: bold;
+}
+
+.status-warning {
+    color: $warning;
+    text-style: bold;
+}
+
+.status-error {
+    color: $error;
+    text-style: bold;
+}
+
+.status-info {
+    color: $accent;
+    text-style: bold;
+}
+
+/* Buttons */
+Button {
+    background: $primary-background;
+    color: $text;
+    border: solid $primary;
+    padding: 0 2;
+    margin: 0 1;
+    min-width: 16;
+}
+
+Button:hover {
+    background: $primary;
+    border: solid $accent;
+}
+
+Button:focus {
+    background: $accent;
+    color: $text;
+    border: solid $accent;
+}
+
+Button.-primary {
+    background: $primary;
+    color: $text;
+    border: solid $primary;
+}
+
+Button.-success {
+    background: $success;
+    color: $text;
+    border: solid $success;
+}
+
+Button.-warning {
+    background: $warning;
+    color: $text;
+    border: solid $warning;
+}
+
+Button.-error {
+    background: $error;
+    color: $text;
+    border: solid $error;
+}
+
+/* Input Fields */
+Input {
+    background: $panel;
+    color: $text;
+    border: solid $primary;
+    padding: 0 1;
+    margin: 1 0;
+}
+
+Input:focus {
+    border: solid $accent;
+}
+
+/* Lists and Tables */
+DataTable {
+    background: $panel;
+    border: solid $primary;
+    margin: 1 0;
+}
+
+/* Progress Bars */
+ProgressBar {
+    background: $primary-background;
+    color: $accent;
+    margin: 1 0;
+}
+
+/* Containers and Layout */
+Horizontal {
+    align: center middle;
+    height: auto;
+}
+
+Vertical {
+    align: center top;
+    width: 100%;
+}
+
+Container {
+    background: $surface;
+    padding: 1;
+}
+
+/* Footer */
+Footer {
+    background: $primary-background;
+    color: $text-muted;
+}
+
+/* Header */
+Header {
+    background: $primary-background;
+    color: $accent;
+}
+
+/* Loading and Placeholder States */
+.loading {
+    color: $text-muted;
+    text-style: italic;
+    text-align: center;
+    padding: 2;
+}
+
+.placeholder {
+    color: $text-muted;
+    background: $primary-background;
+    padding: 2;
+    text-align: center;
+    border: dashed $primary;
+}
+
+/* RichLog */
+RichLog {
+    background: $panel;
+    border: solid $primary;
+    padding: 1;
+}
+
+/* RadioButton */
+RadioButton {
+    margin: 0 0 0 1;
+}
+
+/* Select */
+Select {
+    background: $panel;
+    border: solid $primary;
+}
+
+/* Scrollbars */
+Scrollbar {
+    background: $primary-background;
+    color: $accent;
+}
+
+/* Focus and Selection States */
+*:focus {
+    border: solid $accent;
+}
