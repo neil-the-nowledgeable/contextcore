@@ -1,11 +1,20 @@
 """Main TUI application class for ContextCore."""
 
 import os
-from typing import Dict, Optional
+from typing import Dict, Optional, Type
 import aiohttp
 import asyncio
 from textual.app import App
+from textual.screen import Screen
 from textual.binding import Binding
+
+# Import screens directly to avoid lazy loading issues with Textual 7.x
+from contextcore.tui.screens.welcome import WelcomeScreen
+from contextcore.tui.screens.install import InstallScreen
+from contextcore.tui.screens.status import StatusScreen
+from contextcore.tui.screens.configure import ConfigureScreen
+from contextcore.tui.screens.help import HelpScreen
+from contextcore.tui.screens.script_generator import ScriptGeneratorScreen
 
 __all__ = ["ContextCoreTUI", "get_env_config", "check_service_health"]
 
@@ -60,14 +69,14 @@ class ContextCoreTUI(App[None]):
         Binding("d", "toggle_dark", "Dark/Light"),
     ]
 
-    # Screen routing - using lazy imports to avoid circular dependencies
-    SCREENS = {
-        "welcome": "contextcore.tui.screens.welcome:WelcomeScreen",
-        "install": "contextcore.tui.screens.install:InstallScreen",
-        "status": "contextcore.tui.screens.status:StatusScreen",
-        "configure": "contextcore.tui.screens.configure:ConfigureScreen",
-        "help": "contextcore.tui.screens.help:HelpScreen",
-        "script_generator": "contextcore.tui.screens.script_generator:ScriptGeneratorScreen",
+    # Screen routing - using direct class references for Textual 7.x compatibility
+    SCREENS: Dict[str, Type[Screen]] = {
+        "welcome": WelcomeScreen,
+        "install": InstallScreen,
+        "status": StatusScreen,
+        "configure": ConfigureScreen,
+        "help": HelpScreen,
+        "script_generator": ScriptGeneratorScreen,
     }
 
     # MODES dict removed - using default mode handling
