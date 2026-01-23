@@ -1,5 +1,7 @@
 # ContextCore
 
+### Spider (Asabikeshiinh) — *"Little net maker"*
+
 **One system. Every audience. Always current.**
 
 The first project management system built for human-agent parity.
@@ -440,6 +442,22 @@ ContextCore extends OpenTelemetry semantic conventions:
 | `handoff.*` | Agent delegation | `handoff.from_agent`, `handoff.to_agent` |
 
 See [docs/semantic-conventions.md](docs/semantic-conventions.md) and [docs/agent-semantic-conventions.md](docs/agent-semantic-conventions.md) for full reference.
+
+## Ecosystem
+
+ContextCore is part of a growing ecosystem of observability tools, each named after an animal with its Anishinaabe (Ojibwe) name honoring the indigenous peoples of Michigan and the Great Lakes region.
+
+| Project | Animal | Anishinaabe | Purpose |
+|---------|--------|-------------|---------|
+| **ContextCore** | Spider | Asabikeshiinh | Core framework—weaving project artifacts into observability |
+| **[contextcore-rabbit](https://github.com/contextcore/contextcore-rabbit)** | Rabbit | Waabooz | Core alert automation framework (formerly Hermes) |
+| **[contextcore-fox](https://github.com/contextcore/contextcore-fox)** | Fox | Waagosh | ContextCore integration for alert automation |
+| **[contextcore-coyote](https://github.com/contextcore/contextcore-coyote)** | Coyote | Wiisagi-ma'iingan | Multi-agent incident resolution pipeline |
+| **[contextcore-beaver](https://github.com/contextcore/contextcore-beaver)** | Beaver | Amik | LLM provider abstraction (formerly startd8) |
+| **[contextcore-squirrel](https://github.com/contextcore/contextcore-squirrel)** | Squirrel | Ajidamoo | Skills library for token-efficient agent discovery |
+
+- [Naming Convention](docs/NAMING_CONVENTION.md) — Why we use animal names and Anishinaabe language
+- [Expansion Packs](docs/EXPANSION_PACKS.md) — Registry of official expansion packs
 
 ## Documentation
 

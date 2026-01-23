@@ -367,6 +367,62 @@ constraints = reader.get_active_constraints()
 questions = reader.get_open_questions()
 ```
 
+## Expansion Pack Ecosystem
+
+ContextCore uses an animal naming convention with Anishinaabe (Ojibwe) names honoring the indigenous peoples of Michigan and the Great Lakes region. See [docs/NAMING_CONVENTION.md](docs/NAMING_CONVENTION.md) for philosophy and guidelines.
+
+| Package | Animal | Anishinaabe | Purpose |
+|---------|--------|-------------|---------|
+| **contextcore** | Spider | Asabikeshiinh | Core framework—tasks as spans, agent insights |
+| **contextcore-rabbit** | Rabbit | Waabooz | Core alert automation framework (webhooks, parsers, actions) |
+| **contextcore-fox** | Fox | Waagosh | ContextCore integration for alert automation (context enrichment) |
+| **contextcore-coyote** | Coyote | Wiisagi-ma'iingan | Multi-agent incident resolution pipeline |
+| **contextcore-beaver** | Beaver | Amik | LLM provider abstraction (formerly startd8) |
+| **contextcore-squirrel** | Squirrel | Ajidamoo | Skills library for token-efficient agent discovery |
+
+### Dependency Graph
+
+```
+contextcore-beaver (LLM abstraction)
+         │
+         ▼
+contextcore-coyote (multi-agent pipeline)
+         │
+         ▼
+contextcore-fox (context enrichment)        contextcore-squirrel (skills library)
+         │                                           │
+         ▼                                           │
+contextcore-rabbit (alert automation)                │
+         │                                           │
+         └───────────────┬───────────────────────────┘
+                         ▼
+                    contextcore (core)
+```
+
+### Installation
+
+```bash
+# Core only
+pip install contextcore
+
+# With alert automation
+pip install contextcore-rabbit
+
+# With ContextCore-aware alerts
+pip install contextcore-fox  # includes rabbit
+
+# With multi-agent pipeline
+pip install contextcore-coyote
+
+# With LLM abstraction
+pip install contextcore-beaver
+
+# With skills library
+pip install contextcore-squirrel
+```
+
+See [docs/EXPANSION_PACKS.md](docs/EXPANSION_PACKS.md) for full expansion pack documentation.
+
 ## Documentation
 
 - [README.md](README.md) — Vision, benefits, quick start
@@ -378,6 +434,8 @@ questions = reader.get_open_questions()
 - [docs/OTEL_GENAI_GAP_ANALYSIS.md](docs/OTEL_GENAI_GAP_ANALYSIS.md) — OTel GenAI gap analysis
 - [docs/dashboards/PROJECT_PORTFOLIO_OVERVIEW.md](docs/dashboards/PROJECT_PORTFOLIO_OVERVIEW.md) — Portfolio dashboard spec
 - [docs/dashboards/PROJECT_DETAILS.md](docs/dashboards/PROJECT_DETAILS.md) — Project details dashboard spec
+- [docs/EXPANSION_PACKS.md](docs/EXPANSION_PACKS.md) — Expansion pack registry
+- [docs/NAMING_CONVENTION.md](docs/NAMING_CONVENTION.md) — Animal naming convention
 
 ## Examples
 

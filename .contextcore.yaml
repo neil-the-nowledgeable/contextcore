@@ -110,6 +110,50 @@ design:
   agentProtocol: "docs/agent-communication-protocol.md"
   otelGenaiMigration: "docs/OTEL_GENAI_MIGRATION_GUIDE.md"
   otelGenaiGapAnalysis: "docs/OTEL_GENAI_GAP_ANALYSIS.md"
+  expansionPacks: "docs/EXPANSION_PACKS.md"
+  namingConvention: "docs/NAMING_CONVENTION.md"
+
+# Expansion Pack Ecosystem
+# Animal names with Anishinaabe (Ojibwe) translations honoring Michigan's indigenous peoples
+ecosystem:
+  namingConvention: "animal-anishinaabe"
+  packages:
+    - name: "contextcore"
+      animal: "Spider"
+      anishinaabe: "Asabikeshiinh"
+      meaning: "Little net maker"
+      purpose: "Core framework—tasks as spans, agent insights, observability"
+      status: "beta"
+    - name: "contextcore-rabbit"
+      animal: "Rabbit"
+      anishinaabe: "Waabooz"
+      purpose: "Core alert automation framework (webhooks, parsers, actions)"
+      status: "beta"
+      formerName: "Hermes"
+    - name: "contextcore-fox"
+      animal: "Fox"
+      anishinaabe: "Waagosh"
+      purpose: "ContextCore integration for alert automation (context enrichment)"
+      status: "beta"
+      dependsOn: ["contextcore-rabbit"]
+    - name: "contextcore-coyote"
+      animal: "Coyote"
+      anishinaabe: "Wiisagi-ma'iingan"
+      purpose: "Multi-agent incident resolution pipeline"
+      status: "beta"
+      formerName: "agent-pipeline"
+    - name: "contextcore-beaver"
+      animal: "Beaver"
+      anishinaabe: "Amik"
+      purpose: "LLM provider abstraction with cost tracking and token accounting"
+      status: "beta"
+      formerName: "startd8"
+    - name: "contextcore-squirrel"
+      animal: "Squirrel"
+      anishinaabe: "Ajidamoo"
+      purpose: "Skills library for token-efficient agent discovery and knowledge storage"
+      status: "beta"
+      formerName: "contextcore-skills"
 
 # Dashboards (6 total, provisioned to Grafana)
 dashboards:
