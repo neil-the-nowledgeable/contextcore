@@ -64,7 +64,7 @@ class ServiceCard(Widget):
         response_time_ms: Optional[int] = None
     ) -> None:
         super().__init__()
-        self.name = name
+        self.service_name = name  # Renamed to avoid Textual 'name' property conflict
         self.port = port
         self.endpoint = endpoint
         self._status = status
@@ -72,7 +72,7 @@ class ServiceCard(Widget):
 
     def compose(self) -> ComposeResult:
         """Compose the service card layout."""
-        yield Static(self.name.upper(), classes="service-name")
+        yield Static(self.service_name.upper(), classes="service-name")
         yield Static(self._get_status_text(), classes=f"service-status status-{self._status}", id="status-text")
         yield Static(f":{self.port}", classes="service-port")
         yield Static(self._get_timing_text(), classes="service-timing", id="timing-text")
