@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ContextCore for Solo-Preneurs</title>
+    <style>
+        :root {
+            --bg: #18181b;
+            --surface: #27272a;
+            --surface-hover: #3f3f46;
+            --text: #fafafa;
+            --text-muted: #a1a1aa;
+            --accent: #a78bfa;
+            --accent-hover: #c4b5fd;
+            --success: #4ade80;
+            --warning: #fbbf24;
+            --error: #f87171;
+            --border: #52525b;
+            --gradient-start: #7c3aed;
+            --gradient-end: #2dd4bf;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            padding: 4rem 0 3rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 3rem;
+        }
+
+        .hero h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero .subtitle {
+            font-size: 1.3rem;
+            color: var(--text-muted);
+            max-width: 600px;
+            margin: 0 auto 2rem;
+        }
+
+        .hero-cta {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .hero-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(124, 58, 237, 0.3);
+            text-decoration: none;
+        }
+
+        /* Sections */
+        section {
+            margin-bottom: 4rem;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: var(--text);
+        }
+
+        h3 {
+            font-size: 1.2rem;
+            margin: 2rem 0 1rem;
+            color: var(--accent);
+        }
+
+        p {
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+
+        /* Problem Section */
+        .problem-box {
+            background: #1c1917;
+            border: 1px solid #44403c;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .problem-box pre {
+            color: #a8a29e;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+        }
+
+        .problem-list {
+            list-style: none;
+            margin-top: 1rem;
+        }
+
+        .problem-list li {
+            padding: 0.5rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+            color: var(--text-muted);
+        }
+
+        .problem-list li::before {
+            content: "✗";
+            position: absolute;
+            left: 0;
+            color: var(--error);
+        }
+
+        /* Comparison */
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .comparison-side {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .comparison-side.before {
+            border: 1px solid var(--error);
+        }
+
+        .comparison-side.after {
+            border: 1px solid var(--success);
+        }
+
+        .comparison-side h4 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+
+        .comparison-side.before h4 {
+            color: var(--error);
+        }
+
+        .comparison-side.after h4 {
+            color: var(--success);
+        }
+
+        .comparison-side ul {
+            list-style: none;
+        }
+
+        .comparison-side li {
+            padding: 0.4rem 0;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Time saved */
+        .time-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .time-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .time-card .scenario {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .time-card .before {
+            font-size: 1.5rem;
+            color: var(--error);
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+
+        .time-card .after {
+            font-size: 1.5rem;
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        .time-card .arrow {
+            color: var(--text-muted);
+            margin: 0 0.5rem;
+        }
+
+        /* Feature cards */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .feature-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.2s;
+        }
+
+        .feature-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-3px);
+        }
+
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card h4 {
+            color: var(--text);
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-card p {
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        /* Code blocks */
+        .code-block {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            overflow-x: auto;
+            position: relative;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+        }
+
+        .code-block code {
+            color: #e6edf3;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+
+        .code-block .comment {
+            color: #8b949e;
+        }
+
+        .code-block .command {
+            color: var(--accent);
+        }
+
+        .code-block .string {
+            color: #a5d6ff;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-family: inherit;
+        }
+
+        .copy-btn:hover {
+            color: var(--text);
+            border-color: var(--accent);
+        }
+
+        /* Workflow */
+        .workflow {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .workflow-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .workflow-time {
+            background: var(--accent);
+            color: var(--bg);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .workflow-content h4 {
+            color: var(--text);
+            margin-bottom: 0.25rem;
+        }
+
+        .workflow-content p {
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        /* Replacement table */
+        .replacement-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+        }
+
+        .replacement-table th,
+        .replacement-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .replacement-table th {
+            color: var(--accent);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .replacement-table td {
+            color: var(--text-muted);
+        }
+
+        .replacement-table code {
+            background: var(--surface);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        /* CTA section */
+        .cta-section {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            border-radius: 16px;
+            padding: 3rem;
+            text-align: center;
+            margin: 3rem 0;
+        }
+
+        .cta-section h2 {
+            color: white;
+            margin-bottom: 1rem;
+        }
+
+        .cta-section p {
+            color: rgba(255, 255, 255, 0.9);
+            max-width: 500px;
+            margin: 0 auto 2rem;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .cta-btn {
+            background: white;
+            color: var(--gradient-start);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .cta-btn:hover {
+            transform: translateY(-2px);
+            text-decoration: none;
+        }
+
+        .cta-btn.secondary {
+            background: transparent;
+            border: 2px solid white;
+            color: white;
+        }
+
+        /* Bottom line */
+        .bottom-line {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .bottom-line h3 {
+            color: var(--text);
+            margin-bottom: 1rem;
+        }
+
+        .bottom-line ul {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 1.5rem;
+        }
+
+        .bottom-line li {
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .bottom-line li::before {
+            content: "✓";
+            color: var(--success);
+            font-weight: bold;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            border-top: 1px solid var(--border);
+            margin-top: 3rem;
+            color: var(--text-muted);
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .hero h1 {
+                font-size: 1.8rem;
+            }
+
+            .comparison {
+                grid-template-columns: 1fr;
+            }
+
+            .time-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .cta-section {
+                padding: 2rem 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="hero">
+            <h1>Stop Maintaining TODO.md</h1>
+            <p class="subtitle">You have 5 projects in flight. ContextCore remembers where you left off—so you don't have to.</p>
+            <a href="#quickstart" class="hero-cta">Get Started in 60 Seconds</a>
+        </header>
+
+        <!-- The Problem -->
+        <section>
+            <h2>The Problem You Know Too Well</h2>
+            <div class="problem-box">
+                <pre>~/projects/
+├── saas-app/
+│   ├── TODO.md          # "finish auth" - when?
+│   └── decisions.md     # 47 lines, half outdated
+├── cli-tool/
+│   └── NOTES.md         # last updated: ???
+├── side-project/
+│   └── ideas.md         # "this could be big"
+└── client-work/
+    └── status.md        # "where was I?"</pre>
+            </div>
+            <ul class="problem-list">
+                <li>You write markdown with good intentions, then forget to update it</li>
+                <li>You search through 12 files to find "that decision about the database"</li>
+                <li>Every AI session starts from zero—no memory of past conversations</li>
+                <li>Monday morning: 30 minutes just remembering where you left off</li>
+            </ul>
+        </section>
+
+        <!-- The Solution -->
+        <section>
+            <h2>What If Your Work Tracked Itself?</h2>
+            <div class="comparison">
+                <div class="comparison-side before">
+                    <h4>Markdown Reality</h4>
+                    <ul>
+                        <li>TODO.md you forgot to update</li>
+                        <li>decisions.md you can't find</li>
+                        <li>"Where was I?" archaeology</li>
+                        <li>Re-explain everything to AI</li>
+                        <li>Context lives in your head</li>
+                    </ul>
+                </div>
+                <div class="comparison-side after">
+                    <h4>ContextCore Reality</h4>
+                    <ul>
+                        <li>Tasks derived from your commits</li>
+                        <li>Query: "What did I decide?"</li>
+                        <li>Dashboard shows last activity</li>
+                        <li>AI remembers past sessions</li>
+                        <li>Context lives in queryable data</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Time Saved -->
+        <section>
+            <h2>Context Recovery Time</h2>
+            <p>For someone juggling 3-5 projects, this is 2-4 hours/week recovered.</p>
+            <div class="time-grid">
+                <div class="time-card">
+                    <div class="scenario">Returning after 2 weeks</div>
+                    <span class="before">45 min</span>
+                    <span class="arrow">→</span>
+                    <span class="after">2 min</span>
+                </div>
+                <div class="time-card">
+                    <div class="scenario">"What was I doing?"</div>
+                    <span class="before">Grep files</span>
+                    <span class="arrow">→</span>
+                    <span class="after">1 query</span>
+                </div>
+                <div class="time-card">
+                    <div class="scenario">"Why did I choose X?"</div>
+                    <span class="before">Hope you wrote it</span>
+                    <span class="arrow">→</span>
+                    <span class="after">Query decisions</span>
+                </div>
+                <div class="time-card">
+                    <div class="scenario">AI context setup</div>
+                    <span class="before">Re-explain</span>
+                    <span class="arrow">→</span>
+                    <span class="after">Automatic</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- How It Works -->
+        <section>
+            <h2>How It Works</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h4>Tasks as Spans</h4>
+                    <p>Your tasks become OpenTelemetry spans—queryable data with timestamps, status, and events. Not markdown that goes stale.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🧠</div>
+                    <h4>AI Memory</h4>
+                    <p>Decisions made with AI assistants persist across sessions. Claude today can see what GPT decided last month.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📋</div>
+                    <h4>One Dashboard</h4>
+                    <p>All your projects in one view. See what's active, what's stale, what's blocked. No file hunting.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔍</div>
+                    <h4>TraceQL Queries</h4>
+                    <p>Find anything: "decisions from last month", "blocked tasks across all projects", "where I left off".</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Start -->
+        <section id="quickstart">
+            <h2>Quick Start</h2>
+
+            <h3>Option 1: TUI Wizard</h3>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <code><span class="comment"># Interactive setup</span>
+<span class="command">contextcore tui launch</span></code>
+            </div>
+
+            <h3>Option 2: One Command</h3>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <code><span class="comment"># Full stack in one shot</span>
+<span class="command">make full-setup</span>
+
+<span class="comment"># Open your dashboard</span>
+<span class="command">open http://localhost:3000</span></code>
+            </div>
+
+            <h3>Option 3: Minimal (No Docker)</h3>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <code><span class="comment"># Just the SDK, exports to file</span>
+<span class="command">pip install contextcore</span>
+<span class="command">export CONTEXTCORE_EXPORT_MODE=file</span>
+
+<span class="comment"># Start tracking</span>
+<span class="command">contextcore task start --id my-task --title "The thing"</span></code>
+            </div>
+        </section>
+
+        <!-- Daily Workflow -->
+        <section>
+            <h2>Daily Workflow</h2>
+            <div class="workflow">
+                <div class="workflow-step">
+                    <span class="workflow-time">Morning</span>
+                    <div class="workflow-content">
+                        <h4>What needs attention?</h4>
+                        <p><code>contextcore tui status</code> or check the dashboard</p>
+                    </div>
+                </div>
+                <div class="workflow-step">
+                    <span class="workflow-time">During work</span>
+                    <div class="workflow-content">
+                        <h4>Capture context as you go</h4>
+                        <p><code>contextcore task start/update/complete</code> when switching focus</p>
+                    </div>
+                </div>
+                <div class="workflow-step">
+                    <span class="workflow-time">End of day</span>
+                    <div class="workflow-content">
+                        <h4>Let it be</h4>
+                        <p>No status file to update. Your work is already recorded.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Replace Markdown -->
+        <section>
+            <h2>Replacing Your Markdown Files</h2>
+            <table class="replacement-table">
+                <thead>
+                    <tr>
+                        <th>Old File</th>
+                        <th>ContextCore Replacement</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>TODO.md</code></td>
+                        <td>Active tasks in Tempo (TraceQL query)</td>
+                    </tr>
+                    <tr>
+                        <td><code>decisions.md</code></td>
+                        <td>Agent insights: <code>insight.type = "decision"</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>CHANGELOG.md</code></td>
+                        <td>Task completion spans with timestamps</td>
+                    </tr>
+                    <tr>
+                        <td><code>notes.md</code></td>
+                        <td>Task events and agent insights</td>
+                    </tr>
+                    <tr>
+                        <td><code>ideas.md</code></td>
+                        <td>Tasks with <code>task.type = "idea"</code></td>
+                    </tr>
+                </tbody>
+            </table>
+            <p><strong>Migration tip:</strong> Don't migrate. Just start tracking new work. Query ContextCore for recent stuff, dig into old markdown only for archaeology.</p>
+        </section>
+
+        <!-- AI Integration -->
+        <section>
+            <h2>For Your AI Assistants</h2>
+            <p>Add this to your project's CLAUDE.md and AI sessions will automatically have context:</p>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <code><span class="comment"># AI queries prior decisions before starting</span>
+from contextcore.agent import InsightQuerier
+querier = InsightQuerier()
+prior = querier.query(project_id=<span class="string">"my-project"</span>, time_range=<span class="string">"30d"</span>)
+
+<span class="comment"># AI emits decisions for future sessions</span>
+from contextcore.agent import InsightEmitter
+emitter = InsightEmitter(project_id=<span class="string">"my-project"</span>, agent_id=<span class="string">"claude"</span>)
+emitter.emit_decision(<span class="string">"Chose X because Y"</span>, confidence=0.9)</code>
+            </div>
+        </section>
+
+        <!-- CTA -->
+        <div class="cta-section">
+            <h2>Ready to Stop Managing Markdown?</h2>
+            <p>Your memory shouldn't be a single point of failure. Let ContextCore remember for you.</p>
+            <div class="cta-buttons">
+                <a href="http://localhost:3000" class="cta-btn" target="_blank">Open Dashboard</a>
+                <a href="./harbor-tour-solopreneur.md" class="cta-btn secondary">Read Full Guide</a>
+            </div>
+        </div>
+
+        <!-- Bottom Line -->
+        <div class="bottom-line">
+            <h3>The Bottom Line</h3>
+            <ul>
+                <li>Queryable history, not scattered markdown</li>
+                <li>AI that remembers across sessions</li>
+                <li>One dashboard for all projects</li>
+                <li>2-4 hours/week recovered</li>
+            </ul>
+        </div>
+
+        <footer>
+            <p>ContextCore — Because your memory shouldn't be a single point of failure.</p>
+            <p><a href="https://github.com/contextcore/contextcore">GitHub</a> · <a href="./harbor-tour-solopreneur.md">Full Guide</a> · <a href="./getting-started.html">Team Version</a></p>
+        </footer>
+    </div>
+
+    <script>
+        function copyCode(btn) {
+            const code = btn.parentElement.querySelector('code').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                const original = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = original, 2000);
+            });
+        }
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+</html>
