@@ -5,21 +5,110 @@
   "time": {"from": "now-1h", "to": "now"},
   "refresh": "30s",
   "tags": ["contextcore", "value", "capabilities"],
+  "templating": {
+    "list": [
+      {
+        "name": "skill",
+        "type": "custom",
+        "label": "Skill",
+        "current": {"text": "All", "value": ".*"},
+        "options": [
+          {"text": "All", "value": ".*", "selected": true},
+          {"text": "capability-value-promoter", "value": "capability-value-promoter", "selected": false},
+          {"text": "dev-tour-guide", "value": "dev-tour-guide", "selected": false}
+        ],
+        "query": "",
+        "includeAll": false
+      }
+    ]
+  },
   "panels": [
     {
-      "id": 1, "type": "row", "title": "Capabilities Browser",
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}
+      "id": 1, "type": "row", "title": "Skills Overview",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "collapsed": false
     },
     {
-      "id": 2, "type": "table", "title": "Value Capabilities",
-      "gridPos": {"h": 14, "w": 24, "x": 0, "y": 1},
+      "id": 2, "type": "table", "title": "Skills Summary (click to drill down)",
+      "gridPos": {"h": 6, "w": 24, "x": 0, "y": 1},
       "datasource": {"type": "tempo", "uid": "P214B5B846CF3925F"},
-      "fieldConfig": {"defaults": {}, "overrides": []},
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "span.skill.id"},
+            "properties": [
+              {"id": "displayName", "value": "Skill"},
+              {"id": "links", "value": [
+                {
+                  "title": "View ${__value.raw} capabilities",
+                  "url": "/d/value-simple/value-capabilities-explorer?var-skill=${__value.raw}",
+                  "targetBlank": false
+                }
+              ]}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "span.skill.capability_count"},
+            "properties": [{"id": "displayName", "value": "Capabilities"}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "span.value.persona_count"},
+            "properties": [{"id": "displayName", "value": "Personas"}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "span.value.channel_count"},
+            "properties": [{"id": "displayName", "value": "Channels"}]
+          }
+        ]
+      },
       "options": {"showHeader": true, "cellHeight": "sm", "footer": {"show": true, "countRows": true}},
       "targets": [{
         "datasource": {"type": "tempo", "uid": "P214B5B846CF3925F"},
         "queryType": "traceql",
-        "query": "{ name =~ \"value_capability:.*\" }",
+        "query": "{ name =~ \"value_skill:.*\" } | select(.skill.id, .skill.capability_count, .value.persona_count, .value.channel_count)",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 10, "type": "row", "title": "Capabilities: ${skill}",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 7},
+      "collapsed": false
+    },
+    {
+      "id": 11, "type": "table", "title": "Value Capabilities",
+      "gridPos": {"h": 14, "w": 24, "x": 0, "y": 8},
+      "datasource": {"type": "tempo", "uid": "P214B5B846CF3925F"},
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "span.skill.id"},
+            "properties": [{"id": "displayName", "value": "Skill"}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "span.capability.name"},
+            "properties": [{"id": "displayName", "value": "Capability"}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "span.value.type"},
+            "properties": [{"id": "displayName", "value": "Type"}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "span.value.personas"},
+            "properties": [{"id": "displayName", "value": "Personas"}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "span.capability.summary"},
+            "properties": [{"id": "displayName", "value": "Summary"}]
+          }
+        ]
+      },
+      "options": {"showHeader": true, "cellHeight": "sm", "footer": {"show": true, "countRows": true}},
+      "targets": [{
+        "datasource": {"type": "tempo", "uid": "P214B5B846CF3925F"},
+        "queryType": "traceql",
+        "query": "{ name =~ \"value_capability:.*\" && .skill.id =~ \"${skill}\" } | select(.skill.id, .capability.name, .value.type, .value.personas, .capability.summary)",
         "refId": "A"
       }]
     }
