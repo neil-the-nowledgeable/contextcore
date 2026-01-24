@@ -1,339 +1,292 @@
-"""Query operations on the knowledge graph.
-
-This module provides query capabilities for the ContextCore knowledge graph,
-including impact analysis, dependency discovery, and path finding.
 """
+Knowledge Graph Queries module for ContextCore.
+__all__ = ['ImpactReport', 'DependencyReport', 'GraphQueries']
 
-__all__ = [
-    "ImpactReport",
-    "DependencyReport",
-    "GraphQueries",
-]
 
+Provides query operations on the knowledge graph for impact analysis,
+dependency discovery, and path finding using BFS traversal.
+"""
 from collections import deque
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set
 
-from contextcore.graph.schema import Edge, EdgeType, Graph, Node, NodeType
+from contextcore.graph.schema import Graph, Node, Edge, NodeType, EdgeType
 
 
 @dataclass
 class ImpactReport:
-    """Report of impact from a change to a project.
-
-    Attributes:
-        source_project: The project being changed
-        affected_projects: List of projects affected by the change
-        affected_teams: List of teams that own affected projects
-        critical_projects: Projects with criticality='critical' that are affected
-        total_blast_radius: Total number of affected projects
-        dependency_paths: Paths showing how impact propagates
-    """
-
+    """Report detailing the impact analysis of a project change."""
     source_project: str
     affected_projects: List[str]
     affected_teams: List[str]
-    critical_projects: List[str]
+    critical_projects: List[str]  # criticality == "critical"
     total_blast_radius: int
-    dependency_paths: List[List[str]]
+    dependency_paths: List[List[str]]  # paths showing impact propagation
 
 
 @dataclass
 class DependencyReport:
-    """Report of project dependencies.
-
-    Attributes:
-        project_id: The project being analyzed
-        upstream: Projects this project depends on
-        downstream: Projects that depend on this project
-        shared_resources: Resources managed by this project
-        shared_adrs: ADRs implemented by this project
-    """
-
+    """Report detailing the dependencies of a specific project."""
     project_id: str
-    upstream: List[str]
-    downstream: List[str]
+    upstream: List[str]  # projects this depends on
+    downstream: List[str]  # projects that depend on this
     shared_resources: List[str]
     shared_adrs: List[str]
 
 
 class GraphQueries:
-    """Query operations on the knowledge graph.
-
-    Example:
-        queries = GraphQueries(graph)
-        impact = queries.impact_analysis("my-project")
-        deps = queries.get_dependencies("my-project")
-    """
-
-    def __init__(self, graph: Graph) -> None:
-        """Initialize with a graph.
-
-        Args:
-            graph: The knowledge graph to query
-        """
+    """Provides query operations on the knowledge graph."""
+    
+    def __init__(self, graph: Graph):
+        """Initialize with a Graph instance."""
         self.graph = graph
 
     def impact_analysis(self, project_id: str, max_depth: int = 5) -> ImpactReport:
-        """Analyze impact of changes to a project.
-
-        Uses BFS to find all reachable nodes through dependency edges.
-
+        """
+        Analyze the impact of changes to a project.
+        
+        Uses BFS to find all projects that would be affected by changes
+        to the source project by following dependency relationships.
+        
         Args:
-            project_id: The project to analyze
-            max_depth: Maximum traversal depth
-
+            project_id: The source project to analyze
+            max_depth: Maximum traversal depth (default: 5)
+            
         Returns:
             ImpactReport with affected projects, teams, and paths
-
+            
         Raises:
-            ValueError: If project not found in graph
+            ValueError: If project does not exist in the graph
         """
-        project_node_id = f"project:{project_id}"
-        if project_node_id not in self.graph.nodes:
-            raise ValueError(f"Project {project_id} not found in graph")
+        if not self.graph.has_node(project_id):
+            raise ValueError(f"Project {project_id} does not exist in the graph.")
 
-        affected_projects: Set[str] = set()
-        affected_teams: Set[str] = set()
-        critical_projects: List[str] = []
-        paths: List[List[str]] = []
-
-        # BFS traversal
-        visited: Set[str] = set()
-        queue: deque = deque([(project_node_id, [project_id], 0)])
+        # BFS setup for impact analysis
+        queue = deque([(project_id, 0, [project_id])])  # (node, depth, path)
+        visited: Set[str] = {project_id}
+        affected_projects = []
+        affected_teams = set()
+        critical_projects = []
+        dependency_paths = []
 
         while queue:
-            current_id, path, depth = queue.popleft()
-
-            if current_id in visited or depth > max_depth:
-                continue
-            visited.add(current_id)
-
-            current_node = self.graph.get_node(current_id)
-            if not current_node:
-                continue
-
-            # Track affected entities
-            if current_node.type == NodeType.PROJECT and current_id != project_node_id:
-                project_name = current_node.name
-                affected_projects.add(project_name)
-                paths.append(path)
-
-                if current_node.attributes.get("criticality") == "critical":
-                    critical_projects.append(project_name)
-
-            if current_node.type == NodeType.TEAM:
-                affected_teams.add(current_node.name)
-
-            # Traverse outgoing edges
-            for edge in self.graph.get_edges_from(current_id):
-                if edge.type in [EdgeType.DEPENDS_ON, EdgeType.MANAGES]:
-                    target_node = self.graph.get_node(edge.target_id)
-                    if target_node and target_node.type == NodeType.PROJECT:
-                        queue.append(
-                            (edge.target_id, path + [target_node.name], depth + 1)
-                        )
-
-                # Also traverse to teams
-                if edge.type == EdgeType.OWNED_BY:
-                    target_node = self.graph.get_node(edge.target_id)
-                    if target_node and target_node.type == NodeType.TEAM:
-                        affected_teams.add(target_node.name)
-
-            # Traverse reverse edges (who depends on this)
-            for edge in self.graph.get_edges_to(current_id):
-                if edge.type == EdgeType.DEPENDS_ON:
-                    source_node = self.graph.get_node(edge.source_id)
-                    if source_node and source_node.type == NodeType.PROJECT:
-                        queue.append(
-                            (edge.source_id, path + [source_node.name], depth + 1)
-                        )
+            current_project, current_depth, current_path = queue.popleft()
+            
+            if current_depth < max_depth:
+                # Find projects that depend on the current project (reverse direction)
+                for edge in self.graph.edges:
+                    if (edge.target == current_project and 
+                        edge.type == EdgeType.DEPENDS_ON and 
+                        edge.source not in visited):
+                        
+                        dependent_project = edge.source
+                        visited.add(dependent_project)
+                        affected_projects.append(dependent_project)
+                        
+                        # Get project node for additional information
+                        project_node = self.graph.get_node(dependent_project)
+                        if project_node:
+                            affected_teams.add(project_node.team)
+                            
+                            # Check for critical projects
+                            if hasattr(project_node, 'criticality') and project_node.criticality == "critical":
+                                critical_projects.append(dependent_project)
+                        
+                        # Record the path to this affected project
+                        new_path = current_path + [dependent_project]
+                        dependency_paths.append(new_path)
+                        
+                        # Continue BFS from this node
+                        queue.append((dependent_project, current_depth + 1, new_path))
+                
+                # Also follow MANAGES edges for shared resource impact
+                for edge in self.graph.edges:
+                    if (edge.source == current_project and 
+                        edge.type == EdgeType.MANAGES):
+                        
+                        # Find other projects that manage the same resource
+                        resource_id = edge.target
+                        for other_edge in self.graph.edges:
+                            if (other_edge.target == resource_id and 
+                                other_edge.type == EdgeType.MANAGES and 
+                                other_edge.source != current_project and 
+                                other_edge.source not in visited):
+                                
+                                affected_project = other_edge.source
+                                visited.add(affected_project)
+                                affected_projects.append(affected_project)
+                                
+                                project_node = self.graph.get_node(affected_project)
+                                if project_node:
+                                    affected_teams.add(project_node.team)
+                                    if hasattr(project_node, 'criticality') and project_node.criticality == "critical":
+                                        critical_projects.append(affected_project)
+                                
+                                dependency_paths.append(current_path + [resource_id, affected_project])
 
         return ImpactReport(
             source_project=project_id,
-            affected_projects=list(affected_projects),
+            affected_projects=affected_projects,
             affected_teams=list(affected_teams),
             critical_projects=critical_projects,
             total_blast_radius=len(affected_projects),
-            dependency_paths=paths,
+            dependency_paths=dependency_paths
         )
 
     def get_dependencies(self, project_id: str) -> DependencyReport:
-        """Get upstream and downstream dependencies for a project.
-
+        """
+        Get the dependency information for a project.
+        
         Args:
             project_id: The project to analyze
-
+            
         Returns:
-            DependencyReport with upstream, downstream, and shared resources
+            DependencyReport with upstream/downstream dependencies
+            
+        Raises:
+            ValueError: If project does not exist in the graph
         """
-        project_node_id = f"project:{project_id}"
+        if not self.graph.has_node(project_id):
+            raise ValueError(f"Project {project_id} does not exist in the graph.")
 
-        upstream: Set[str] = set()
-        downstream: Set[str] = set()
-        shared_resources: Set[str] = set()
-        shared_adrs: Set[str] = set()
+        upstream = []      # Projects this project depends on
+        downstream = []    # Projects that depend on this project
+        shared_resources = []
+        shared_adrs = []
 
-        # Find edges from this project
-        for edge in self.graph.get_edges_from(project_node_id):
-            target = self.graph.get_node(edge.target_id)
-            if not target:
-                continue
-
-            if edge.type == EdgeType.DEPENDS_ON and target.type == NodeType.PROJECT:
-                upstream.add(target.name)
-
-            if edge.type == EdgeType.MANAGES and target.type == NodeType.RESOURCE:
-                shared_resources.add(target.name)
-
-            if edge.type == EdgeType.IMPLEMENTS and target.type == NodeType.ADR:
-                shared_adrs.add(target.name)
-
-        # Find edges to this project
-        for edge in self.graph.get_edges_to(project_node_id):
-            source = self.graph.get_node(edge.source_id)
-            if source and edge.type == EdgeType.DEPENDS_ON and source.type == NodeType.PROJECT:
-                downstream.add(source.name)
+        for edge in self.graph.edges:
+            # Upstream: edges FROM this project TO dependencies
+            if edge.source == project_id and edge.type == EdgeType.DEPENDS_ON:
+                upstream.append(edge.target)
+            
+            # Downstream: edges FROM other projects TO this project
+            elif edge.target == project_id and edge.type == EdgeType.DEPENDS_ON:
+                downstream.append(edge.source)
+            
+            # Shared resources: MANAGES edges from this project
+            elif edge.source == project_id and edge.type == EdgeType.MANAGES:
+                shared_resources.append(edge.target)
+            
+            # Shared ADRs: IMPLEMENTS edges from this project
+            elif edge.source == project_id and edge.type == EdgeType.IMPLEMENTS:
+                shared_adrs.append(edge.target)
 
         return DependencyReport(
             project_id=project_id,
-            upstream=list(upstream),
-            downstream=list(downstream),
-            shared_resources=list(shared_resources),
-            shared_adrs=list(shared_adrs),
+            upstream=upstream,
+            downstream=downstream,
+            shared_resources=shared_resources,
+            shared_adrs=shared_adrs
         )
 
     def find_path(self, from_project: str, to_project: str) -> Optional[List[str]]:
-        """Find shortest path between two projects.
-
-        Args:
-            from_project: Source project ID
-            to_project: Target project ID
-
-        Returns:
-            List of project names in the path, or None if no path exists
         """
-        start = f"project:{from_project}"
-        end = f"project:{to_project}"
-
-        if start not in self.graph.nodes or end not in self.graph.nodes:
+        Find the shortest path between two projects using BFS.
+        
+        Args:
+            from_project: Source project
+            to_project: Target project
+            
+        Returns:
+            List of project IDs forming the path, or None if no path exists
+        """
+        if not self.graph.has_node(from_project) or not self.graph.has_node(to_project):
             return None
 
-        # BFS for shortest path
-        visited: Set[str] = set()
-        queue: deque = deque([(start, [from_project])])
+        if from_project == to_project:
+            return [from_project]
 
+        queue = deque([from_project])
+        visited: Set[str] = {from_project}
+        predecessor: Dict[str, Optional[str]] = {from_project: None}
+        
         while queue:
-            current, path = queue.popleft()
-
-            if current == end:
-                return path
-
-            if current in visited:
-                continue
-            visited.add(current)
-
-            # Traverse both directions for path finding
-            for edge in self.graph.get_edges_from(current):
-                target = self.graph.get_node(edge.target_id)
-                if target and target.type == NodeType.PROJECT:
-                    queue.append((edge.target_id, path + [target.name]))
-
-            for edge in self.graph.get_edges_to(current):
-                source = self.graph.get_node(edge.source_id)
-                if source and source.type == NodeType.PROJECT:
-                    queue.append((edge.source_id, path + [source.name]))
+            current_project = queue.popleft()
+            
+            # Check all outgoing edges from current project
+            for edge in self.graph.edges:
+                if edge.source == current_project and edge.target not in visited:
+                    visited.add(edge.target)
+                    predecessor[edge.target] = current_project
+                    queue.append(edge.target)
+                    
+                    # Check if we reached the target
+                    if edge.target == to_project:
+                        return self._reconstruct_path(predecessor, from_project, to_project)
 
         return None
 
-    def get_risk_exposure(self, team: str) -> Dict[str, int]:
-        """Get risk exposure summary for a team's projects.
+    def _reconstruct_path(self, predecessor: Dict[str, Optional[str]], start: str, end: str) -> List[str]:
+        """Reconstruct path from predecessor tracking."""
+        path = []
+        current = end
+        while current is not None:
+            path.append(current)
+            current = predecessor[current]
+        return path[::-1]  # Reverse to get start -> end order
 
+    def get_risk_exposure(self, team: str) -> Dict[str, int]:
+        """
+        Get risk exposure counts for a team.
+        
         Args:
             team: Team name to analyze
-
+            
         Returns:
             Dictionary mapping risk types to counts
         """
-        team_node_id = f"team:{team}"
-
-        # Find all projects owned by team
-        project_ids = []
-        for edge in self.graph.get_edges_to(team_node_id):
-            if edge.type == EdgeType.OWNED_BY:
-                project_ids.append(edge.source_id)
-
-        # Aggregate risks
         risk_counts: Dict[str, int] = {}
-        for project_id in project_ids:
-            for edge in self.graph.get_edges_from(project_id):
-                if edge.type == EdgeType.HAS_RISK:
-                    risk_node = self.graph.get_node(edge.target_id)
-                    if risk_node:
-                        risk_type = risk_node.attributes.get("type", "unknown")
-                        risk_counts[risk_type] = risk_counts.get(risk_type, 0) + 1
+
+        # Find all projects owned by the team
+        team_projects = []
+        for edge in self.graph.edges:
+            if edge.type == EdgeType.OWNED_BY and edge.target == team:
+                team_projects.append(edge.source)
+
+        # Aggregate risk counts from team's projects
+        for project_id in team_projects:
+            project_node = self.graph.get_node(project_id)
+            if project_node and hasattr(project_node, 'risk_type'):
+                risk_type = project_node.risk_type
+                risk_counts[risk_type] = risk_counts.get(risk_type, 0) + 1
 
         return risk_counts
 
-    def get_projects_by_team(self, team: str) -> List[str]:
-        """Get all projects owned by a team.
-
-        Args:
-            team: Team name
-
-        Returns:
-            List of project names
+    def to_visualization_format(self) -> Dict[str, List[Dict]]:
         """
-        team_node_id = f"team:{team}"
-        projects = []
-
-        for edge in self.graph.get_edges_to(team_node_id):
-            if edge.type == EdgeType.OWNED_BY:
-                node = self.graph.get_node(edge.source_id)
-                if node and node.type == NodeType.PROJECT:
-                    projects.append(node.name)
-
-        return projects
-
-    def get_projects_by_criticality(self, criticality: str) -> List[str]:
-        """Get all projects with a specific criticality.
-
-        Args:
-            criticality: Criticality level (critical, high, medium, low)
-
+        Convert graph to visualization format for D3.js/vis.js.
+        
         Returns:
-            List of project names
+            Dictionary with 'nodes' and 'links' arrays
         """
-        return [
-            node.name
-            for node in self.graph.nodes.values()
-            if node.type == NodeType.PROJECT
-            and node.attributes.get("criticality") == criticality
-        ]
+        nodes = []
+        for node in self.graph.nodes:
+            node_data = {
+                "id": node.id,
+                "label": getattr(node, 'label', node.id),
+                "group": getattr(node, 'group', node.type.name if hasattr(node, 'type') else 'default')
+            }
+            # Add additional node attributes if they exist
+            for attr in ['team', 'criticality', 'risk_type']:
+                if hasattr(node, attr):
+                    node_data[attr] = getattr(node, attr)
+            nodes.append(node_data)
 
-    def to_visualization_format(self) -> Dict[str, Any]:
-        """Export graph in format suitable for visualization libraries.
+        links = []
+        for edge in self.graph.edges:
+            link_data = {
+                "source": edge.source,
+                "target": edge.target,
+                "type": edge.type.name,
+                "value": getattr(edge, 'weight', 1)  # Default weight of 1
+            }
+            links.append(link_data)
 
-        Returns:
-            Dictionary with 'nodes' and 'links' arrays compatible with D3.js/vis.js
-        """
-        return {
-            "nodes": [
-                {
-                    "id": node.id,
-                    "label": node.name,
-                    "group": node.type.value,
-                    **node.attributes,
-                }
-                for node in self.graph.nodes.values()
-            ],
-            "links": [
-                {
-                    "source": edge.source_id,
-                    "target": edge.target_id,
-                    "type": edge.type.value,
-                    "value": edge.weight,
-                }
-                for edge in self.graph.edges
-            ],
-        }
+        return {"nodes": nodes, "links": links}
+
+
+__all__ = [
+    "ImpactReport",
+    "DependencyReport", 
+    "GraphQueries"
+]

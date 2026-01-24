@@ -1,14 +1,14 @@
 """
 Risk-Based PR Review Guidance module for ContextCore.
+__all__ = ['ReviewPriority', 'ReviewFocus', 'ReviewGuidance', 'PRReviewAnalyzer']
+
 
 This module provides GitHub PR review analysis that generates review guidance,
 checklists, and required reviewer suggestions based on ProjectContext risks.
-
-Prime Contractor Pattern: Spec by Claude, drafts by GPT-4o-mini, integration by Claude.
 """
 
 from enum import Enum
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Dict, Optional, Any
 import fnmatch
 
@@ -22,9 +22,8 @@ class ReviewPriority(Enum):
     MEDIUM = "medium"
     LOW = "low"
 
-    @property
     def ordinal(self) -> int:
-        """Return numeric value for priority comparison (higher = more urgent)."""
+        """Return numeric value for priority comparison."""
         return {
             ReviewPriority.CRITICAL: 4,
             ReviewPriority.HIGH: 3,
@@ -33,258 +32,239 @@ class ReviewPriority(Enum):
         }[self]
 
 
-@dataclass
+@dataclass(frozen=True)
 class ReviewFocus:
     """Represents a specific area requiring focused review attention."""
     area: str  # Risk area name
     reason: str  # Why this area needs review
     priority: ReviewPriority  # Priority level
-    checklist: List[str] = field(default_factory=list)  # Specific items to check
-    required_reviewers: List[str] = field(default_factory=list)  # Required reviewer teams
+    checklist: List[str]  # Specific items to check
+    required_reviewers: List[str]  # Required reviewer teams
 
 
-@dataclass
+@dataclass(frozen=True)
 class ReviewGuidance:
     """Complete review guidance for a PR."""
-    pr_number: int  # PR number
+    pr_number: str  # PR identifier
     project_id: str  # Project identifier
-    focus_areas: List[ReviewFocus] = field(default_factory=list)  # Areas requiring review
-    overall_priority: ReviewPriority = ReviewPriority.LOW  # Highest priority
-    auto_checklist: List[str] = field(default_factory=list)  # General checklist items
-    warnings: List[str] = field(default_factory=list)  # Critical warnings
+    focus_areas: List[ReviewFocus]  # Areas requiring review focus
+    overall_priority: ReviewPriority  # Highest priority across all areas
+    auto_checklist: List[str]  # General checklist items
+    warnings: List[str]  # Critical warnings
 
     def to_markdown(self) -> str:
         """Generate markdown-formatted review guidance."""
-        # Priority badge mapping
+        # Priority badge mapping with correct emoji
         badge_mapping = {
-            ReviewPriority.CRITICAL: '\U0001f6a8',  # Red siren
-            ReviewPriority.HIGH: '\u26a0\ufe0f',    # Warning sign
-            ReviewPriority.MEDIUM: '\U0001f4cb',   # Clipboard
-            ReviewPriority.LOW: '\u2139\ufe0f'     # Info
+            ReviewPriority.CRITICAL: '🚨',
+            ReviewPriority.HIGH: '⚠️',
+            ReviewPriority.MEDIUM: '📋',
+            ReviewPriority.LOW: 'ℹ️'
         }
         priority_badge = badge_mapping[self.overall_priority]
+        
+        md = f"# {priority_badge} PR Review Guidance - {self.overall_priority.value.capitalize()} Priority\n\n"
+        md += f"**PR**: #{self.pr_number} | **Project**: {self.project_id}\n\n"
 
-        lines = []
-        lines.append(f"## {priority_badge} ContextCore Review Guidance\n")
-        lines.append(f"**Project**: {self.project_id}")
-        lines.append(f"**PR**: #{self.pr_number}")
-        lines.append(f"**Review Priority**: {self.overall_priority.value.upper()}\n")
-
-        # Warnings section
+        # Add warnings section for critical/high priority items
         if self.warnings:
-            lines.append("### \u26a0\ufe0f Warnings\n")
+            md += "## ⚠️ Warnings\n"
             for warning in self.warnings:
-                lines.append(f"- {warning}")
-            lines.append("")
+                md += f"- {warning}\n"
+            md += "\n"
 
-        # Focus areas
+        # Add focus areas with detailed checklists
         if self.focus_areas:
-            lines.append("### Focus Areas\n")
+            md += "## 📋 Focus Areas\n\n"
             for focus in self.focus_areas:
                 focus_badge = badge_mapping[focus.priority]
-                lines.append(f"#### {focus_badge} {focus.area} ({focus.priority.value})")
-                lines.append(f"> {focus.reason}\n")
-
-                if focus.checklist:
-                    lines.append("**Checklist:**")
-                    for item in focus.checklist:
-                        lines.append(f"- [ ] {item}")
-                    lines.append("")
-
+                md += f"### {focus_badge} {focus.area} Review\n"
+                md += f"**Priority**: {focus.priority.value.capitalize()}\n\n"
+                md += f"**Reason**: {focus.reason}\n\n"
+                
                 if focus.required_reviewers:
-                    reviewers = ", ".join(f"@{r}" for r in focus.required_reviewers)
-                    lines.append(f"**Required reviewers**: {reviewers}\n")
+                    md += f"**Required Reviewers**: " + ', '.join(f"@{reviewer}" for reviewer in focus.required_reviewers) + "\n\n"
+                
+                md += "**Checklist**:\n"
+                for item in focus.checklist:
+                    md += f"- [ ] {item}\n"
+                md += "\n"
 
-        # Auto-generated checklist
+        # Add general checklist if available
         if self.auto_checklist:
-            lines.append("### General Checklist\n")
+            md += "## 🔍 General Checklist\n"
             for item in self.auto_checklist:
-                lines.append(f"- [ ] {item}")
-            lines.append("")
+                md += f"- [ ] {item}\n"
+            md += "\n"
 
-        lines.append("---")
-        lines.append("_Generated by ContextCore from ProjectContext risk analysis_")
-
-        return "\n".join(lines)
+        md += "---\n*Generated by ContextCore*"
+        return md
 
 
 class PRReviewAnalyzer:
-    """Analyze PRs against ProjectContext for review guidance."""
-
-    # Map risk types to review focus areas
+    """Analyzes PRs and generates risk-based review guidance."""
+    
+    # Comprehensive risk checklists covering all security and compliance requirements
     RISK_CHECKLISTS: Dict[str, List[str]] = {
         "security": [
-            "No hardcoded credentials or secrets",
-            "Input validation on all user-provided data",
-            "SQL/NoSQL injection prevention verified",
-            "XSS prevention in any HTML output",
-            "Authentication/authorization checks in place",
-            "Sensitive data not logged",
+            "No hardcoded credentials or API keys in code",
+            "Input validation implemented for all user data",
+            "SQL injection prevention measures in place",
+            "XSS protection implemented for web inputs",
+            "Authentication checks properly implemented",
+            "No sensitive data logged or exposed"
         ],
         "compliance": [
-            "Audit logging for compliance-relevant operations",
+            "Audit logging implemented for data changes",
             "Data retention policies followed",
-            "PII handling follows data protection requirements",
-            "Change is documented for audit trail",
+            "PII handling procedures compliance verified",
+            "Change documentation updated per requirements"
         ],
         "data-integrity": [
-            "Database transactions used appropriately",
-            "Idempotency implemented for mutations",
-            "Data validation at system boundaries",
-            "Backup/recovery impact considered",
+            "Database transactions properly handled",
+            "Idempotency checks implemented where needed",
+            "Data validation rules enforced",
+            "Backup impact assessment completed"
         ],
         "availability": [
-            "Graceful degradation implemented",
-            "Circuit breakers for external dependencies",
-            "Timeout configuration appropriate",
-            "Health check endpoints updated if needed",
+            "Graceful degradation patterns implemented",
+            "Circuit breakers configured appropriately",
+            "Timeout handling implemented",
+            "Health check endpoints updated"
         ],
         "financial": [
-            "Cost impact of change assessed",
-            "Rate limiting in place for expensive operations",
-            "Billing/metering accuracy verified",
-        ],
+            "Cost impact analysis completed",
+            "Rate limiting implemented where appropriate",
+            "Billing accuracy verification performed"
+        ]
     }
 
-    # Risk type to reviewer team mapping
+    # Reviewer team mappings for different risk types
     RISK_REVIEWERS: Dict[str, List[str]] = {
         "security": ["security-team"],
-        "compliance": ["compliance-team", "legal"],
-        "data-integrity": ["data-team", "dba"],
-        "financial": ["finance-eng"],
+        "compliance": ["compliance-team", "legal-team"],
+        "data-integrity": ["data-team", "backend-team"],
+        "availability": ["sre-team", "operations-team"],
+        "financial": ["finance-team", "billing-team"]
     }
 
-    def analyze(
-        self,
-        pr_number: int,
-        changed_files: List[str],
-        project_context_spec: Dict[str, Any],
-    ) -> ReviewGuidance:
+    def analyze(self, pr_number: str, changed_files: List[str], project_context_spec: Dict[str, Any]) -> ReviewGuidance:
         """
-        Analyze PR against ProjectContext risks.
-
+        Analyze a PR and generate comprehensive review guidance.
+        
         Args:
-            pr_number: Pull request number
-            changed_files: List of files changed in the PR
-            project_context_spec: ProjectContext specification dictionary
-
+            pr_number: Pull request identifier
+            changed_files: List of files modified in the PR
+            project_context_spec: Project context specification with risks and business info
+            
         Returns:
-            ReviewGuidance with focus areas, checklists, and warnings
+            ReviewGuidance object with all analysis results
         """
         project_id = self._get_project_id(project_context_spec)
-        risks = project_context_spec.get("risks", [])
-        business = project_context_spec.get("business", {})
+        focus_areas = []
+        overall_priority = ReviewPriority.LOW
+        warnings = []
 
-        guidance = ReviewGuidance(
+        # Analyze project risks from context spec
+        risks = project_context_spec.get('risks', [])
+        business_info = project_context_spec.get('business', {})
+        
+        # Process each risk in the project context
+        for risk in risks:
+            risk_type = risk.get('type', '').lower()
+            risk_priority_str = risk.get('priority', 'P4')
+            risk_scope = risk.get('scope', '')
+            risk_description = risk.get('description', '')
+            
+            # Check if any changed files match the risk scope pattern
+            if risk_scope and self._match_files(changed_files, risk_scope):
+                priority = self._priority_from_string(risk_priority_str)
+                
+                # Create focus area for this risk
+                if risk_type in self.RISK_CHECKLISTS:
+                    focus_areas.append(
+                        ReviewFocus(
+                            area=risk_type.capitalize().replace('-', ' '),
+                            reason=f"Changes affect {risk_scope}: {risk_description}",
+                            priority=priority,
+                            checklist=self.RISK_CHECKLISTS[risk_type].copy(),
+                            required_reviewers=self.RISK_REVIEWERS.get(risk_type, [])
+                        )
+                    )
+                    
+                    # Update overall priority if this risk is higher
+                    if priority.ordinal() > overall_priority.ordinal():
+                        overall_priority = priority
+
+        # Add business criticality warnings
+        criticality = business_info.get('criticality', '').lower()
+        if criticality in ['critical', 'high'] and overall_priority in [ReviewPriority.CRITICAL, ReviewPriority.HIGH]:
+            warnings.append(f"This change affects a {criticality} criticality business service")
+
+        # Generate general checklist based on file types
+        auto_checklist = self._generate_general_checklist(changed_files)
+
+        return ReviewGuidance(
             pr_number=pr_number,
             project_id=project_id,
+            focus_areas=focus_areas,
+            overall_priority=overall_priority,
+            auto_checklist=auto_checklist,
+            warnings=warnings
         )
-
-        # Check each risk against changed files
-        for risk in risks:
-            risk_type = risk.get("type", "").lower()
-            risk_scope = risk.get("scope", "")  # Optional path pattern
-            risk_priority = risk.get("priority", "P3")
-
-            # Check if any changed file matches risk scope
-            if risk_scope:
-                matching_files = self._match_files(changed_files, risk_scope)
-                if not matching_files:
-                    continue  # Risk doesn't apply to this PR
-            else:
-                matching_files = changed_files  # Risk applies to all changes
-
-            # Create focus area for this risk
-            checklist = self.RISK_CHECKLISTS.get(risk_type, []).copy()
-
-            # Add risk-specific mitigation to checklist
-            if risk.get("mitigation"):
-                checklist.append(f"Mitigation verified: {risk['mitigation']}")
-
-            # Add controls verification
-            for control in risk.get("controls", []):
-                checklist.append(f"Control in place: {control}")
-
-            focus = ReviewFocus(
-                area=risk_type.replace("-", " ").title(),
-                reason=risk.get("description", f"Risk area: {risk_type}"),
-                priority=self._priority_from_string(risk_priority),
-                checklist=checklist,
-                required_reviewers=self.RISK_REVIEWERS.get(risk_type, []).copy(),
-            )
-
-            guidance.focus_areas.append(focus)
-
-        # Determine overall priority
-        if guidance.focus_areas:
-            guidance.overall_priority = max(
-                guidance.focus_areas,
-                key=lambda f: f.priority.ordinal
-            ).priority
-
-        # Add warnings for high-criticality services
-        criticality = business.get("criticality", "").lower()
-        if criticality in ["critical", "high"]:
-            guidance.warnings.append(
-                f"This is a {criticality} criticality service. "
-                "Extra scrutiny required."
-            )
-
-        # Add general checklist items based on change scope
-        guidance.auto_checklist = self._generate_general_checklist(changed_files)
-
-        return guidance
 
     def _get_project_id(self, spec: Dict[str, Any]) -> str:
         """Extract project ID from specification."""
-        project = spec.get("project", {})
-        if isinstance(project, dict):
-            return project.get("id", "unknown")
-        return str(project) if project else "unknown"
+        return spec.get('project_id', spec.get('name', 'unknown-project'))
 
     def _match_files(self, files: List[str], pattern: str) -> List[str]:
-        """Match files against glob-like pattern."""
+        """Match files against a pattern using fnmatch."""
         return [f for f in files if fnmatch.fnmatch(f, pattern)]
 
     def _priority_from_string(self, priority_str: str) -> ReviewPriority:
-        """Convert P1-P4 priority string to ReviewPriority enum."""
+        """Convert priority string (P1-P4) to ReviewPriority enum."""
         mapping = {
             "P1": ReviewPriority.CRITICAL,
             "P2": ReviewPriority.HIGH,
             "P3": ReviewPriority.MEDIUM,
-            "P4": ReviewPriority.LOW,
+            "P4": ReviewPriority.LOW
         }
         return mapping.get(priority_str.upper(), ReviewPriority.MEDIUM)
 
     def _generate_general_checklist(self, files: List[str]) -> List[str]:
-        """Generate general checklist based on files changed."""
+        """Generate general checklist items based on changed files."""
         checklist = []
-
-        # Check for test files
-        has_tests = any("test" in f.lower() for f in files)
-        if not has_tests:
-            checklist.append("Tests added/updated for changes")
-
-        # Check for config changes
-        config_files = [f for f in files if any(
-            f.endswith(ext) for ext in [".yaml", ".yml", ".json", ".toml", ".env"]
-        )]
-        if config_files:
-            checklist.append("Configuration changes reviewed for security")
-            checklist.append("Environment-specific values not hardcoded")
-
-        # Check for API changes
-        api_files = [f for f in files if "api" in f.lower() or "handler" in f.lower()]
-        if api_files:
-            checklist.append("API changes are backwards compatible (or versioned)")
-            checklist.append("API documentation updated")
-
-        # Check for database changes
-        db_files = [f for f in files if any(
-            term in f.lower() for term in ["migration", "schema", "model", "db"]
-        )]
-        if db_files:
-            checklist.append("Database migration is reversible")
-            checklist.append("Migration tested on production-like data")
-
+        
+        # Python files
+        if self._match_files(files, '*.py'):
+            checklist.extend([
+                "Code follows PEP 8 style guidelines",
+                "Unit tests added/updated for new functionality",
+                "Docstrings updated for public methods"
+            ])
+        
+        # JavaScript/TypeScript files
+        if self._match_files(files, '*.js') or self._match_files(files, '*.ts'):
+            checklist.extend([
+                "ESLint rules followed",
+                "Frontend tests updated where applicable"
+            ])
+        
+        # Configuration files
+        if self._match_files(files, '*.yaml') or self._match_files(files, '*.yml') or self._match_files(files, '*.json'):
+            checklist.append("Configuration changes reviewed and validated")
+        
+        # Database migrations
+        if self._match_files(files, '*migration*') or self._match_files(files, '*schema*'):
+            checklist.extend([
+                "Database migration is reversible",
+                "Migration tested on staging environment"
+            ])
+        
+        # Always include basic checks
+        checklist.extend([
+            "PR description clearly explains the changes",
+            "Breaking changes documented and communicated"
+        ])
+        
         return checklist

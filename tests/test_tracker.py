@@ -22,8 +22,7 @@ from contextcore.tracker import (
     TASK_STATUS,
     TASK_PRIORITY,
     TASK_PERCENT_COMPLETE,
-    PROJECT_ID,
-)
+    PROJECT_ID)
 
 
 class CollectingExporter(SpanExporter):
@@ -63,8 +62,7 @@ def tracker(temp_state_dir, exporter):
         project="test-project",
         service_name="test-service",
         state_dir=temp_state_dir,
-        exporter=exporter,
-    )
+        exporter=exporter)
 
 
 class TestTaskCreation:
@@ -75,8 +73,7 @@ class TestTaskCreation:
         ctx = tracker.start_task(
             task_id="TASK-1",
             title="Test task",
-            task_type="task",
-        )
+            task_type="task")
 
         assert ctx is not None
         assert "TASK-1" in tracker.get_active_tasks()
@@ -90,8 +87,7 @@ class TestTaskCreation:
             priority="high",
             assignee="alice",
             story_points=5,
-            labels=["backend", "api"],
-        )
+            labels=["backend", "api"])
 
         # Complete to flush span
         tracker.complete_task("TASK-2")
@@ -113,16 +109,14 @@ class TestTaskCreation:
         tracker.start_task(
             task_id="EPIC-1",
             title="Parent epic",
-            task_type="epic",
-        )
+            task_type="epic")
 
         # Start child
         tracker.start_task(
             task_id="STORY-1",
             title="Child story",
             task_type="story",
-            parent_id="EPIC-1",
-        )
+            parent_id="EPIC-1")
 
         assert "EPIC-1" in tracker.get_active_tasks()
         assert "STORY-1" in tracker.get_active_tasks()
@@ -244,14 +238,12 @@ class TestProgress:
             task_id="TASK-P1",
             title="Child 1",
             task_type="task",
-            parent_id="STORY-P",
-        )
+            parent_id="STORY-P")
         tracker.start_task(
             task_id="TASK-P2",
             title="Child 2",
             task_type="task",
-            parent_id="STORY-P",
-        )
+            parent_id="STORY-P")
 
         # Complete one child
         tracker.complete_task("TASK-P1")
@@ -271,8 +263,7 @@ class TestSprintTracker:
             sprint_id="sprint-1",
             name="Sprint 1",
             goal="Complete feature X",
-            planned_points=20,
-        )
+            planned_points=20)
 
         assert ctx is not None
 
@@ -294,8 +285,7 @@ class TestStatePersistence:
         tracker = TaskTracker(
             project="persist-test",
             state_dir=temp_state_dir,
-            exporter=exporter,
-        )
+            exporter=exporter)
 
         tracker.start_task(task_id="PERSIST-1", title="Persist test")
 
@@ -308,8 +298,7 @@ class TestStatePersistence:
         tracker = TaskTracker(
             project="persist-test",
             state_dir=temp_state_dir,
-            exporter=exporter,
-        )
+            exporter=exporter)
 
         tracker.start_task(task_id="PERSIST-2", title="Complete test")
         tracker.complete_task("PERSIST-2")

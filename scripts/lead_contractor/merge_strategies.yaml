@@ -1,0 +1,47 @@
+# Merge strategies for known file patterns
+# This file defines how to handle duplicate target files during integration
+
+# Files that should always be merged together
+merge_always:
+  - pattern: "parts.py"
+    description: "Merge all parts-related models (Part, Message, Artifact)"
+    strategy: "intelligent_merge"
+  
+  - pattern: "__init__.py"
+    description: "Merge __init__ files by combining exports"
+    strategy: "init_merge"
+  
+  - pattern: "otel_genai.py"
+    description: "Merge complementary OTel attributes/mappings (conversation ID, tool mapping, dual-emit)"
+    strategy: "intelligent_merge"
+    notes: "Resolved: Added ATTRIBUTE_MAPPINGS, TOOL_ATTRIBUTES, AttributeMapper class"
+  
+  - pattern: "handoff.py"
+    description: "Merge complementary handoff classes (HandoffResult, HandoffStorage, HandoffManager, HandoffReceiver)"
+    strategy: "intelligent_merge"
+    notes: "Resolved: Added HandoffResult, HandoffStorage, HandoffManager, HandoffReceiver classes"
+
+# Files that need manual review (treated as conflicts)
+manual_review:
+  # otel_genai.py and handoff.py moved to merge_always after successful resolution
+
+# Files that should use largest/most complete version
+use_largest:
+  - pattern: "*statefile*.py"
+    description: "State files - use most complete version"
+    notes: "installtracking_statefile.py resolved: Replaced markdown with proper Python implementation"
+  
+  - pattern: "*config*.py"
+    description: "Config files - use most complete version"
+  
+  - pattern: "installtracking_statefile.py"
+    description: "Installation state file - use complete implementation with StepStatus, StepState, InstallationState, StateFile classes"
+    strategy: "largest"
+
+# Files that should use newest version
+use_newest:
+  - pattern: "*backup*.py"
+    description: "Backup files - use newest"
+  
+  - pattern: "*temp*.py"
+    description: "Temporary files - use newest"

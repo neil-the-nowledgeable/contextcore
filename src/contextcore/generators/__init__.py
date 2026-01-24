@@ -7,8 +7,7 @@ from contextcore.generators.slo_tests import (
     SLOTestGenerator,
     parse_duration,
     parse_throughput,
-    write_tests,
-)
+    write_tests)
 
 __all__ = [
     # Runbook

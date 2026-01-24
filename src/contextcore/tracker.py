@@ -45,7 +45,7 @@ from opentelemetry.trace import Link, SpanKind, Status, StatusCode
 from contextcore.contracts.types import TaskStatus, TaskType, Priority
 from contextcore.logger import TaskLogger
 from contextcore.state import StateManager, SpanState, format_trace_id, format_span_id
-from contextcore.compat.otel_genai import mapper
+from contextcore.compat.otel_genai import transform_attributes
 
 logger = logging.getLogger(__name__)
 
@@ -96,8 +96,7 @@ class TaskTracker:
         project: str,
         service_name: str = "contextcore-tracker",
         state_dir: Optional[str] = None,
-        exporter: Optional[Any] = None,
-    ):
+        exporter: Optional[Any] = None):
         """
         Initialize the task tracker.
 
@@ -302,8 +301,7 @@ class TaskTracker:
         url: Optional[str] = None,
         due_date: Optional[str] = None,
         sprint_id: Optional[str] = None,
-        **extra_attributes: Any,
-    ) -> trace.SpanContext:
+        **extra_attributes: Any) -> trace.SpanContext:
         """
         Start a new task span.
 
@@ -366,7 +364,7 @@ class TaskTracker:
         attributes["gen_ai.operation.name"] = "task"
 
         # Apply dual-emit mapping
-        attributes = mapper.map_attributes(attributes)
+        attributes = transform_attributes(attributes)
 
         # Build links for dependencies
         links: List[Link] = []
@@ -392,8 +390,7 @@ class TaskTracker:
             kind=SpanKind.INTERNAL,
             attributes=attributes,
             links=links,
-            context=parent_context,
-        )
+            context=parent_context)
 
         # Add creation event
         span.add_event(
@@ -430,8 +427,7 @@ class TaskTracker:
             assignee=assignee,
             story_points=story_points,
             sprint_id=sprint_id,
-            parent_id=parent_id,
-        )
+            parent_id=parent_id)
 
         logger.info(f"Started task span: {task_id} ({task_type})")
         return span.get_span_context()
@@ -480,8 +476,7 @@ class TaskTracker:
             from_status=old_status,
             to_status=new_status,
             task_type=task_type,
-            sprint_id=sprint_id,
-        )
+            sprint_id=sprint_id)
 
         logger.info(f"Task {task_id}: {old_status} → {new_status}")
 
@@ -489,8 +484,7 @@ class TaskTracker:
         self,
         task_id: str,
         reason: str,
-        blocked_by: Optional[str] = None,
-    ) -> None:
+        blocked_by: Optional[str] = None) -> None:
         """
         Mark task as blocked (adds event, sets ERROR status).
 
@@ -523,8 +517,7 @@ class TaskTracker:
             reason=reason,
             blocked_by=blocked_by,
             task_type=task_type,
-            sprint_id=sprint_id,
-        )
+            sprint_id=sprint_id)
 
         logger.info(f"Task {task_id} blocked: {reason}")
 
@@ -553,8 +546,7 @@ class TaskTracker:
         self._task_logger.log_unblocked(
             task_id=task_id,
             task_type=task_type,
-            sprint_id=sprint_id,
-        )
+            sprint_id=sprint_id)
 
         logger.info(f"Task {task_id} unblocked → {new_status}")
 
@@ -649,8 +641,7 @@ class TaskTracker:
             task_id=task_id,
             task_type=task_type,
             story_points=story_points,
-            sprint_id=sprint_id,
-        )
+            sprint_id=sprint_id)
 
         logger.info(f"Task {task_id} completed")
 
@@ -690,8 +681,7 @@ class TaskTracker:
             task_id=task_id,
             reason=reason,
             task_type=task_type,
-            sprint_id=sprint_id,
-        )
+            sprint_id=sprint_id)
 
         logger.info(f"Task {task_id} cancelled")
 
@@ -780,8 +770,7 @@ class TaskTracker:
                 sprint_id=sprint_id,
                 source="subtask",
                 subtask_completed=subtask_completed,
-                subtask_count=subtask_count,
-            )
+                subtask_count=subtask_count)
 
             logger.info(f"Task {parent_id}: {subtask_completed}/{subtask_count} ({percent:.1f}%)")
 
@@ -818,8 +807,7 @@ class TaskTracker:
             percent_complete=percent,
             task_type=task_type,
             sprint_id=sprint_id,
-            source="manual",
-        )
+            source="manual")
 
         logger.info(f"Task {task_id} progress: {percent:.1f}%")
 
@@ -928,8 +916,7 @@ class TaskTracker:
                     attributes=attributes,
                     events=events,
                     status=status,
-                    status_description=status_desc,
-                )
+                    status_description=status_desc)
 
                 self._state_manager.save_span(state)
 
@@ -981,8 +968,7 @@ class SprintTracker:
         goal: Optional[str] = None,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
-        planned_points: Optional[int] = None,
-    ) -> trace.SpanContext:
+        planned_points: Optional[int] = None) -> trace.SpanContext:
         """
         Start a new sprint span.
 
@@ -1014,8 +1000,7 @@ class SprintTracker:
         span = self._tracer.start_span(
             name=f"sprint:{sprint_id}",
             kind=SpanKind.INTERNAL,
-            attributes=attributes,
-        )
+            attributes=attributes)
 
         span.add_event("sprint.started", attributes={"name": name})
 
@@ -1028,8 +1013,7 @@ class SprintTracker:
         self,
         sprint_id: str,
         completed_points: Optional[int] = None,
-        notes: Optional[str] = None,
-    ) -> None:
+        notes: Optional[str] = None) -> None:
         """
         End a sprint.
 

@@ -20,10 +20,11 @@ Usage:
 """
 
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 
 # Add project root to path
@@ -288,6 +289,40 @@ def check_if_integrated(generated_file: GeneratedFile, target_path: Path) -> boo
     if not target_path.exists():
         return False
     
+    # Check for known resolved conflicts - these files have been manually merged
+    resolved_conflicts = {
+        'src/contextcore/compat/otel_genai.py': [
+            'OTel_ConversationId', 'OTel_ToolMapping', 
+            'Foundation_GapAnalysis', 'Foundation_DualEmit'
+        ],
+        'src/contextcore/agent/handoff.py': [
+            'State_InputRequest', 'State_EnhancedStatus'
+        ],
+        'src/contextcore/install/installtracking_statefile.py': [
+            'InstallTracking_StateFile'
+        ],
+    }
+    
+    target_str = str(target_path)
+
+    # Check for known resolved conflicts - match against both absolute and relative paths
+    for resolved_path, resolved_features in resolved_conflicts.items():
+        # Match if target ends with the resolved path (handles both relative and absolute)
+        if target_str.endswith(resolved_path) or resolved_path in target_str:
+            # Check if this feature was part of the resolved conflict
+            feature_name = generated_file.feature_name
+            if any(resolved_feature in feature_name for resolved_feature in resolved_features):
+                # File exists and this feature was already resolved
+                # Check if target is significantly larger (indicating merge was done)
+                try:
+                    target_stat = target_path.stat()
+                    source_stat = generated_file.path.stat()
+                    # If target is larger, likely merged
+                    if target_stat.st_size > source_stat.st_size * 1.2:
+                        return True
+                except OSError:
+                    pass
+    
     # Compare file sizes and modification times as heuristic
     # (Not perfect, but good enough for detection)
     try:
@@ -305,6 +340,349 @@ def check_if_integrated(generated_file: GeneratedFile, target_path: Path) -> boo
     return False
 
 
+def analyze_file_content(file_path: Path) -> Dict[str, any]:
+    """Analyze file content to help detect conflicts."""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Extract key identifiers (classes, functions, imports)
+        classes = re.findall(r'^class\s+([A-Za-z_][A-Za-z0-9_]*)', content, re.MULTILINE)
+        functions = re.findall(r'^def\s+([A-Za-z_][A-Za-z0-9_]*)', content, re.MULTILINE)
+        imports = re.findall(r'^(?:from|import)\s+([^\s]+)', content, re.MULTILINE)
+        
+        return {
+            'size': len(content),
+            'lines': len(content.split('\n')),
+            'classes': set(classes),
+            'functions': set(functions),
+            'imports': set(imports),
+            'has_main': 'if __name__' in content or '__main__' in content,
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
+
+def detect_merge_strategy(
+    target_path: Path,
+    source_files: List[GeneratedFile]
+) -> Optional[str]:
+    """
+    Detect if files should be merged vs chosen.
+    
+    Returns:
+        'merge' - Files should be merged together
+        'choose' - User should choose one file
+        'largest' - Use largest file (for duplicates)
+        None - Unknown, require manual review
+    """
+    target_name = target_path.name
+    
+    # Known merge patterns
+    merge_patterns = {
+        'parts.py': 'merge',  # Always merge parts-related files
+        '__init__.py': 'merge',  # Merge __init__ files
+        'otel_genai.py': 'merge',  # Merge complementary OTel attributes/mappings
+        'handoff.py': 'merge',  # Merge complementary handoff classes (HandoffResult, HandoffStorage, etc.)
+    }
+    
+    # Known "choose one" patterns (complex cases that need manual review)
+    choose_patterns = {
+        # Removed otel_genai.py and handoff.py - now handled as merge opportunities
+    }
+    
+    # Known "use largest" patterns
+    largest_patterns = {
+        '*statefile*.py': 'largest',  # State files - use most complete version
+        '*config*.py': 'largest',  # Config files - use most complete version
+        'installtracking_statefile.py': 'largest',  # Installation state - use complete implementation
+    }
+    
+    # Check for exact matches
+    if target_name in merge_patterns:
+        return merge_patterns[target_name]
+    
+    if target_name in choose_patterns:
+        return choose_patterns[target_name]
+    
+    # Check pattern matches
+    import fnmatch
+    for pattern, strategy in largest_patterns.items():
+        if fnmatch.fnmatch(target_name, pattern):
+            return strategy
+    
+    # Heuristics for unknown patterns
+    # If files have complementary classes/functions, suggest merge
+    if len(source_files) > 1:
+        all_classes = set()
+        all_functions = set()
+        
+        for src_file in source_files:
+            analysis = analyze_file_content(src_file.path)
+            if 'error' not in analysis:
+                all_classes.update(analysis.get('classes', set()))
+                all_functions.update(analysis.get('functions', set()))
+        
+        # If total unique classes/functions > any single file, likely complementary
+        for src_file in source_files:
+            analysis = analyze_file_content(src_file.path)
+            if 'error' not in analysis:
+                file_classes = analysis.get('classes', set())
+                file_functions = analysis.get('functions', set())
+                
+                if len(all_classes) > len(file_classes) * 1.5:
+                    return 'merge'  # Files have complementary classes
+                if len(all_functions) > len(file_functions) * 1.5:
+                    return 'merge'  # Files have complementary functions
+    
+    return None  # Unknown, require review
+
+
+def merge_files_intelligently(
+    target_path: Path,
+    source_files: List[Dict]
+) -> str:
+    """
+    Intelligently merge multiple Python files.
+    
+    Strategy:
+    1. Collect all imports (deduplicate)
+    2. Collect all classes (preserve all)
+    3. Collect all functions (preserve all)
+    4. Combine docstrings (use first non-empty)
+    5. Generate __all__ list
+    """
+    imports = set()
+    classes = {}
+    functions = {}
+    docstring = None
+    module_level_code = []
+    
+    for src in source_files:
+        src_path = Path(src['source'])
+        if not src_path.exists():
+            continue
+        
+        with open(src_path, 'r', encoding='utf-8') as f:
+            content = clean_markdown_code_blocks(f.read())
+        
+        # Parse file (simplified - would need AST parsing for production)
+        lines = content.split('\n')
+        in_class = None
+        in_function = None
+        class_lines = []
+        function_lines = []
+        in_docstring = False
+        docstring_lines = []
+        indent_level = 0
+        
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            current_indent = len(line) - len(line.lstrip())
+            
+            # Collect imports
+            if stripped.startswith('import ') or stripped.startswith('from '):
+                imports.add(stripped)
+            
+            # Collect docstring
+            elif not docstring and stripped.startswith('"""'):
+                if stripped.count('"""') == 2:
+                    # Single-line docstring
+                    docstring = stripped
+                else:
+                    # Multi-line docstring
+                    in_docstring = True
+                    docstring_lines = [line]
+            
+            elif in_docstring:
+                docstring_lines.append(line)
+                if '"""' in stripped:
+                    docstring = '\n'.join(docstring_lines)
+                    in_docstring = False
+            
+            # Collect classes
+            elif stripped.startswith('class '):
+                if in_class:
+                    classes[in_class] = '\n'.join(class_lines)
+                if in_function:
+                    functions[in_function] = '\n'.join(function_lines)
+                    in_function = None
+                    function_lines = []
+                
+                class_name = stripped.split('(')[0].split(':')[0].replace('class ', '').strip()
+                in_class = class_name
+                class_lines = [line]
+                indent_level = current_indent
+            
+            # Collect functions (only at module level)
+            elif stripped.startswith('def ') and not in_class:
+                if in_function:
+                    functions[in_function] = '\n'.join(function_lines)
+                func_name = stripped.split('(')[0].replace('def ', '').strip()
+                in_function = func_name
+                function_lines = [line]
+                indent_level = current_indent
+            
+            # Continue collecting class/function content
+            elif in_class:
+                if stripped and not stripped.startswith('#') and current_indent <= indent_level:
+                    # End of class
+                    classes[in_class] = '\n'.join(class_lines)
+                    in_class = None
+                    class_lines = []
+                else:
+                    class_lines.append(line)
+            
+            elif in_function:
+                if stripped and not stripped.startswith('#') and current_indent <= indent_level:
+                    # End of function
+                    functions[in_function] = '\n'.join(function_lines)
+                    in_function = None
+                    function_lines = []
+                else:
+                    function_lines.append(line)
+            
+            else:
+                # Module-level code (not in class/function)
+                if stripped and not stripped.startswith('#') and not stripped.startswith('@'):
+                    # Check if it's not an import or docstring
+                    if not (stripped.startswith('import ') or stripped.startswith('from ') or 
+                            stripped.startswith('"""') or stripped.startswith("'''")):
+                        module_level_code.append(line)
+        
+        # Save last class/function
+        if in_class:
+            classes[in_class] = '\n'.join(class_lines)
+        if in_function:
+            functions[in_function] = '\n'.join(function_lines)
+    
+    # Build merged content
+    result = []
+    
+    # Docstring
+    if docstring:
+        result.append(docstring)
+        result.append('')
+    
+    # Imports (sorted)
+    sorted_imports = sorted(imports)
+    for imp in sorted_imports:
+        result.append(imp)
+    if sorted_imports:
+        result.append('')
+    
+    # Module-level code
+    if module_level_code:
+        result.extend(module_level_code)
+        result.append('')
+    
+    # Classes (sorted by name)
+    for class_name, class_content in sorted(classes.items()):
+        result.append(class_content)
+        result.append('')
+    
+    # Functions (sorted by name)
+    for func_name, func_content in sorted(functions.items()):
+        result.append(func_content)
+        result.append('')
+    
+    # __all__ export
+    all_exports = sorted(set(list(classes.keys()) + list(functions.keys())))
+    if all_exports:
+        result.append(f"__all__ = {all_exports}")
+    
+    return '\n'.join(result)
+
+
+def merge_files_automatically(
+    target_path: Path,
+    source_files: List[Dict],
+    strategy: str = 'merge'
+) -> Optional[str]:
+    """
+    Automatically merge multiple files into target.
+    
+    Args:
+        target_path: Target file path
+        source_files: List of source file dicts with 'source' and 'feature' keys
+        strategy: Merge strategy ('merge', 'largest', 'newest')
+    
+    Returns:
+        Merged content as string, or None if merge failed
+    """
+    if strategy == 'largest':
+        # Use largest file
+        files_content = []
+        for src in source_files:
+            src_path = Path(src['source'])
+            if src_path.exists():
+                with open(src_path, 'r', encoding='utf-8') as f:
+                    content = clean_markdown_code_blocks(f.read())
+                    files_content.append((len(content), content))
+        
+        if files_content:
+            files_content.sort(key=lambda x: x[0], reverse=True)
+            return files_content[0][1]
+    
+    elif strategy == 'newest':
+        # Use newest file
+        files_content = []
+        for src in source_files:
+            src_path = Path(src['source'])
+            if src_path.exists():
+                stat = src_path.stat()
+                with open(src_path, 'r', encoding='utf-8') as f:
+                    content = clean_markdown_code_blocks(f.read())
+                    files_content.append((stat.st_mtime, content))
+        
+        if files_content:
+            files_content.sort(key=lambda x: x[0], reverse=True)
+            return files_content[0][1]
+    
+    elif strategy == 'merge':
+        # Merge all files intelligently
+        return merge_files_intelligently(target_path, source_files)
+    
+    return None
+
+
+def compare_files_for_conflicts(file1: Path, file2: Path) -> Dict[str, any]:
+    """Compare two files to detect potential conflicts."""
+    analysis1 = analyze_file_content(file1)
+    analysis2 = analyze_file_content(file2)
+    
+    if 'error' in analysis1 or 'error' in analysis2:
+        return {'error': 'Could not analyze one or both files'}
+    
+    conflicts = {
+        'size_diff': abs(analysis1['size'] - analysis2['size']),
+        'size_diff_percent': abs(analysis1['size'] - analysis2['size']) / max(analysis1['size'], analysis2['size'], 1) * 100,
+        'classes_added': analysis2['classes'] - analysis1['classes'],
+        'classes_removed': analysis1['classes'] - analysis2['classes'],
+        'functions_added': analysis2['functions'] - analysis1['functions'],
+        'functions_removed': analysis1['functions'] - analysis2['functions'],
+        'imports_changed': (analysis1['imports'] | analysis2['imports']) - (analysis1['imports'] & analysis2['imports']),
+    }
+    
+    # Calculate conflict risk score (0-100)
+    risk_score = 0
+    if conflicts['size_diff_percent'] > 50:
+        risk_score += 30  # Large size difference
+    if len(conflicts['classes_removed']) > 0:
+        risk_score += 25  # Classes would be removed
+    if len(conflicts['functions_removed']) > 0:
+        risk_score += 20  # Functions would be removed
+    if len(conflicts['imports_changed']) > 5:
+        risk_score += 15  # Many import changes
+    if conflicts['size_diff_percent'] > 20:
+        risk_score += 10  # Moderate size difference
+    
+    conflicts['risk_score'] = min(risk_score, 100)
+    conflicts['risk_level'] = 'HIGH' if risk_score >= 50 else 'MEDIUM' if risk_score >= 25 else 'LOW'
+    
+    return conflicts
+
+
 def generate_integration_plan(
     files: List[GeneratedFile],
     feature_filter: Optional[str] = None
@@ -314,8 +692,14 @@ def generate_integration_plan(
         "files": [],
         "warnings": [],
         "requires_review": [],
-        "already_integrated": []
+        "already_integrated": [],
+        "duplicate_targets": {},  # Track files that map to same target
+        "conflicts": {},  # Track conflicts for duplicate targets
+        "merge_opportunities": {}  # Track files that should be merged (not conflicting)
     }
+    
+    # Track targets to detect duplicates
+    target_to_sources = {}
     
     for file in files:
         # Filter by feature if specified
@@ -324,24 +708,303 @@ def generate_integration_plan(
         
         target = infer_target_path(file)
         if target:
+            target_str = str(target)
+            
+            # Track duplicate targets
+            if target_str not in target_to_sources:
+                target_to_sources[target_str] = []
+            target_to_sources[target_str].append(file)
+            
             # Check if already integrated
             if check_if_integrated(file, target):
                 plan["already_integrated"].append({
                     "source": str(file.path),
-                    "target": str(target),
+                    "target": target_str,
                     "feature": file.feature_name
                 })
             else:
                 plan["files"].append({
                     "source": str(file.path),
-                    "target": str(target),
+                    "target": target_str,
                     "feature": file.feature_name
                 })
         else:
             plan["warnings"].append(f"Could not infer target for {file.path.name} ({file.feature_name})")
             plan["requires_review"].append(file)
     
+    # Detect duplicate targets and analyze conflicts
+    # First, build a set of already-integrated source paths for fast lookup
+    already_integrated_sources = {item["source"] for item in plan["already_integrated"]}
+
+    for target_str, source_files in target_to_sources.items():
+        if len(source_files) > 1:
+            target_path = Path(target_str)
+
+            # Check if ALL source files for this target are already integrated
+            all_integrated = all(
+                str(f.path) in already_integrated_sources
+                for f in source_files
+            )
+            if all_integrated:
+                # Skip conflict analysis - all files are already integrated
+                continue
+
+            # Detect merge strategy
+            merge_strategy = detect_merge_strategy(target_path, source_files)
+
+            if merge_strategy == 'merge':
+                # Mark as merge opportunity, not conflict
+                plan["merge_opportunities"][target_str] = {
+                    "strategy": "merge",
+                    "sources": [
+                        {"source": str(f.path), "feature": f.feature_name}
+                        for f in source_files
+                    ]
+                }
+                continue  # Skip conflict analysis for merge opportunities
+
+            # Track as duplicate target
+            plan["duplicate_targets"][target_str] = [
+                {"source": str(f.path), "feature": f.feature_name}
+                for f in source_files
+            ]
+            
+            # Analyze conflicts for non-merge cases
+            conflicts = []
+            
+            # Compare each pair of files
+            for i in range(len(source_files)):
+                for j in range(i + 1, len(source_files)):
+                    file1 = source_files[i].path
+                    file2 = source_files[j].path
+                    
+                    conflict = compare_files_for_conflicts(file1, file2)
+                    conflict['file1'] = str(file1.relative_to(PROJECT_ROOT))
+                    conflict['file2'] = str(file2.relative_to(PROJECT_ROOT))
+                    conflict['feature1'] = source_files[i].feature_name
+                    conflict['feature2'] = source_files[j].feature_name
+                    conflicts.append(conflict)
+            
+            if conflicts:
+                # Get highest risk conflict
+                max_risk = max(c.get('risk_score', 0) for c in conflicts)
+                plan["conflicts"][target_str] = {
+                    "max_risk_score": max_risk,
+                    "max_risk_level": max([c.get('risk_level', 'LOW') for c in conflicts], 
+                                         key=lambda x: ['LOW', 'MEDIUM', 'HIGH'].index(x)),
+                    "conflicts": conflicts,
+                    "file_count": len(source_files),
+                    "merge_strategy": merge_strategy  # Include detected strategy
+                }
+    
     return plan
+
+
+def clean_markdown_code_blocks(content: str) -> str:
+    """Remove markdown code blocks from file content."""
+    # Remove opening ```python or ``` at the start
+    content = content.lstrip()
+    lines = content.split("\n")
+    
+    # Remove opening code block marker
+    if lines and lines[0].strip().startswith("```"):
+        lines = lines[1:]
+        content = "\n".join(lines)
+    
+    # Remove closing ``` at the end
+    content = content.rstrip()
+    lines = content.split("\n")
+    if lines and lines[-1].strip() == "```":
+        lines = lines[:-1]
+        content = "\n".join(lines)
+    
+    return content
+
+
+def detect_incomplete_file(content: str, file_path: Path) -> List[str]:
+    """
+    Detect if a file appears incomplete or truncated.
+    
+    Returns:
+        List of issues found (empty if file appears complete)
+    """
+    issues = []
+    
+    # Check for incomplete lines (lines ending with incomplete identifiers)
+    lines = content.split('\n')
+    if lines:
+        last_line = lines[-1].strip()
+        # Check if last line looks incomplete (ends with identifier but no statement)
+        if last_line and not last_line.endswith((':', ')', ']', '}', '"""', "'''", '"""', "'''")):
+            # Check if it's just an identifier without assignment or function call
+            if re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*\s*$', last_line):
+                issues.append(f"File appears truncated - ends with incomplete identifier: '{last_line}'")
+        
+        # Check for incomplete function/class definitions
+        incomplete_defs = []
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if stripped.startswith(('def ', 'class ')) and not stripped.endswith(':'):
+                # Check if next line exists and is indented
+                if i + 1 < len(lines):
+                    next_line = lines[i + 1]
+                    if next_line.strip() and not next_line.startswith((' ', '\t')):
+                        incomplete_defs.append(f"Line {i+1}: {stripped[:50]}")
+        
+        if incomplete_defs:
+            issues.append(f"Incomplete definitions found: {incomplete_defs[:3]}")
+    
+    # Check for unmatched brackets/parentheses/braces (basic check)
+    if content.count('(') != content.count(')'):
+        issues.append("Unmatched parentheses detected")
+    if content.count('[') != content.count(']'):
+        issues.append("Unmatched brackets detected")
+    if content.count('{') != content.count('}'):
+        issues.append("Unmatched braces detected")
+    
+    # Check for incomplete string literals
+    triple_quotes = content.count('"""') + content.count("'''")
+    if triple_quotes % 2 != 0:
+        issues.append("Unclosed triple-quoted string detected")
+    
+    return issues
+
+
+def show_file_preview(file_path: Path, max_lines: int = 30) -> None:
+    """Show a preview of file content."""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        print(f"\n  Preview of {file_path.name} ({len(lines)} lines):")
+        print("  " + "-" * 66)
+        
+        # Show first few lines
+        for i, line in enumerate(lines[:max_lines], 1):
+            print(f"  {i:3d} | {line.rstrip()}")
+        
+        if len(lines) > max_lines:
+            print(f"  ... ({len(lines) - max_lines} more lines)")
+        
+        # Show file stats
+        analysis = analyze_file_content(file_path)
+        if 'error' not in analysis:
+            print(f"\n  Stats:")
+            print(f"    Size: {analysis['size']:,} bytes")
+            print(f"    Lines: {analysis['lines']:,}")
+            print(f"    Classes: {len(analysis['classes'])}")
+            print(f"    Functions: {len(analysis['functions'])}")
+            if analysis['classes']:
+                print(f"    Classes: {', '.join(list(analysis['classes'])[:5])}")
+            if analysis['functions']:
+                print(f"    Functions: {', '.join(list(analysis['functions'])[:5])}")
+        
+    except Exception as e:
+        print(f"  Error reading file: {e}")
+
+
+def resolve_conflict_interactive(
+    target_path: Path,
+    source_files: List[Dict],
+    plan: Dict
+) -> Optional[Dict]:
+    """
+    Interactively resolve a conflict by letting user choose which file to integrate.
+    
+    Args:
+        target_path: Path to the target file (may be Path or str)
+        source_files: List of dicts with 'source' and 'feature' keys
+        plan: Integration plan dict with conflicts info
+    
+    Returns:
+        Selected file dict, or None if user skips/quits
+    """
+    # Ensure target_path is a Path object
+    if isinstance(target_path, str):
+        target_path = Path(target_path)
+    
+    target_rel = target_path.relative_to(PROJECT_ROOT)
+    conflict_info = plan.get('conflicts', {}).get(str(target_path), {})
+    risk_level = conflict_info.get('max_risk_level', 'UNKNOWN')
+    risk_score = conflict_info.get('max_risk_score', 0)
+    
+    print(f"\n{'='*70}")
+    print(f"CONFLICT RESOLUTION: {target_rel}")
+    print(f"{'='*70}")
+    print(f"Risk Level: {risk_level} (Score: {risk_score}/100)")
+    print(f"Files targeting this destination: {len(source_files)}")
+    
+    # Show conflict details if available
+    if conflict_info.get('conflicts'):
+        worst_conflict = max(conflict_info['conflicts'], 
+                           key=lambda c: c.get('risk_score', 0))
+        print(f"\nConflict Details:")
+        print(f"  Comparing: {worst_conflict.get('feature1')} vs {worst_conflict.get('feature2')}")
+        if worst_conflict.get('classes_removed'):
+            removed = list(worst_conflict['classes_removed'])[:5]
+            print(f"  ⚠️  Would remove classes: {', '.join(removed)}")
+        if worst_conflict.get('functions_removed'):
+            removed = list(worst_conflict['functions_removed'])[:5]
+            print(f"  ⚠️  Would remove functions: {', '.join(removed)}")
+        if worst_conflict.get('size_diff_percent', 0) > 20:
+            print(f"  ⚠️  Size difference: {worst_conflict['size_diff_percent']:.1f}%")
+    
+    # Show current target if it exists
+    if target_path.exists():
+        print(f"\nCurrent target file exists:")
+        try:
+            target_stat = target_path.stat()
+            print(f"  Size: {target_stat.st_size:,} bytes")
+            print(f"  Modified: {target_stat.st_mtime}")
+        except:
+            pass
+    
+    # Show options
+    print(f"\nOptions:")
+    for i, src in enumerate(source_files, 1):
+        src_path = Path(src['source'])
+        try:
+            src_stat = src_path.stat()
+            size = src_stat.st_size
+            print(f"  [{i}] {src['feature']}")
+            print(f"      File: {src_path.name}")
+            print(f"      Size: {size:,} bytes")
+        except:
+            print(f"  [{i}] {src['feature']} (file not found)")
+    
+    print(f"  [s] Skip this conflict")
+    print(f"  [v] View file details")
+    print(f"  [q] Quit workflow")
+    
+    while True:
+        choice = input("\nSelect option: ").strip().lower()
+        
+        if choice == 'q':
+            return None  # Signal to quit
+        
+        if choice == 's':
+            return None  # Skip
+        
+        if choice == 'v':
+            # Show detailed view
+            print("\nFile Details:")
+            for i, src in enumerate(source_files, 1):
+                print(f"\n[{i}] {src['feature']}:")
+                show_file_preview(Path(src['source']), max_lines=20)
+            continue
+        
+        try:
+            idx = int(choice) - 1
+            if 0 <= idx < len(source_files):
+                selected = source_files[idx]
+                print(f"\n✓ Selected: {selected['feature']}")
+                return selected
+            else:
+                print(f"Invalid option. Choose 1-{len(source_files)}, s, v, or q")
+        except ValueError:
+            print(f"Invalid input. Choose 1-{len(source_files)}, s, v, or q")
+    
+    return None
 
 
 def integrate_file(source: Path, target: Path, dry_run: bool = False) -> bool:
@@ -361,9 +1024,34 @@ def integrate_file(source: Path, target: Path, dry_run: bool = False) -> bool:
     # Create target directory
     target.parent.mkdir(parents=True, exist_ok=True)
     
-    # Copy file
-    shutil.copy2(source, target)
-    print(f"  ✓ Integrated: {target.relative_to(PROJECT_ROOT)}")
+    # Read source file and clean it
+    try:
+        with open(source, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Clean markdown code blocks for Python files
+        if source.suffix == '.py':
+            original_content = content
+            content = clean_markdown_code_blocks(content)
+            if content != original_content:
+                print(f"  [Cleaned] Removed markdown code blocks from {source.name}")
+            
+            # Check for incomplete files
+            incomplete_issues = detect_incomplete_file(content, source)
+            if incomplete_issues:
+                print(f"  ⚠️  Warning: File may be incomplete:")
+                for issue in incomplete_issues[:3]:  # Show first 3 issues
+                    print(f"    - {issue}")
+                # Don't fail, but warn the user
+        
+        # Write cleaned content
+        with open(target, 'w', encoding='utf-8') as f:
+            f.write(content)
+        print(f"  ✓ Integrated: {target.relative_to(PROJECT_ROOT)}")
+        
+    except Exception as e:
+        print(f"  ✗ Failed to integrate {source.name}: {e}")
+        return False
     
     return True
 
@@ -398,6 +1086,8 @@ Examples:
                        help="List all pending integrations")
     parser.add_argument("--auto", action="store_true", 
                        help="Auto-integrate without confirmation (use with caution)")
+    parser.add_argument("--allow-conflicts", action="store_true",
+                       help="Allow integration even with high-risk conflicts (dangerous)")
     
     args = parser.parse_args()
     
@@ -439,6 +1129,59 @@ Examples:
     print(f"  Already integrated: {len(plan['already_integrated'])}")
     print(f"  Requires review: {len(plan['requires_review'])}")
     print(f"  Warnings: {len(plan['warnings'])}")
+    print(f"  Duplicate targets: {len(plan.get('duplicate_targets', {}))}")
+    
+    # Show conflicts in detail
+    if plan.get('conflicts'):
+        print(f"\n🚨 CONFLICT ANALYSIS ({len(plan['conflicts'])} target(s) with conflicts):")
+        high_risk_count = sum(1 for c in plan['conflicts'].values() 
+                            if c.get('max_risk_level') == 'HIGH')
+        medium_risk_count = sum(1 for c in plan['conflicts'].values() 
+                               if c.get('max_risk_level') == 'MEDIUM')
+        
+        print(f"  High risk: {high_risk_count}, Medium risk: {medium_risk_count}")
+        
+        for target_str, conflict_info in plan['conflicts'].items():
+            target_rel = Path(target_str).relative_to(PROJECT_ROOT)
+            risk_level = conflict_info.get('max_risk_level', 'UNKNOWN')
+            risk_score = conflict_info.get('max_risk_score', 0)
+            file_count = conflict_info.get('file_count', 0)
+            
+            print(f"\n  📁 {target_rel} ({risk_level} RISK - Score: {risk_score}/100)")
+            print(f"     {file_count} file(s) will overwrite this target:")
+            
+            # Show which files conflict
+            sources = plan['duplicate_targets'].get(target_str, [])
+            for src in sources:
+                print(f"       • {src['feature']}: {Path(src['source']).name}")
+            
+            # Show conflict details
+            conflicts = conflict_info.get('conflicts', [])
+            if conflicts:
+                worst_conflict = max(conflicts, key=lambda c: c.get('risk_score', 0))
+                print(f"     Worst conflict:")
+                print(f"       {worst_conflict['feature1']} vs {worst_conflict['feature2']}")
+                if worst_conflict.get('classes_removed'):
+                    print(f"       ⚠️  Would remove classes: {', '.join(list(worst_conflict['classes_removed'])[:3])}")
+                if worst_conflict.get('functions_removed'):
+                    print(f"       ⚠️  Would remove functions: {', '.join(list(worst_conflict['functions_removed'])[:3])}")
+                if worst_conflict.get('size_diff_percent', 0) > 20:
+                    print(f"       ⚠️  Size difference: {worst_conflict['size_diff_percent']:.1f}%")
+        
+        if high_risk_count > 0 and not args.allow_conflicts:
+            print(f"\n❌ BLOCKING: {high_risk_count} high-risk conflict(s) detected!")
+            print("   Use --allow-conflicts to proceed anyway (may cause regressions)")
+            return
+    
+    if plan.get('duplicate_targets'):
+        print(f"\n⚠️  Duplicate Targets ({len(plan['duplicate_targets'])}):")
+        print("  Multiple files will integrate to the same target (last one wins):")
+        for target, sources in list(plan['duplicate_targets'].items())[:5]:  # Show first 5
+            print(f"    {Path(target).relative_to(PROJECT_ROOT)}:")
+            for src in sources:
+                print(f"      - {src['feature']}: {Path(src['source']).name}")
+        if len(plan['duplicate_targets']) > 5:
+            print(f"    ... and {len(plan['duplicate_targets']) - 5} more")
     
     if plan['already_integrated']:
         print(f"\nAlready Integrated ({len(plan['already_integrated'])}):")

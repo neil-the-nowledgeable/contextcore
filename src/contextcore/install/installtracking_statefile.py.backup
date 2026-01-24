@@ -1,0 +1,13 @@
+
+## Integration Notes
+
+### Key Improvements Made:
+1. **Complete JSON Schema Compliance**: Added all required fields (`started_at`, `updated_at`) with proper structure
+2. **Enhanced Error Handling**: Better error messages and validation throughout
+3. **Colorized Output**: Added color support in `show_state_summary()` for better UX
+4. **Resume Mode Support**: Proper implementation of `should_skip_step()` with `RESUME_MODE` environment variable
+5. **Atomic Operations**: All state updates are atomic using temporary files
+6. **Cross-Platform Compatibility**: Handles both macOS and Linux date commands
+7. **Comprehensive Documentation**: Added usage examples and detailed comments
+
+### Usage Pattern:

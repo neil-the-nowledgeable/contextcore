@@ -1,0 +1,248 @@
+"""
+Dual-emit compatibility layer for ContextCore attribute emission.
+
+This module allows ContextCore to emit both legacy (agent.*, insight.*, handoff.*)
+and new (gen_ai.*) span attributes during the migration period.
+"""
+
+import os
+import warnings
+from enum import Enum
+from typing import Any, Dict, Optional, Set
+
+__all__ = [
+    "EmitMode",
+    "DualEmitAttributes",
+    "get_emit_mode",
+    "transform_attributes",
+    "warn_legacy_attribute",
+    "ATTRIBUTE_MAPPINGS",
+    "TOOL_ATTRIBUTES",
+    "AttributeMapper",
+    "mapper",
+]
+
+# Attribute mappings registry - maps legacy attributes to gen_ai equivalents
+ATTRIBUTE_MAPPINGS = {
+    # Agent attributes
+    "agent.id": "gen_ai.agent.id",
+    "agent.type": "gen_ai.agent.type",
+    "agent.session_id": "gen_ai.conversation.id",
+    # Context attributes
+    "context.id": "gen_ai.request.id",
+    "context.model": "gen_ai.request.model",
+    # Handoff/Tool attributes
+    "handoff.capability_id": "gen_ai.tool.name",
+    "handoff.inputs": "gen_ai.tool.call.arguments",
+    "handoff.id": "gen_ai.tool.call.id",
+    # Insight attributes
+    "insight.type": "gen_ai.insight.type",
+    "insight.value": "gen_ai.insight.value",
+    "insight.confidence": "gen_ai.insight.confidence",
+}
+
+# Tool-specific attributes without legacy equivalents (used for handoff spans)
+TOOL_ATTRIBUTES = {
+    "gen_ai.tool.type": "agent_handoff",
+}
+
+
+class EmitMode(str, Enum):
+    """Emission mode for span attributes."""
+    LEGACY = "legacy"  # Only old attributes
+    DUAL = "dual"      # Both old and new
+    OTEL = "otel"      # Only new gen_ai.* attributes
+
+
+# Cache for emission mode to avoid repeated environment variable lookups
+_cached_mode: Optional[EmitMode] = None
+
+
+def get_emit_mode() -> EmitMode:
+    """
+    Get the current emission mode from CONTEXTCORE_EMIT_MODE environment variable.
+    
+    Returns:
+        EmitMode: The current emission mode, defaults to DUAL during migration.
+    
+    Examples:
+        >>> os.environ['CONTEXTCORE_EMIT_MODE'] = 'otel'
+        >>> get_emit_mode()
+        <EmitMode.OTEL: 'otel'>
+    """
+    global _cached_mode
+    if _cached_mode is None:
+        mode_str = os.getenv("CONTEXTCORE_EMIT_MODE", "dual").lower()
+        try:
+            _cached_mode = EmitMode(mode_str)
+        except ValueError:
+            warnings.warn(
+                f"Invalid CONTEXTCORE_EMIT_MODE '{mode_str}'. Using 'dual' mode.",
+                UserWarning,
+                stacklevel=2
+            )
+            _cached_mode = EmitMode.DUAL
+    return _cached_mode
+
+
+def warn_legacy_attribute(attr_name: str) -> None:
+    """
+    Emit deprecation warning for legacy attribute usage.
+    
+    Args:
+        attr_name: Name of the legacy attribute being used.
+        
+    Examples:
+        >>> warn_legacy_attribute("agent.id")
+        # Emits: DeprecationWarning: Legacy attribute 'agent.id' is deprecated...
+    """
+    new_attr = ATTRIBUTE_MAPPINGS.get(attr_name, "gen_ai.*")
+    warnings.warn(
+        f"Legacy attribute '{attr_name}' is deprecated. "
+        f"Use '{new_attr}' instead.",
+        DeprecationWarning,
+        stacklevel=3  # Skip this function and the transform method
+    )
+
+
+class DualEmitAttributes:
+    """
+    Handler for dual-emit attribute transformation based on emission mode.
+    
+    This class transforms span attributes according to the configured emission mode:
+    - LEGACY: Only emit original attributes
+    - DUAL: Emit both original and gen_ai.* attributes  
+    - OTEL: Only emit gen_ai.* attributes (with warnings for legacy usage)
+    """
+    
+    def __init__(self, mode: Optional[EmitMode] = None):
+        """
+        Initialize the dual-emit attributes handler.
+        
+        Args:
+            mode: Override the emission mode. If None, uses get_emit_mode().
+        """
+        self.mode = mode or get_emit_mode()
+        self._warned_attributes: Set[str] = set()  # Track warned attributes
+    
+    def transform(self, attributes: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Transform attributes based on emit mode.
+        
+        Args:
+            attributes: Dictionary of span attributes to transform.
+            
+        Returns:
+            Dict[str, Any]: Transformed attributes according to emission mode.
+            
+        Raises:
+            TypeError: If attributes is not a dictionary.
+            
+        Examples:
+            >>> emitter = DualEmitAttributes(EmitMode.DUAL)
+            >>> attrs = {"agent.id": "test-agent", "custom.attr": "value"}
+            >>> result = emitter.transform(attrs)
+            >>> "agent.id" in result and "gen_ai.agent.id" in result
+            True
+        """
+        if not isinstance(attributes, dict):
+            raise TypeError("Attributes must be a dictionary")
+        
+        if self.mode == EmitMode.LEGACY:
+            return self._legacy_mode(attributes)
+        elif self.mode == EmitMode.DUAL:
+            return self._dual_mode(attributes)
+        else:  # EmitMode.OTEL
+            return self._otel_mode(attributes)
+    
+    def _legacy_mode(self, attributes: Dict[str, Any]) -> Dict[str, Any]:
+        """Return attributes unchanged for legacy mode."""
+        return attributes.copy()
+    
+    def _dual_mode(self, attributes: Dict[str, Any]) -> Dict[str, Any]:
+        """Return both legacy and gen_ai attributes for dual mode."""
+        result = attributes.copy()
+        
+        # Add gen_ai equivalents for mapped legacy attributes
+        for legacy_key, value in attributes.items():
+            if legacy_key in ATTRIBUTE_MAPPINGS:
+                gen_ai_key = ATTRIBUTE_MAPPINGS[legacy_key]
+                result[gen_ai_key] = value
+        
+        return result
+    
+    def _otel_mode(self, attributes: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert legacy attributes to gen_ai equivalents for otel mode."""
+        result = {}
+        
+        for key, value in attributes.items():
+            if key in ATTRIBUTE_MAPPINGS:
+                # Emit deprecation warning (once per attribute)
+                if key not in self._warned_attributes:
+                    warn_legacy_attribute(key)
+                    self._warned_attributes.add(key)
+                # Use gen_ai equivalent
+                result[ATTRIBUTE_MAPPINGS[key]] = value
+            else:
+                # Pass through non-legacy attributes unchanged
+                result[key] = value
+        
+        return result
+
+
+def transform_attributes(attributes: Dict[str, Any], mode: Optional[EmitMode] = None) -> Dict[str, Any]:
+    """
+    Convenience function to transform attributes using the specified or default emission mode.
+
+    Args:
+        attributes: Dictionary of span attributes to transform.
+        mode: Override the emission mode. If None, uses get_emit_mode().
+
+    Returns:
+        Dict[str, Any]: Transformed attributes according to emission mode.
+
+    Examples:
+        >>> attrs = {"agent.id": "test", "handoff.inputs": "data"}
+        >>> result = transform_attributes(attrs, EmitMode.OTEL)
+        >>> list(result.keys())
+        ['gen_ai.agent.id', 'gen_ai.tool.call.arguments']
+    """
+    emitter = DualEmitAttributes(mode)
+    return emitter.transform(attributes)
+
+
+class AttributeMapper:
+    """
+    Attribute mapper for compatibility with insights.py and other modules.
+
+    Provides a `map_attributes` method that applies dual-emit transformation
+    to span attributes based on the configured emission mode.
+    """
+
+    def __init__(self, mode: Optional[EmitMode] = None):
+        """
+        Initialize the attribute mapper.
+
+        Args:
+            mode: Override the emission mode. If None, uses get_emit_mode().
+        """
+        self._emitter = DualEmitAttributes(mode)
+
+    def map_attributes(self, attributes: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Map attributes using dual-emit transformation.
+
+        This method applies the configured emission mode to transform
+        legacy attributes to OTel GenAI semantic conventions.
+
+        Args:
+            attributes: Dictionary of span attributes to transform.
+
+        Returns:
+            Dict[str, Any]: Transformed attributes according to emission mode.
+        """
+        return self._emitter.transform(attributes)
+
+
+# Default mapper instance for module-level access
+mapper = AttributeMapper()

@@ -51,8 +51,7 @@ from contextcore.operator import (
     generate_cost_labels,
     generate_grafana_dashboard,
     generate_prometheus_rules,
-    generate_service_monitor,
-)
+    generate_service_monitor)
 from contextcore.generators.runbook import (
     generate_runbook,
     _generate_overview_section,
@@ -60,8 +59,7 @@ from contextcore.generators.runbook import (
     _generate_risks_section,
     _generate_resources_section,
     _generate_procedures_section,
-    _generate_escalation_section,
-)
+    _generate_escalation_section)
 
 
 # ============================================================================
