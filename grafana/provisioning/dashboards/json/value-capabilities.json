@@ -330,7 +330,7 @@
             "type": "tempo",
             "uid": "P214B5B846CF3925F"
           },
-          "query": "{ name =~ \"value_capability:.*\" && .value.persona = \"developer\" }",
+          "query": "{ name =~ \"value_capability:.*\" && .value.personas =~ \".*developer.*\" }",
           "queryType": "traceql",
           "refId": "A"
         }
@@ -375,7 +375,7 @@
             "type": "tempo",
             "uid": "P214B5B846CF3925F"
           },
-          "query": "{ name =~ \"value_capability:.*\" && .value.persona = \"designer\" }",
+          "query": "{ name =~ \"value_capability:.*\" && .value.personas =~ \".*designer.*\" }",
           "queryType": "traceql",
           "refId": "A"
         }
@@ -420,7 +420,7 @@
             "type": "tempo",
             "uid": "P214B5B846CF3925F"
           },
-          "query": "{ name =~ \"value_capability:.*\" && .value.persona = \"creator\" }",
+          "query": "{ name =~ \"value_capability:.*\" && .value.personas =~ \".*creator.*\" }",
           "queryType": "traceql",
           "refId": "A"
         }
@@ -465,7 +465,7 @@
             "type": "tempo",
             "uid": "P214B5B846CF3925F"
           },
-          "query": "{ name =~ \"value_capability:.*\" && .value.persona = \"executive\" }",
+          "query": "{ name =~ \"value_capability:.*\" && .value.personas =~ \".*executive.*\" }",
           "queryType": "traceql",
           "refId": "A"
         }
@@ -510,12 +510,147 @@
             "type": "tempo",
             "uid": "P214B5B846CF3925F"
           },
-          "query": "{ name =~ \"value_capability:.*\" && .value.persona = \"any\" }",
+          "query": "{ name =~ \"value_capability:.*\" && .value.personas =~ \".*any.*\" }",
           "queryType": "traceql",
           "refId": "A"
         }
       ],
       "title": "Any",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "tempo",
+        "uid": "P214B5B846CF3925F"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "dark-yellow",
+            "mode": "fixed"
+          }
+        }
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 15,
+        "y": 17
+      },
+      "id": 25,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "count"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "P214B5B846CF3925F"
+          },
+          "query": "{ name =~ \"value_capability:.*\" && .value.personas =~ \".*manager.*\" }",
+          "queryType": "traceql",
+          "refId": "A"
+        }
+      ],
+      "title": "Manager",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "tempo",
+        "uid": "P214B5B846CF3925F"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "dark-blue",
+            "mode": "fixed"
+          }
+        }
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 18,
+        "y": 17
+      },
+      "id": 26,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "count"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "P214B5B846CF3925F"
+          },
+          "query": "{ name =~ \"value_capability:.*\" && .value.personas =~ \".*operator.*\" }",
+          "queryType": "traceql",
+          "refId": "A"
+        }
+      ],
+      "title": "Operator",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "tempo",
+        "uid": "P214B5B846CF3925F"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "light-purple",
+            "mode": "fixed"
+          }
+        }
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 21,
+        "y": 17
+      },
+      "id": 27,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "count"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "P214B5B846CF3925F"
+          },
+          "query": "{ name =~ \"value_capability:.*\" && .value.personas =~ \".*product.*\" }",
+          "queryType": "traceql",
+          "refId": "A"
+        }
+      ],
+      "title": "Product",
       "type": "stat"
     }
   ],
