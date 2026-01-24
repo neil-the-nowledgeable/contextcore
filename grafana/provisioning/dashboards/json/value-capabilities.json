@@ -1,76 +1,29 @@
 {
-  "annotations": {
-    "list": [
-      {
-        "builtIn": 1,
-        "datasource": {
-          "type": "grafana",
-          "uid": "-- Grafana --"
-        },
-        "enable": true,
-        "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
-        "name": "Annotations & Alerts",
-        "type": "dashboard"
-      }
-    ]
-  },
-  "description": "Developer dashboard for exploring and filtering value capabilities from capability-value-promoter. Enables discovery of capabilities by persona, value type, channel, and skill.",
-  "editable": true,
-  "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
-  "id": null,
-  "links": [
-    {
-      "asDropdown": false,
-      "icon": "external link",
-      "includeVars": false,
-      "keepTime": true,
-      "tags": ["contextcore"],
-      "targetBlank": true,
-      "title": "ContextCore Dashboards",
-      "tooltip": "",
-      "type": "dashboards",
-      "url": ""
-    }
-  ],
-  "liveNow": false,
+  "id": 14,
   "panels": [
     {
-      "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
         "y": 0
       },
-      "id": 1,
-      "panels": [],
-      "title": "Value Capability KPIs",
+      "id": 100,
+      "title": "KPIs",
       "type": "row"
     },
     {
       "datasource": {
         "type": "tempo",
-        "uid": "tempo"
+        "uid": "P214B5B846CF3925F"
       },
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              }
-            ]
+            "fixedColor": "blue",
+            "mode": "fixed"
           }
-        },
-        "overrides": []
+        }
       },
       "gridPos": {
         "h": 4,
@@ -78,57 +31,44 @@
         "x": 0,
         "y": 1
       },
-      "id": 2,
+      "id": 1,
       "options": {
         "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
+        "graphMode": "none",
         "reduceOptions": {
-          "calcs": ["count"],
+          "calcs": [
+            "count"
+          ],
           "fields": "",
           "values": false
-        },
-        "textMode": "auto",
-        "wideLayout": true
+        }
       },
-      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
             "type": "tempo",
-            "uid": "tempo"
+            "uid": "P214B5B846CF3925F"
           },
+          "query": "{ name =~ \"value_capability:.*\" }",
           "queryType": "traceql",
-          "query": "{ name =~ \"value_capability:.*\" && value.persona =~ \"${persona:regex}\" && value.type =~ \"${value_type:regex}\" && value.channel =~ \"${channel:regex}\" && skill.id =~ \"${skill_id:regex}\" }",
           "refId": "A"
         }
       ],
-      "title": "Total Capabilities",
+      "title": "Total",
       "type": "stat"
     },
     {
       "datasource": {
         "type": "tempo",
-        "uid": "tempo"
+        "uid": "P214B5B846CF3925F"
       },
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
+            "fixedColor": "green",
+            "mode": "fixed"
           }
-        },
-        "overrides": []
+        }
       },
       "gridPos": {
         "h": 4,
@@ -136,57 +76,44 @@
         "x": 4,
         "y": 1
       },
-      "id": 3,
+      "id": 2,
       "options": {
         "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
+        "graphMode": "none",
         "reduceOptions": {
-          "calcs": ["count"],
+          "calcs": [
+            "count"
+          ],
           "fields": "",
           "values": false
-        },
-        "textMode": "auto",
-        "wideLayout": true
+        }
       },
-      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
             "type": "tempo",
-            "uid": "tempo"
+            "uid": "P214B5B846CF3925F"
           },
+          "query": "{ name =~ \"value_capability:.*\" && .value.type = \"direct\" }",
           "queryType": "traceql",
-          "query": "{ name =~ \"value_capability:.*\" && value.type = \"direct\" && value.persona =~ \"${persona:regex}\" && value.channel =~ \"${channel:regex}\" }",
           "refId": "A"
         }
       ],
-      "title": "Direct Value",
+      "title": "Direct",
       "type": "stat"
     },
     {
       "datasource": {
         "type": "tempo",
-        "uid": "tempo"
+        "uid": "P214B5B846CF3925F"
       },
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "yellow",
-                "value": null
-              }
-            ]
+            "fixedColor": "yellow",
+            "mode": "fixed"
           }
-        },
-        "overrides": []
+        }
       },
       "gridPos": {
         "h": 4,
@@ -194,57 +121,44 @@
         "x": 8,
         "y": 1
       },
-      "id": 4,
+      "id": 3,
       "options": {
         "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
+        "graphMode": "none",
         "reduceOptions": {
-          "calcs": ["count"],
+          "calcs": [
+            "count"
+          ],
           "fields": "",
           "values": false
-        },
-        "textMode": "auto",
-        "wideLayout": true
+        }
       },
-      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
             "type": "tempo",
-            "uid": "tempo"
+            "uid": "P214B5B846CF3925F"
           },
+          "query": "{ name =~ \"value_capability:.*\" && .value.type = \"indirect\" }",
           "queryType": "traceql",
-          "query": "{ name =~ \"value_capability:.*\" && value.type = \"indirect\" && value.persona =~ \"${persona:regex}\" && value.channel =~ \"${channel:regex}\" }",
           "refId": "A"
         }
       ],
-      "title": "Indirect Value",
+      "title": "Indirect",
       "type": "stat"
     },
     {
       "datasource": {
         "type": "tempo",
-        "uid": "tempo"
+        "uid": "P214B5B846CF3925F"
       },
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "purple",
-                "value": null
-              }
-            ]
+            "fixedColor": "purple",
+            "mode": "fixed"
           }
-        },
-        "overrides": []
+        }
       },
       "gridPos": {
         "h": 4,
@@ -252,57 +166,44 @@
         "x": 12,
         "y": 1
       },
-      "id": 5,
+      "id": 4,
       "options": {
         "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
+        "graphMode": "none",
         "reduceOptions": {
-          "calcs": ["count"],
+          "calcs": [
+            "count"
+          ],
           "fields": "",
           "values": false
-        },
-        "textMode": "auto",
-        "wideLayout": true
+        }
       },
-      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
             "type": "tempo",
-            "uid": "tempo"
+            "uid": "P214B5B846CF3925F"
           },
+          "query": "{ name =~ \"value_capability:.*\" && .value.type = \"ripple\" }",
           "queryType": "traceql",
-          "query": "{ name =~ \"value_capability:.*\" && value.type = \"ripple\" && value.persona =~ \"${persona:regex}\" && value.channel =~ \"${channel:regex}\" }",
           "refId": "A"
         }
       ],
-      "title": "Ripple Value",
+      "title": "Ripple",
       "type": "stat"
     },
     {
       "datasource": {
         "type": "tempo",
-        "uid": "tempo"
+        "uid": "P214B5B846CF3925F"
       },
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "orange",
-                "value": null
-              }
-            ]
+            "fixedColor": "orange",
+            "mode": "fixed"
           }
-        },
-        "overrides": []
+        }
       },
       "gridPos": {
         "h": 4,
@@ -310,204 +211,47 @@
         "x": 16,
         "y": 1
       },
-      "id": 6,
+      "id": 5,
       "options": {
         "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
+        "graphMode": "none",
         "reduceOptions": {
-          "calcs": ["count"],
+          "calcs": [
+            "count"
+          ],
           "fields": "",
           "values": false
-        },
-        "textMode": "auto",
-        "wideLayout": true
+        }
       },
-      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
             "type": "tempo",
-            "uid": "tempo"
+            "uid": "P214B5B846CF3925F"
           },
+          "query": "{ name =~ \"value_skill:.*\" }",
           "queryType": "traceql",
-          "query": "{ name =~ \"value_skill:.*\" && value.persona =~ \"${persona:regex}\" }",
           "refId": "A"
         }
       ],
-      "title": "Skills Parsed",
+      "title": "Skills",
       "type": "stat"
     },
     {
-      "datasource": {
-        "type": "tempo",
-        "uid": "tempo"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "semi-dark-blue",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 20,
-        "y": 1
-      },
-      "id": 7,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": ["count"],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "pluginVersion": "10.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "tempo",
-            "uid": "tempo"
-          },
-          "queryType": "traceql",
-          "query": "{ name =~ \"value_link:.*\" }",
-          "refId": "A"
-        }
-      ],
-      "title": "Cross-Links",
-      "type": "stat"
-    },
-    {
-      "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
         "y": 5
       },
-      "id": 8,
-      "panels": [],
-      "title": "Capability Discovery",
+      "id": 101,
+      "title": "Capabilities Browser",
       "type": "row"
     },
     {
       "datasource": {
         "type": "tempo",
-        "uid": "tempo"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "auto",
-            "displayMode": "auto",
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "value.type"
-            },
-            "properties": [
-              {
-                "id": "custom.displayMode",
-                "value": "color-background"
-              },
-              {
-                "id": "mappings",
-                "value": [
-                  {
-                    "options": {
-                      "direct": {
-                        "color": "green",
-                        "index": 0,
-                        "text": "Direct"
-                      },
-                      "indirect": {
-                        "color": "yellow",
-                        "index": 1,
-                        "text": "Indirect"
-                      },
-                      "ripple": {
-                        "color": "purple",
-                        "index": 2,
-                        "text": "Ripple"
-                      }
-                    },
-                    "type": "value"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "capability.name"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 250
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "value.pain_point"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 300
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "value.benefit"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 300
-              }
-            ]
-          }
-        ]
+        "uid": "P214B5B846CF3925F"
       },
       "gridPos": {
         "h": 10,
@@ -515,1151 +259,264 @@
         "x": 0,
         "y": 6
       },
-      "id": 9,
+      "id": 10,
       "options": {
         "cellHeight": "sm",
         "footer": {
           "countRows": true,
-          "enablePagination": true,
-          "fields": "",
-          "reducer": ["count"],
           "show": true
         },
-        "showHeader": true,
-        "sortBy": [
-          {
-            "desc": false,
-            "displayName": "capability.name"
-          }
-        ]
+        "showHeader": true
       },
-      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
             "type": "tempo",
-            "uid": "tempo"
+            "uid": "P214B5B846CF3925F"
           },
+          "query": "{ name =~ \"value_capability:.*\" }",
           "queryType": "traceql",
-          "query": "{ name =~ \"value_capability:.*\" && value.persona =~ \"${persona:regex}\" && value.type =~ \"${value_type:regex}\" && value.channel =~ \"${channel:regex}\" && skill.id =~ \"${skill_id:regex}\" && knowledge.category =~ \"${knowledge_category:regex}\" } | select(skill.id, capability.name, value.type, value.persona, value.channel, value.pain_point, value.benefit)",
           "refId": "A"
         }
       ],
-      "title": "Value Capabilities Browser",
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {},
-            "indexByName": {
-              "skill.id": 0,
-              "capability.name": 1,
-              "value.type": 2,
-              "value.persona": 3,
-              "value.channel": 4,
-              "value.pain_point": 5,
-              "value.benefit": 6
-            },
-            "renameByName": {
-              "skill.id": "Skill",
-              "capability.name": "Capability",
-              "value.type": "Value Type",
-              "value.persona": "Persona",
-              "value.channel": "Channel",
-              "value.pain_point": "Pain Point",
-              "value.benefit": "Benefit"
-            }
-          }
-        }
-      ],
+      "title": "Value Capabilities",
       "type": "table"
     },
     {
-      "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
         "y": 16
       },
-      "id": 10,
-      "panels": [],
-      "title": "Value Distribution",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "tempo",
-        "uid": "tempo"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            }
-          },
-          "mappings": []
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "direct"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "green",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "indirect"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "yellow",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "ripple"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "purple",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 17
-      },
-      "id": 11,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "right",
-          "showLegend": true,
-          "values": ["value"]
-        },
-        "pieType": "pie",
-        "reduceOptions": {
-          "calcs": ["count"],
-          "fields": "",
-          "values": false
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "10.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "tempo",
-            "uid": "tempo"
-          },
-          "queryType": "traceql",
-          "query": "{ name =~ \"value_capability:.*\" && value.persona =~ \"${persona:regex}\" && value.channel =~ \"${channel:regex}\" && skill.id =~ \"${skill_id:regex}\" } | select(value.type)",
-          "refId": "A"
-        }
-      ],
-      "title": "By Value Type",
-      "transformations": [
-        {
-          "id": "groupBy",
-          "options": {
-            "fields": {
-              "value.type": {
-                "aggregations": ["count"],
-                "operation": "groupby"
-              }
-            }
-          }
-        }
-      ],
-      "type": "piechart"
-    },
-    {
-      "datasource": {
-        "type": "tempo",
-        "uid": "tempo"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineWidth": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 17
-      },
-      "id": 12,
-      "options": {
-        "barRadius": 0,
-        "barWidth": 0.8,
-        "fullHighlight": false,
-        "groupWidth": 0.7,
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false
-        },
-        "orientation": "horizontal",
-        "showValue": "auto",
-        "stacking": "none",
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "xTickLabelRotation": 0,
-        "xTickLabelSpacing": 0
-      },
-      "pluginVersion": "10.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "tempo",
-            "uid": "tempo"
-          },
-          "queryType": "traceql",
-          "query": "{ name =~ \"value_capability:.*\" && value.type =~ \"${value_type:regex}\" && value.channel =~ \"${channel:regex}\" && skill.id =~ \"${skill_id:regex}\" } | select(value.persona)",
-          "refId": "A"
-        }
-      ],
+      "id": 102,
       "title": "By Persona",
-      "transformations": [
-        {
-          "id": "groupBy",
-          "options": {
-            "fields": {
-              "value.persona": {
-                "aggregations": ["count"],
-                "operation": "groupby"
-              }
-            }
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "fields": {},
-            "sort": [
-              {
-                "field": "count",
-                "desc": true
-              }
-            ]
-          }
-        }
-      ],
-      "type": "barchart"
+      "type": "row"
     },
     {
       "datasource": {
         "type": "tempo",
-        "uid": "tempo"
+        "uid": "P214B5B846CF3925F"
       },
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineWidth": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
+            "fixedColor": "semi-dark-blue",
+            "mode": "fixed"
           }
-        },
-        "overrides": []
+        }
       },
       "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
+        "h": 3,
+        "w": 3,
+        "x": 0,
         "y": 17
-      },
-      "id": 13,
-      "options": {
-        "barRadius": 0,
-        "barWidth": 0.8,
-        "fullHighlight": false,
-        "groupWidth": 0.7,
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false
-        },
-        "orientation": "horizontal",
-        "showValue": "auto",
-        "stacking": "none",
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "xTickLabelRotation": 0,
-        "xTickLabelSpacing": 0
-      },
-      "pluginVersion": "10.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "tempo",
-            "uid": "tempo"
-          },
-          "queryType": "traceql",
-          "query": "{ name =~ \"value_capability:.*\" && value.persona =~ \"${persona:regex}\" && value.type =~ \"${value_type:regex}\" && skill.id =~ \"${skill_id:regex}\" } | select(value.channel)",
-          "refId": "A"
-        }
-      ],
-      "title": "By Channel",
-      "transformations": [
-        {
-          "id": "groupBy",
-          "options": {
-            "fields": {
-              "value.channel": {
-                "aggregations": ["count"],
-                "operation": "groupby"
-              }
-            }
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "fields": {},
-            "sort": [
-              {
-                "field": "count",
-                "desc": true
-              }
-            ]
-          }
-        }
-      ],
-      "type": "barchart"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 25
-      },
-      "id": 14,
-      "panels": [],
-      "title": "Pain Points & Benefits",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "tempo",
-        "uid": "tempo"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "auto",
-            "displayMode": "auto",
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "value.pain_point"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 400
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "value.pain_point_category"
-            },
-            "properties": [
-              {
-                "id": "custom.displayMode",
-                "value": "color-background-solid"
-              },
-              {
-                "id": "mappings",
-                "value": [
-                  {
-                    "options": {
-                      "time": {
-                        "color": "red",
-                        "index": 0,
-                        "text": "Time"
-                      },
-                      "complexity": {
-                        "color": "orange",
-                        "index": 1,
-                        "text": "Complexity"
-                      },
-                      "cognitive": {
-                        "color": "yellow",
-                        "index": 2,
-                        "text": "Cognitive"
-                      },
-                      "coordination": {
-                        "color": "blue",
-                        "index": 3,
-                        "text": "Coordination"
-                      },
-                      "quality": {
-                        "color": "purple",
-                        "index": 4,
-                        "text": "Quality"
-                      }
-                    },
-                    "type": "value"
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 26
-      },
-      "id": 15,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": true,
-          "enablePagination": true,
-          "fields": "",
-          "reducer": ["count"],
-          "show": true
-        },
-        "showHeader": true
-      },
-      "pluginVersion": "10.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "tempo",
-            "uid": "tempo"
-          },
-          "queryType": "traceql",
-          "query": "{ name =~ \"value_capability:.*\" && value.persona =~ \"${persona:regex}\" && value.type =~ \"${value_type:regex}\" && value.channel =~ \"${channel:regex}\" && skill.id =~ \"${skill_id:regex}\" } | select(value.pain_point, value.pain_point_category, value.persona)",
-          "refId": "A"
-        }
-      ],
-      "title": "Pain Points Addressed",
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "renameByName": {
-              "value.pain_point": "Pain Point",
-              "value.pain_point_category": "Category",
-              "value.persona": "For Persona"
-            }
-          }
-        }
-      ],
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "tempo",
-        "uid": "tempo"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "auto",
-            "displayMode": "auto",
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "value.benefit"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 400
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 26
-      },
-      "id": 16,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": true,
-          "enablePagination": true,
-          "fields": "",
-          "reducer": ["count"],
-          "show": true
-        },
-        "showHeader": true
-      },
-      "pluginVersion": "10.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "tempo",
-            "uid": "tempo"
-          },
-          "queryType": "traceql",
-          "query": "{ name =~ \"value_capability:.*\" && value.persona =~ \"${persona:regex}\" && value.type =~ \"${value_type:regex}\" && value.channel =~ \"${channel:regex}\" && skill.id =~ \"${skill_id:regex}\" } | select(value.benefit, value.benefit_metric, value.time_savings)",
-          "refId": "A"
-        }
-      ],
-      "title": "Benefits Delivered",
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "renameByName": {
-              "value.benefit": "Benefit",
-              "value.benefit_metric": "Metric",
-              "value.time_savings": "Time Saved"
-            }
-          }
-        }
-      ],
-      "type": "table"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 34
-      },
-      "id": 17,
-      "panels": [],
-      "title": "Cross-Linking & Related Skills",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "tempo",
-        "uid": "tempo"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "auto",
-            "displayMode": "auto",
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "value.related_skills"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 300
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 35
-      },
-      "id": 18,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": true,
-          "enablePagination": true,
-          "fields": "",
-          "reducer": ["count"],
-          "show": true
-        },
-        "showHeader": true
-      },
-      "pluginVersion": "10.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "tempo",
-            "uid": "tempo"
-          },
-          "queryType": "traceql",
-          "query": "{ name =~ \"value_capability:.*\" && value.related_skills != \"\" && value.persona =~ \"${persona:regex}\" && value.type =~ \"${value_type:regex}\" && skill.id =~ \"${skill_id:regex}\" } | select(capability.name, value.related_skills, value.related_capabilities)",
-          "refId": "A"
-        }
-      ],
-      "title": "Capabilities with Cross-Links",
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "renameByName": {
-              "capability.name": "Value Capability",
-              "value.related_skills": "Related Technical Skills",
-              "value.related_capabilities": "Related Capabilities"
-            }
-          }
-        }
-      ],
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "tempo",
-        "uid": "tempo"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "auto",
-            "displayMode": "auto",
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "link.type"
-            },
-            "properties": [
-              {
-                "id": "custom.displayMode",
-                "value": "color-background-solid"
-              },
-              {
-                "id": "mappings",
-                "value": [
-                  {
-                    "options": {
-                      "describes": {
-                        "color": "blue",
-                        "index": 0
-                      },
-                      "complements": {
-                        "color": "green",
-                        "index": 1
-                      },
-                      "extends": {
-                        "color": "purple",
-                        "index": 2
-                      }
-                    },
-                    "type": "value"
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 35
-      },
-      "id": 19,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": true,
-          "enablePagination": true,
-          "fields": "",
-          "reducer": ["count"],
-          "show": true
-        },
-        "showHeader": true
-      },
-      "pluginVersion": "10.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "tempo",
-            "uid": "tempo"
-          },
-          "queryType": "traceql",
-          "query": "{ name =~ \"value_link:.*\" } | select(link.value_capability_id, link.technical_skill_id, link.technical_capability_id, link.type)",
-          "refId": "A"
-        }
-      ],
-      "title": "Value-to-Technical Links",
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "renameByName": {
-              "link.value_capability_id": "Value Capability",
-              "link.technical_skill_id": "Technical Skill",
-              "link.technical_capability_id": "Technical Capability",
-              "link.type": "Link Type"
-            }
-          }
-        }
-      ],
-      "type": "table"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 43
       },
       "id": 20,
-      "panels": [],
-      "title": "Messaging Preview",
-      "type": "row"
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "count"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "P214B5B846CF3925F"
+          },
+          "query": "{ name =~ \"value_capability:.*\" && .value.persona = \"developer\" }",
+          "queryType": "traceql",
+          "refId": "A"
+        }
+      ],
+      "title": "Developer",
+      "type": "stat"
     },
     {
       "datasource": {
         "type": "tempo",
-        "uid": "tempo"
+        "uid": "P214B5B846CF3925F"
       },
       "fieldConfig": {
         "defaults": {
-          "custom": {
-            "align": "auto",
-            "displayMode": "auto",
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
+          "color": {
+            "fixedColor": "semi-dark-purple",
+            "mode": "fixed"
           }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "value.slack_message"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 400
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "value.one_liner"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 300
-              }
-            ]
-          }
-        ]
+        }
       },
       "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 44
+        "h": 3,
+        "w": 3,
+        "x": 3,
+        "y": 17
       },
       "id": 21,
       "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": true,
-          "enablePagination": true,
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "count"
+          ],
           "fields": "",
-          "reducer": ["count"],
-          "show": true
-        },
-        "showHeader": true
+          "values": false
+        }
       },
-      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
             "type": "tempo",
-            "uid": "tempo"
+            "uid": "P214B5B846CF3925F"
           },
+          "query": "{ name =~ \"value_capability:.*\" && .value.persona = \"designer\" }",
           "queryType": "traceql",
-          "query": "{ name =~ \"value_capability:.*\" && value.slack_message != \"\" && value.persona =~ \"${persona:regex}\" && value.type =~ \"${value_type:regex}\" && value.channel =~ \"${channel:regex}\" && skill.id =~ \"${skill_id:regex}\" } | select(capability.name, value.one_liner, value.slack_message, value.email_subject)",
           "refId": "A"
         }
       ],
-      "title": "Pre-Generated Messaging",
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "renameByName": {
-              "capability.name": "Capability",
-              "value.one_liner": "One-Liner",
-              "value.slack_message": "Slack Message",
-              "value.email_subject": "Email Subject"
-            }
-          }
-        }
-      ],
-      "type": "table"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 52
-      },
-      "id": 22,
-      "panels": [],
-      "title": "Creator Value (Audience of 1)",
-      "type": "row"
+      "title": "Designer",
+      "type": "stat"
     },
     {
       "datasource": {
         "type": "tempo",
-        "uid": "tempo"
+        "uid": "P214B5B846CF3925F"
       },
       "fieldConfig": {
         "defaults": {
-          "custom": {
-            "align": "auto",
-            "displayMode": "auto",
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
+          "color": {
+            "fixedColor": "semi-dark-orange",
+            "mode": "fixed"
           }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "value.creator_direct"
-            },
-            "properties": [
-              {
-                "id": "custom.displayMode",
-                "value": "color-background-solid"
-              },
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "green",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "value.creator_indirect"
-            },
-            "properties": [
-              {
-                "id": "custom.displayMode",
-                "value": "color-background-solid"
-              },
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "yellow",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "value.creator_ripple"
-            },
-            "properties": [
-              {
-                "id": "custom.displayMode",
-                "value": "color-background-solid"
-              },
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "purple",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
+        }
       },
       "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 53
+        "h": 3,
+        "w": 3,
+        "x": 6,
+        "y": 17
       },
-      "id": 23,
+      "id": 22,
       "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": true,
-          "enablePagination": true,
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "count"
+          ],
           "fields": "",
-          "reducer": ["count"],
-          "show": true
-        },
-        "showHeader": true
+          "values": false
+        }
       },
-      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
             "type": "tempo",
-            "uid": "tempo"
+            "uid": "P214B5B846CF3925F"
           },
+          "query": "{ name =~ \"value_capability:.*\" && .value.persona = \"creator\" }",
           "queryType": "traceql",
-          "query": "{ name =~ \"value_capability:.*\" && (value.creator_direct != \"\" || value.creator_indirect != \"\" || value.creator_ripple != \"\") && value.type =~ \"${value_type:regex}\" && skill.id =~ \"${skill_id:regex}\" } | select(capability.name, value.creator_direct, value.creator_indirect, value.creator_ripple)",
           "refId": "A"
         }
       ],
-      "title": "Creator Value Breakdown",
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "renameByName": {
-              "capability.name": "Capability",
-              "value.creator_direct": "Direct Value",
-              "value.creator_indirect": "Indirect Value",
-              "value.creator_ripple": "Ripple Value"
-            }
-          }
-        }
-      ],
-      "type": "table"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 61
-      },
-      "id": 24,
-      "panels": [],
-      "title": "Recent Activity",
-      "type": "row"
+      "title": "Creator",
+      "type": "stat"
     },
     {
       "datasource": {
         "type": "tempo",
-        "uid": "tempo"
+        "uid": "P214B5B846CF3925F"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "semi-dark-red",
+            "mode": "fixed"
+          }
+        }
       },
       "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 62
+        "h": 3,
+        "w": 3,
+        "x": 9,
+        "y": 17
       },
-      "id": 25,
+      "id": 23,
       "options": {
-        "dedupStrategy": "none",
-        "enableInfiniteScrolling": false,
-        "enableLogDetails": true,
-        "prettifyLogMessage": false,
-        "showCommonLabels": false,
-        "showLabels": true,
-        "showTime": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "count"
+          ],
+          "fields": "",
+          "values": false
+        }
       },
-      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
             "type": "tempo",
-            "uid": "tempo"
+            "uid": "P214B5B846CF3925F"
           },
+          "query": "{ name =~ \"value_capability:.*\" && .value.persona = \"executive\" }",
           "queryType": "traceql",
-          "query": "{ name =~ \"value_.*\" && value.persona =~ \"${persona:regex}\" && skill.id =~ \"${skill_id:regex}\" }",
           "refId": "A"
         }
       ],
-      "title": "Value Capability Events",
-      "type": "traces"
+      "title": "Executive",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "tempo",
+        "uid": "P214B5B846CF3925F"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "semi-dark-green",
+            "mode": "fixed"
+          }
+        }
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 12,
+        "y": 17
+      },
+      "id": 24,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "count"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "P214B5B846CF3925F"
+          },
+          "query": "{ name =~ \"value_capability:.*\" && .value.persona = \"any\" }",
+          "queryType": "traceql",
+          "refId": "A"
+        }
+      ],
+      "title": "Any",
+      "type": "stat"
     }
   ],
   "refresh": "30s",
@@ -1667,295 +524,13 @@
   "tags": [
     "contextcore",
     "value",
-    "capabilities",
-    "developer"
+    "capabilities"
   ],
-  "templating": {
-    "list": [
-      {
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        },
-        "hide": 0,
-        "includeAll": true,
-        "multi": true,
-        "name": "persona",
-        "options": [
-          {
-            "selected": true,
-            "text": "All",
-            "value": "$__all"
-          },
-          {
-            "selected": false,
-            "text": "developer",
-            "value": "developer"
-          },
-          {
-            "selected": false,
-            "text": "operator",
-            "value": "operator"
-          },
-          {
-            "selected": false,
-            "text": "architect",
-            "value": "architect"
-          },
-          {
-            "selected": false,
-            "text": "creator",
-            "value": "creator"
-          },
-          {
-            "selected": false,
-            "text": "designer",
-            "value": "designer"
-          },
-          {
-            "selected": false,
-            "text": "manager",
-            "value": "manager"
-          },
-          {
-            "selected": false,
-            "text": "executive",
-            "value": "executive"
-          },
-          {
-            "selected": false,
-            "text": "product",
-            "value": "product"
-          },
-          {
-            "selected": false,
-            "text": "security",
-            "value": "security"
-          },
-          {
-            "selected": false,
-            "text": "data",
-            "value": "data"
-          }
-        ],
-        "query": "developer,operator,architect,creator,designer,manager,executive,product,security,data",
-        "queryValue": "",
-        "skipUrlSync": false,
-        "type": "custom"
-      },
-      {
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        },
-        "hide": 0,
-        "includeAll": true,
-        "multi": true,
-        "name": "value_type",
-        "options": [
-          {
-            "selected": true,
-            "text": "All",
-            "value": "$__all"
-          },
-          {
-            "selected": false,
-            "text": "direct",
-            "value": "direct"
-          },
-          {
-            "selected": false,
-            "text": "indirect",
-            "value": "indirect"
-          },
-          {
-            "selected": false,
-            "text": "ripple",
-            "value": "ripple"
-          }
-        ],
-        "query": "direct,indirect,ripple",
-        "queryValue": "",
-        "skipUrlSync": false,
-        "type": "custom"
-      },
-      {
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        },
-        "hide": 0,
-        "includeAll": true,
-        "multi": true,
-        "name": "channel",
-        "options": [
-          {
-            "selected": true,
-            "text": "All",
-            "value": "$__all"
-          },
-          {
-            "selected": false,
-            "text": "slack",
-            "value": "slack"
-          },
-          {
-            "selected": false,
-            "text": "email",
-            "value": "email"
-          },
-          {
-            "selected": false,
-            "text": "docs",
-            "value": "docs"
-          },
-          {
-            "selected": false,
-            "text": "in_app",
-            "value": "in_app"
-          },
-          {
-            "selected": false,
-            "text": "social",
-            "value": "social"
-          },
-          {
-            "selected": false,
-            "text": "blog",
-            "value": "blog"
-          },
-          {
-            "selected": false,
-            "text": "press",
-            "value": "press"
-          },
-          {
-            "selected": false,
-            "text": "video",
-            "value": "video"
-          },
-          {
-            "selected": false,
-            "text": "alert",
-            "value": "alert"
-          },
-          {
-            "selected": false,
-            "text": "changelog",
-            "value": "changelog"
-          },
-          {
-            "selected": false,
-            "text": "meeting",
-            "value": "meeting"
-          }
-        ],
-        "query": "slack,email,docs,in_app,social,blog,press,video,alert,changelog,meeting",
-        "queryValue": "",
-        "skipUrlSync": false,
-        "type": "custom"
-      },
-      {
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        },
-        "datasource": {
-          "type": "tempo",
-          "uid": "tempo"
-        },
-        "definition": "",
-        "hide": 0,
-        "includeAll": true,
-        "multi": true,
-        "name": "skill_id",
-        "options": [],
-        "query": {
-          "query": "{ name =~ \"value_skill:.*\" } | select(skill.id)",
-          "queryType": "traceql"
-        },
-        "refresh": 2,
-        "regex": "",
-        "skipUrlSync": false,
-        "sort": 1,
-        "type": "query"
-      },
-      {
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        },
-        "hide": 0,
-        "includeAll": true,
-        "multi": true,
-        "name": "knowledge_category",
-        "options": [
-          {
-            "selected": true,
-            "text": "All",
-            "value": "$__all"
-          },
-          {
-            "selected": false,
-            "text": "value_proposition",
-            "value": "value_proposition"
-          },
-          {
-            "selected": false,
-            "text": "messaging",
-            "value": "messaging"
-          },
-          {
-            "selected": false,
-            "text": "persona",
-            "value": "persona"
-          },
-          {
-            "selected": false,
-            "text": "channel",
-            "value": "channel"
-          },
-          {
-            "selected": false,
-            "text": "workflow",
-            "value": "workflow"
-          },
-          {
-            "selected": false,
-            "text": "architecture",
-            "value": "architecture"
-          },
-          {
-            "selected": false,
-            "text": "api",
-            "value": "api"
-          },
-          {
-            "selected": false,
-            "text": "configuration",
-            "value": "configuration"
-          }
-        ],
-        "query": "value_proposition,messaging,persona,channel,workflow,architecture,api,configuration",
-        "queryValue": "",
-        "skipUrlSync": false,
-        "type": "custom"
-      }
-    ]
-  },
   "time": {
     "from": "now-7d",
     "to": "now"
   },
-  "timepicker": {},
-  "timezone": "browser",
-  "title": "Value Capabilities Dashboard",
-  "uid": "contextcore-value-capabilities",
-  "version": 1,
-  "weekStart": ""
+  "title": "Value Capabilities Explorer",
+  "uid": "value-simple",
+  "version": 3
 }

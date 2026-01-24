@@ -230,9 +230,10 @@ class ValueEmitter(KnowledgeEmitter):
             span.set_attribute("capability.interop_human", capability.interop_human)
             span.set_attribute("capability.interop_agent", capability.interop_agent)
 
-            # Audience
+            # Audience (may be string due to use_enum_values=True in model config)
             audience = capability.get_audience()
-            span.set_attribute("capability.audience", audience.value)
+            audience_value = audience if isinstance(audience, str) else audience.value
+            span.set_attribute("capability.audience", audience_value)
 
             # Confidence and reliability
             span.set_attribute("capability.confidence", capability.confidence)
