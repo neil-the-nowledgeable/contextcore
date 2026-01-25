@@ -45,6 +45,14 @@ from .unified_docs import DOCS_FEATURES
 # Installation Tracking & Resume Plan
 from .install_tracking import INSTALL_TRACKING_FEATURES
 
+# Dashboard & Persistence Architecture
+from .dashboard_persistence import (
+    DASHBOARD_PERSISTENCE_FEATURES,
+    PHASES_1_3_FEATURES as DP_PHASES_1_3,
+    PHASES_4_6_FEATURES as DP_PHASES_4_6,
+    PHASES_7_9_FEATURES as DP_PHASES_7_9,
+)
+
 __all__ = [
     # Phase 3
     "GRAPH_FEATURES",
@@ -64,4 +72,9 @@ __all__ = [
     "DOCS_FEATURES",
     # Installation Tracking
     "INSTALL_TRACKING_FEATURES",
+    # Dashboard & Persistence
+    "DASHBOARD_PERSISTENCE_FEATURES",
+    "DP_PHASES_1_3",
+    "DP_PHASES_4_6",
+    "DP_PHASES_7_9",
 ]
