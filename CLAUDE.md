@@ -15,6 +15,17 @@ See @.contextcore.yaml for live project metadata including:
 - `/project-context` - Display full project context summary
 - `/show-risks` - Show active risks sorted by priority
 
+### Environment Quick Reference
+
+**Two environments exist until datasets are merged. Use Grafana password to identify:**
+
+| Environment | Path | Password | Purpose |
+|-------------|------|----------|---------|
+| **DEV** | `~/Documents/dev/ContextCore` | `admin` | Development, newer code |
+| **TEST** | `~/Documents/Deploy` | `adminadminadmin` | Testing, stable deployments |
+
+Both target `observability` namespace in `o11y-dev` Kind cluster.
+
 ## Project Summary
 
 **ContextCore** is a project management observability framework that models project tasks as OpenTelemetry spans. It eliminates manual status reporting by deriving project health from existing artifact metadata (commits, PRs, CI results) and exports via OTLP to any compatible backend.
@@ -114,7 +125,28 @@ ContextCore/
 
 ## Code Generation Workflows
 
-ContextCore uses a two-tier contractor pattern for code generation:
+ContextCore uses a two-tier contractor pattern for code generation, powered by **contextcore-beaver** (LLM abstraction layer).
+
+### Beaver Integration
+
+The code generation system uses **contextcore-beaver** for LLM orchestration:
+
+| Component | Role |
+|-----------|------|
+| **Beaver** | LLM provider abstraction, cost tracking, prompt management |
+| **Lead Contractor** | Code generation, task decomposition, output verification |
+| **Prime Contractor** | Continuous integration, checkpoint validation, conflict prevention |
+
+**Workflow Safety Features:**
+- **Truncation Prevention**: Size estimation rejects prompts likely to exceed token limits
+- **Syntax Validation**: All generated code is validated before integration
+- **Import Checking**: Verifies imports can be resolved
+- **Test Regression Detection**: Ensures passing tests don't break
+
+**Known Limitations:**
+- Avoid features targeting the same file (merge function can corrupt)
+- Features importing from non-existent modules will fail
+- Manual integration recommended for complex multi-file changes
 
 ### Prime Contractor (Recommended)
 

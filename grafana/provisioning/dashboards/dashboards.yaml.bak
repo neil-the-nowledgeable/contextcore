@@ -1,0 +1,102 @@
+# ContextCore Dashboard Provisioning
+# Multi-provider config: one provider per extension pack
+# Each extension gets its own folder in the Grafana UI
+
+apiVersion: 1
+
+providers:
+  # Core ContextCore dashboards
+  - name: 'ContextCore Core'
+    orgId: 1
+    folder: 'ContextCore'
+    folderUid: 'contextcore-core'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/core
+
+  # Squirrel - Skills library dashboards
+  - name: 'ContextCore Squirrel'
+    orgId: 1
+    folder: 'ContextCore / Squirrel'
+    folderUid: 'contextcore-squirrel'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/squirrel
+
+  # Rabbit - Alert automation dashboards
+  - name: 'ContextCore Rabbit'
+    orgId: 1
+    folder: 'ContextCore / Rabbit'
+    folderUid: 'contextcore-rabbit'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/rabbit
+
+  # Beaver - LLM abstraction dashboards
+  - name: 'ContextCore Beaver'
+    orgId: 1
+    folder: 'ContextCore / Beaver'
+    folderUid: 'contextcore-beaver'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/beaver
+
+  # Fox - Context enrichment dashboards
+  - name: 'ContextCore Fox'
+    orgId: 1
+    folder: 'ContextCore / Fox'
+    folderUid: 'contextcore-fox'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/fox
+
+  # Coyote - Multi-agent pipeline dashboards
+  - name: 'ContextCore Coyote'
+    orgId: 1
+    folder: 'ContextCore / Coyote'
+    folderUid: 'contextcore-coyote'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/coyote
+
+  # Owl - Grafana plugin dashboards
+  - name: 'ContextCore Owl'
+    orgId: 1
+    folder: 'ContextCore / Owl'
+    folderUid: 'contextcore-owl'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/owl
+
+  # External - Third-party/community dashboards
+  - name: 'ContextCore External'
+    orgId: 1
+    folder: 'ContextCore / External'
+    folderUid: 'contextcore-external'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/external
