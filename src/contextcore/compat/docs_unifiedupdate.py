@@ -1,6 +1,4 @@
 from contextcore.insights import InsightsAPI
-__all__ = ['AgentAnalyzer', 'AgentAnalyzer', 'custom_processing', 'custom_processing', 'process_batch', 'process_batch']
-
 
 # Initialize with automatic OTel attribute handling
 api = InsightsAPI()

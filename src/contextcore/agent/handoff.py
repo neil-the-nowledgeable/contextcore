@@ -1,584 +1,620 @@
 """
+Agent-to-Agent Handoff Management
 
+Structured task delegation between agents using pluggable storage backends.
+Supports both Kubernetes CRD-based storage and file-based storage for
+local development.
 
+Example (auto-detect storage):
+    manager = HandoffManager(
+        project_id="checkout-service",
+        agent_id="orchestrator"
+    )
 
-class InputType(str, Enum):
-    TEXT = "text"                # Free-form text input
-    CHOICE = "choice"            # Single selection from options
-    MULTI_CHOICE = "multi_choice"  # Multiple selections
-    CONFIRMATION = "confirmation"   # Yes/No confirmation
-    FILE = "file"                # File upload
-    JSON = "json"                # Structured JSON input
-
-
-@dataclass(frozen=True)
-class InputOption:
-    """Represents a selectable option for choice-based inputs."""
+Example (explicit file storage for local dev):
+    from contextcore.storage import StorageType
+    manager = HandoffManager(
+        project_id="checkout-service",
+        agent_id="orchestrator",
+        storage_type=StorageType.FILE
+    )
+"""
 
 from __future__ import annotations
-from dataclasses import dataclass, field
-from datetime import datetime
-from datetime import datetime, timedelta, timezone
-from enum import Enum
-from typing import Any, List, Optional, Tuple
-from typing import Dict, List, Optional, Set
+
+import asyncio
+import logging
+import time
+import uuid
 import json
-import re
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, AsyncIterator, Optional
 
-    value: str
-    label: str
-    description: Optional[str] = None
-    is_default: bool = False
-    'InputType',
-    'InputOption', 
-    'InputRequest',
-    'InputResponse',
-    'InputRequestManager',
-    'StorageBackend'
-]
-Handoff management for ContextCore agent-to-agent communication.
-This module provides status tracking and state management for agent handoffs,
-with support for A2A-aligned states and transition validation.
-__all__ = [
-    'HandoffStatus',
-    'StateTransition', 
-    'Handoff',
-    'VALID_TRANSITIONS',
-    'validate_transition'
-]
-    HandoffStatus.COMPLETED,
-    HandoffStatus.FAILED, 
-    HandoffStatus.TIMEOUT,
-    HandoffStatus.CANCELLED,
-    HandoffStatus.REJECTED
-})
-_ACTIVE_STATES: Set[HandoffStatus] = frozenset({
-    HandoffStatus.PENDING,
-    HandoffStatus.ACCEPTED,
-    HandoffStatus.IN_PROGRESS,
-    HandoffStatus.INPUT_REQUIRED
-})
-    HandoffStatus.PENDING: frozenset({
-        HandoffStatus.ACCEPTED,
-        HandoffStatus.REJECTED, 
-        HandoffStatus.CANCELLED
-    }),
-    HandoffStatus.ACCEPTED: frozenset({
-        HandoffStatus.IN_PROGRESS,
-        HandoffStatus.CANCELLED
-    }),
-    HandoffStatus.IN_PROGRESS: frozenset({
-        HandoffStatus.INPUT_REQUIRED,
-        HandoffStatus.COMPLETED,
-        HandoffStatus.FAILED,
-        HandoffStatus.CANCELLED
-    }),
-    HandoffStatus.INPUT_REQUIRED: frozenset({
-        HandoffStatus.IN_PROGRESS,
-        HandoffStatus.COMPLETED,
-        HandoffStatus.FAILED,
-        HandoffStatus.CANCELLED
-    })
-}
+from opentelemetry import trace
+from opentelemetry.trace import SpanKind, Status, StatusCode
 
-class Handoff:
-    """Represents a handoff between agents with transition history.
-    
-    Maintains backward compatibility while adding transition tracking
-    for audit and debugging purposes.
-    """
-    
-    id: str
-    source_agent: str
-    target_agent: str
-    status: HandoffStatus
-    transitions: List[StateTransition] = field(default_factory=list)
-    
-    def add_transition(self, to_status: HandoffStatus, reason: Optional[str] = None, 
-                      triggered_by: Optional[str] = None) -> bool:
-        """Add a state transition if valid.
-        
-        Args:
-            to_status: Target status to transition to
-            reason: Optional reason for the transition
-            triggered_by: Optional agent ID that triggered transition
-            
-        Returns:
-            bool: True if transition was added successfully
-        """
-        if not validate_transition(self.status, to_status):
-            return False
-            
-        transition = StateTransition(
-            from_status=self.status,
-            to_status=to_status,
-            timestamp=datetime.utcnow(),
-            reason=reason,
-            triggered_by=triggered_by
-        )
-        
-        self.transitions.append(transition)
-        self.status = to_status
-        return True
+from contextcore.contracts.timeouts import (
+    HANDOFF_DEFAULT_TIMEOUT_MS,
+    HANDOFF_POLL_INTERVAL_S,
+)
+from contextcore.compat.otel_genai import mapper
+
+logger = logging.getLogger(__name__)
+
+
+class HandoffPriority(str, Enum):
+    """Task priority levels."""
+    CRITICAL = "critical"
+    HIGH = "high"
+    NORMAL = "normal"
+    LOW = "low"
+
 
 class HandoffStatus(str, Enum):
-    """Enumeration of possible handoff states with helper methods."""
-    
-    # Existing states (preserved for backward compatibility)
+    """Handoff lifecycle states."""
     PENDING = "pending"
     ACCEPTED = "accepted"
-    IN_PROGRESS = "in_progress" 
+    IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     FAILED = "failed"
     TIMEOUT = "timeout"
-    
-    # New A2A-aligned states
-    INPUT_REQUIRED = "input_required"
-    CANCELLED = "cancelled"
-    REJECTED = "rejected"
-    
-    def is_terminal(self) -> bool:
-        """Check if this status represents a terminal state.
-        
-        Terminal states cannot transition to any other state and
-        represent the end of a handoff lifecycle.
-        
-        Returns:
-            bool: True if status is terminal (COMPLETED, FAILED, TIMEOUT, CANCELLED, REJECTED)
-        """
-        return self in _TERMINAL_STATES
-    
-    def is_active(self) -> bool:
-        """Check if this status represents an active state.
-        
-        Active states indicate the handoff is still being processed
-        and may transition to other states.
-        
-        Returns:
-            bool: True if status is active (PENDING, ACCEPTED, IN_PROGRESS, INPUT_REQUIRED)
-        """
-        return self in _ACTIVE_STATES
-    
-    def can_accept_messages(self) -> bool:
-        """Check if handoff in this status can accept new messages.
-        
-        Generally, terminal states cannot accept messages while
-        active states can.
-        
-        Returns:
-            bool: True if handoff can accept messages
-        """
-        return not self.is_terminal()
 
 
-# Pre-computed sets for O(1) lookup performance
+@dataclass
+class ExpectedOutput:
+    """Expected response format for a handoff."""
+    type: str
+    fields: list[str]
 
-class InputRequest:
-    """
-    Represents a request for user input during an agent handoff.
-    
-    Example:
-        >>> # Create a text input request
-        >>> request = InputRequest.text(
-        ...     handoff_id="h123",
-        ...     question="What is your email?",
-        ...     validation_pattern=r'^[^@]+@[^@]+\.[^@]+$'
-        ... )
-        
-        >>> # Create a choice request
-        >>> options = [
-        ...     InputOption("yes", "Yes", "Proceed with action"),
-        ...     InputOption("no", "No", "Cancel action", is_default=True)
-        ... ]
-        >>> request = InputRequest.choice(
-        ...     handoff_id="h123",
-        ...     question="Continue with deployment?",
-        ...     options=options
-        ... )
-    """
-    request_id: str
-    handoff_id: str
-    question: str
-    input_type: InputType
-    options: Optional[List[InputOption]] = None
-    default_value: Optional[str] = None
-    required: bool = True
-    timeout_ms: int = 300000  # 5 minutes default
-    validation_pattern: Optional[str] = None  # Regex for TEXT type
-    min_selections: Optional[int] = None  # For MULTI_CHOICE
-    max_selections: Optional[int] = None  # For MULTI_CHOICE
+
+@dataclass
+class Handoff:
+    """Agent-to-agent task delegation."""
+    id: str
+    from_agent: str
+    to_agent: str
+    capability_id: str
+    task: str
+    inputs: dict[str, Any]
+    expected_output: ExpectedOutput
+    priority: HandoffPriority = HandoffPriority.NORMAL
+    timeout_ms: int = HANDOFF_DEFAULT_TIMEOUT_MS
+    status: HandoffStatus = HandoffStatus.PENDING
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    expires_at: Optional[datetime] = None
-
-    def __post_init__(self):
-        """Set expiration time based on timeout."""
-        if self.expires_at is None:
-            self.expires_at = self.created_at + timedelta(milliseconds=self.timeout_ms)
-
-    def is_expired(self) -> bool:
-        """Check if the input request has expired."""
-        if self.expires_at:
-            return datetime.now(timezone.utc) > self.expires_at
-        return False
-
-    def validate_response(self, value: Any) -> Tuple[bool, Optional[str]]:
-        """
-        Validate input response against request constraints.
-        
-        Returns:
-            tuple: (is_valid, error_message)
-        """
-        # Check required field
-        if self.required and (value is None or (isinstance(value, str) and not value.strip())):
-            return False, "This field is required"
-
-        # Skip validation for optional empty values
-        if not self.required and (value is None or value == ""):
-            return True, None
-
-        # Type-specific validation
-        if self.input_type == InputType.TEXT:
-            if not isinstance(value, str):
-                return False, "Value must be a string"
-            if self.validation_pattern and not re.match(self.validation_pattern, value):
-                return False, "Input does not match required pattern"
-
-        elif self.input_type == InputType.CHOICE:
-            if not self.options:
-                return False, "No options available for choice"
-            valid_values = [option.value for option in self.options]
-            if value not in valid_values:
-                return False, f"Invalid choice. Must be one of: {', '.join(valid_values)}"
-
-        elif self.input_type == InputType.MULTI_CHOICE:
-            if not isinstance(value, list):
-                return False, "Multi-choice value must be a list"
-            if not self.options:
-                return False, "No options available for multi-choice"
-            
-            valid_values = [option.value for option in self.options]
-            invalid_values = [v for v in value if v not in valid_values]
-            if invalid_values:
-                return False, f"Invalid choices: {', '.join(invalid_values)}"
-            
-            if self.min_selections is not None and len(value) < self.min_selections:
-                return False, f"Must select at least {self.min_selections} options"
-            if self.max_selections is not None and len(value) > self.max_selections:
-                return False, f"Cannot select more than {self.max_selections} options"
-
-        elif self.input_type == InputType.CONFIRMATION:
-            if not isinstance(value, bool):
-                return False, "Confirmation value must be a boolean"
-
-        elif self.input_type == InputType.JSON:
-            if isinstance(value, str):
-                try:
-                    json.loads(value)
-                except json.JSONDecodeError as e:
-                    return False, f"Invalid JSON format: {str(e)}"
-            elif not isinstance(value, (dict, list)):
-                return False, "JSON value must be a valid JSON string, dict, or list"
-
-        elif self.input_type == InputType.FILE:
-            # Basic file validation - could be extended for specific file types
-            if not isinstance(value, str) or not value:
-                return False, "File path/identifier is required"
-
-        return True, None
-
-    @classmethod
-    def confirmation(cls, handoff_id: str, question: str, **kwargs) -> 'InputRequest':
-        """
-        Create a confirmation (yes/no) input request.
-        
-        Args:
-            handoff_id: The handoff requesting input
-            question: The question to ask the user
-            **kwargs: Additional parameters
-            
-        Returns:
-            InputRequest configured for confirmation
-        """
-        return cls(
-            handoff_id=handoff_id,
-            question=question,
-            input_type=InputType.CONFIRMATION,
-            **kwargs
-        )
-
-    @classmethod
-    def choice(cls, handoff_id: str, question: str, options: List[InputOption], **kwargs) -> 'InputRequest':
-        """
-        Create a single-choice input request.
-        
-        Args:
-            handoff_id: The handoff requesting input
-            question: The question to ask the user
-            options: List of available choices
-            **kwargs: Additional parameters
-            
-        Returns:
-            InputRequest configured for single choice
-        """
-        return cls(
-            handoff_id=handoff_id,
-            question=question,
-            input_type=InputType.CHOICE,
-            options=options,
-            **kwargs
-        )
-
-    @classmethod
-    def text(cls, handoff_id: str, question: str, validation_pattern: Optional[str] = None, **kwargs) -> 'InputRequest':
-        """
-        Create a text input request.
-        
-        Args:
-            handoff_id: The handoff requesting input
-            question: The question to ask the user
-            validation_pattern: Optional regex pattern for validation
-            **kwargs: Additional parameters
-            
-        Returns:
-            InputRequest configured for text input
-        """
-        return cls(
-            handoff_id=handoff_id,
-            question=question,
-            input_type=InputType.TEXT,
-            validation_pattern=validation_pattern,
-            **kwargs
-        )
+    result_trace_id: str | None = None
+    error_message: str | None = None
 
 
+@dataclass
+class HandoffResult:
+    """Result of a completed handoff."""
+    handoff_id: str
+    status: HandoffStatus
+    result_trace_id: str | None = None
+    error_message: str | None = None
 
-class InputRequestManager:
+
+class HandoffManager:
     """
-    Manages the lifecycle of input requests and responses.
-    
+    Create and manage agent-to-agent handoffs.
+
+    Uses pluggable storage backends (Kubernetes CRD or file-based) to store
+    handoffs, allowing agents to coordinate without direct communication.
+
     Example:
-        >>> storage = MyStorageBackend()
-        >>> manager = InputRequestManager(storage)
-        >>> 
-        >>> # Create a request
-        >>> request = manager.create_request(
-        ...     handoff_id="h123",
-        ...     question="Enter your name:",
-        ...     input_type=InputType.TEXT
-        ... )
-        >>> 
-        >>> # Submit a response
-        >>> response = manager.submit_response(
-        ...     request_id=request.request_id,
-        ...     value="John Doe",
-        ...     responded_by="user_456"
-        ... )
+        manager = HandoffManager(
+            project_id="checkout-service",
+            agent_id="orchestrator"
+        )
+
+        # Create handoff and wait for result
+        result = manager.create_and_await(
+            to_agent="o11y",
+            capability_id="investigate_error",
+            task="Find root cause of latency spike",
+            inputs={
+                "error_context": "P99 latency 800ms",
+                "time_range": "2h"
+            },
+            expected_output=ExpectedOutput(
+                type="analysis_report",
+                fields=["root_cause", "evidence", "recommended_fix"]
+            ),
+            priority=HandoffPriority.HIGH,
+            timeout_ms=HANDOFF_DEFAULT_TIMEOUT_MS
+        )
+
+        if result.status == HandoffStatus.COMPLETED:
+            # Fetch result from Tempo using result_trace_id
+            pass
     """
-    
-    def __init__(self, storage: StorageBackend):
-        """Initialize with a storage backend."""
-        self.storage = storage
-    
-    def create_request(
+
+    def __init__(
+        self,
+        project_id: str,
+        agent_id: str,
+        namespace: str = "default",
+        storage_type: Optional[str] = None,
+        kubeconfig: Optional[str] = None,
+    ):
+        """
+        Initialize the handoff manager.
+
+        Args:
+            project_id: Project identifier
+            agent_id: This agent's identifier
+            namespace: Kubernetes namespace (for K8s storage)
+            storage_type: Storage backend type (auto-detected if None)
+            kubeconfig: Path to kubeconfig (for K8s storage)
+        """
+        self.project_id = project_id
+        self.agent_id = agent_id
+        self.namespace = namespace
+
+        # Initialize storage backend
+        from contextcore.storage import get_storage, StorageType
+
+        if storage_type:
+            storage_type_enum = StorageType(storage_type)
+        else:
+            storage_type_enum = None
+
+        kwargs = {"namespace": namespace}
+        if kubeconfig:
+            kwargs["kubeconfig"] = kubeconfig
+
+        self._storage = get_storage(storage_type=storage_type_enum, **kwargs)
+        self.tracer = trace.get_tracer("contextcore.handoff")
+        logger.info(
+            f"HandoffManager initialized for project {project_id}, "
+            f"agent {agent_id}, storage {type(self._storage).__name__}"
+        )
+
+    def create_handoff(
+        self,
+        to_agent: str,
+        capability_id: str,
+        task: str,
+        inputs: dict[str, Any],
+        expected_output: ExpectedOutput,
+        priority: HandoffPriority = HandoffPriority.NORMAL,
+        timeout_ms: int = HANDOFF_DEFAULT_TIMEOUT_MS,
+    ) -> str:
+        """
+        Create a new handoff.
+
+        Returns:
+            Handoff ID for tracking
+        """
+        from contextcore.storage.base import HandoffData
+
+        handoff_id = f"handoff-{uuid.uuid4().hex[:12]}"
+
+        # Start span for handoff creation
+        with self.tracer.start_as_current_span(
+            "handoff.request",
+            kind=SpanKind.PRODUCER,
+        ) as span:
+            # Prepare arguments JSON
+            try:
+                args_json = json.dumps(inputs)
+            except (TypeError, ValueError):
+                args_json = str(inputs)
+
+            attributes = {
+                "handoff.id": handoff_id,
+                "handoff.from_agent": self.agent_id,
+                "handoff.to_agent": to_agent,
+                "handoff.capability_id": capability_id,
+                "handoff.priority": priority.value,
+                "project.id": self.project_id,
+                "gen_ai.operation.name": "handoff.request",
+                
+                # OTel Tool Attributes (Task 5)
+                "gen_ai.tool.name": capability_id,
+                "gen_ai.tool.type": "agent_handoff",
+                "gen_ai.tool.call.id": handoff_id,
+                "gen_ai.tool.call.arguments": args_json,
+            }
+            
+            # Map attributes
+            attributes = mapper.map_attributes(attributes)
+            for k, v in attributes.items():
+                span.set_attribute(k, v)
+
+            handoff_data = HandoffData(
+                id=handoff_id,
+                from_agent=self.agent_id,
+                to_agent=to_agent,
+                capability_id=capability_id,
+                task=task,
+                inputs=inputs,
+                expected_output={
+                    "type": expected_output.type,
+                    "fields": expected_output.fields,
+                },
+                priority=priority.value,
+                timeout_ms=timeout_ms,
+                status=HandoffStatus.PENDING.value,
+                created_at=datetime.now(timezone.utc),
+            )
+
+            self._storage.save_handoff(self.project_id, handoff_data)
+            span.set_status(Status(StatusCode.OK))
+            logger.info(f"Created handoff {handoff_id} to agent {to_agent}")
+
+        return handoff_id
+
+    def get_handoff_status(self, handoff_id: str) -> HandoffResult:
+        """Get current status of a handoff."""
+        handoff = self._storage.get_handoff(self.project_id, handoff_id)
+
+        if handoff is None:
+            raise ValueError(f"Handoff {handoff_id} not found")
+
+        return HandoffResult(
+            handoff_id=handoff_id,
+            status=HandoffStatus(handoff.status),
+            result_trace_id=handoff.result_trace_id,
+            error_message=handoff.error_message,
+        )
+
+    def await_result(
         self,
         handoff_id: str,
-        question: str,
-        input_type: InputType,
-        options: Optional[List[InputOption]] = None,
-        **kwargs
-    ) -> InputRequest:
+        timeout_ms: int = HANDOFF_DEFAULT_TIMEOUT_MS,
+        poll_interval_ms: int = 1000,
+    ) -> HandoffResult:
         """
-        Create and store a new input request.
-        
+        Wait for handoff completion (blocking).
+
         Args:
-            handoff_id: The handoff requesting input
-            question: The question to ask
-            input_type: Type of input expected
-            options: Options for choice-based inputs
-            **kwargs: Additional request parameters
-            
+            handoff_id: Handoff to wait for
+            timeout_ms: Maximum wait time
+            poll_interval_ms: Poll interval
+
         Returns:
-            The created InputRequest
+            HandoffResult with final status
         """
-        # Generate unique request ID if not provided
-        if 'request_id' not in kwargs:
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
-            kwargs['request_id'] = f"req_{handoff_id}_{timestamp}"
-        
-        request = InputRequest(
+        start = time.time()
+        timeout_s = timeout_ms / 1000
+        poll_s = poll_interval_ms / 1000
+
+        while time.time() - start < timeout_s:
+            result = self.get_handoff_status(handoff_id)
+
+            if result.status in (
+                HandoffStatus.COMPLETED,
+                HandoffStatus.FAILED,
+                HandoffStatus.TIMEOUT,
+            ):
+                return result
+
+            time.sleep(poll_s)
+
+        # Timeout
+        return HandoffResult(
             handoff_id=handoff_id,
-            question=question,
-            input_type=input_type,
-            options=options,
-            **kwargs
+            status=HandoffStatus.TIMEOUT,
+            error_message=f"Handoff timed out after {timeout_ms}ms",
         )
-        
-        self.storage.save_request(request)
-        return request
-    
-    def get_request(self, request_id: str) -> Optional[InputRequest]:
-        """Retrieve an input request by ID."""
-        return self.storage.get_request(request_id)
-    
-    def get_pending_requests(self, handoff_id: str) -> List[InputRequest]:
-        """Get all pending (non-expired) requests for a handoff."""
-        all_requests = self.storage.get_pending_requests(handoff_id)
-        return [req for req in all_requests if not req.is_expired()]
-    
-    def submit_response(self, request_id: str, value: Any, responded_by: str) -> InputResponse:
-        """
-        Submit a response to an input request.
-        
-        Args:
-            request_id: ID of the request being responded to
-            value: The response value
-            responded_by: ID of who provided the response
-            
-        Returns:
-            The created InputResponse
-            
-        Raises:
-            ValueError: If request not found, expired, or response invalid
-        """
-        request = self.get_request(request_id)
-        if not request:
-            raise ValueError(f"Request {request_id} not found")
-        
-        if request.is_expired():
-            raise ValueError(f"Request {request_id} has expired")
-        
-        # Validate the response
-        is_valid, error_msg = request.validate_response(value)
-        if not is_valid:
-            raise ValueError(f"Invalid response: {error_msg}")
-        
-        response = InputResponse(
-            request_id=request_id,
-            handoff_id=request.handoff_id,
-            value=value,
-            responded_by=responded_by
+
+    def create_and_await(
+        self,
+        to_agent: str,
+        capability_id: str,
+        task: str,
+        inputs: dict[str, Any],
+        expected_output: ExpectedOutput,
+        priority: HandoffPriority = HandoffPriority.NORMAL,
+        timeout_ms: int = HANDOFF_DEFAULT_TIMEOUT_MS,
+    ) -> HandoffResult:
+        """Create handoff and wait for result (convenience method)."""
+        handoff_id = self.create_handoff(
+            to_agent=to_agent,
+            capability_id=capability_id,
+            task=task,
+            inputs=inputs,
+            expected_output=expected_output,
+            priority=priority,
+            timeout_ms=timeout_ms,
         )
-        
-        self.storage.save_response(response)
-        return response
-    
-    def cancel_request(self, request_id: str) -> bool:
-        """
-        Cancel a pending input request.
-        
-        Args:
-            request_id: ID of the request to cancel
-            
-        Returns:
-            True if cancelled successfully, False if not found
-        """
-        request = self.get_request(request_id)
-        if not request:
-            return False
-        
-        # Implementation would depend on storage backend
-        # For now, just return True to indicate success
-        return True
-    
-    def cleanup_expired_requests(self) -> int:
-        """
-        Clean up expired requests from storage.
-        
-        Returns:
-            Number of requests cleaned up
-        """
-        expired_ids = self.storage.cleanup_expired_requests()
-        return len(expired_ids)
+
+        return self.await_result(handoff_id, timeout_ms=timeout_ms)
 
 
-# Export public interface
-
-class InputResponse:
+class HandoffReceiver:
     """
-    Represents a response to an input request.
-    
+    Receive and process handoffs as a receiving agent.
+
+    Uses pluggable storage backends to poll for pending handoffs.
+    Supports graceful shutdown via shutdown() method or context manager.
+
     Example:
-        >>> response = InputResponse(
-        ...     request_id="req-123",
-        ...     handoff_id="h123",
-        ...     value="user@example.com",
-        ...     responded_by="user_456"
-        ... )
+        receiver = HandoffReceiver(
+            agent_id="o11y",
+            capabilities=["investigate_error", "create_dashboard"]
+        )
+
+        # Blocking poll mode with graceful shutdown
+        for handoff in receiver.poll_handoffs(project_id="my-project"):
+            receiver.accept(handoff.id, project_id="my-project")
+
+            try:
+                result = process_handoff(handoff)
+                receiver.complete(handoff.id, project_id="my-project", result_trace_id=result.trace_id)
+            except Exception as e:
+                receiver.fail(handoff.id, project_id="my-project", reason=str(e))
+
+        # Or use as context manager
+        with HandoffReceiver(agent_id="o11y", capabilities=["investigate_error"]) as receiver:
+            for handoff in receiver.poll_handoffs(project_id="my-project"):
+                # Process handoff...
+                pass
     """
-    request_id: str
-    handoff_id: str
-    value: Any  # str, list[str], bool, dict depending on InputType
-    responded_by: str  # agent_id or user_id
-    responded_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
+    def __init__(
+        self,
+        agent_id: str,
+        capabilities: list[str],
+        namespace: str = "default",
+        storage_type: Optional[str] = None,
+        kubeconfig: Optional[str] = None,
+    ):
+        """
+        Initialize the handoff receiver.
 
+        Args:
+            agent_id: This agent's identifier
+            capabilities: List of capabilities this agent handles
+            namespace: Kubernetes namespace (for K8s storage)
+            storage_type: Storage backend type (auto-detected if None)
+            kubeconfig: Path to kubeconfig (for K8s storage)
+        """
+        self.agent_id = agent_id
+        self.capabilities = set(capabilities)
+        self.namespace = namespace
 
-class StateTransition:
-    """Records a state transition with metadata for audit trail."""
-    
-    from_status: HandoffStatus
-    to_status: HandoffStatus
-    timestamp: datetime
-    reason: Optional[str] = None
-    triggered_by: Optional[str] = None  # agent_id that triggered the transition
-    
-    def __post_init__(self) -> None:
-        """Ensure timestamp is set if not provided."""
-        if self.timestamp is None:
-            self.timestamp = datetime.utcnow()
+        # Shutdown coordination
+        self._shutdown_requested = False
+        self._shutdown_event: Optional[asyncio.Event] = None
 
+        # Initialize storage backend
+        from contextcore.storage import get_storage, StorageType
 
-# Valid state transitions mapping - defines the allowed handoff state machine
+        if storage_type:
+            storage_type_enum = StorageType(storage_type)
+        else:
+            storage_type_enum = None
 
-class StorageBackend:
-    """Abstract base interface for input request storage."""
-    
-    def save_request(self, request: InputRequest) -> None:
-        """Save an input request to storage."""
-        raise NotImplementedError
-    
-    def get_request(self, request_id: str) -> Optional[InputRequest]:
-        """Retrieve an input request by ID."""
-        raise NotImplementedError
-    
-    def get_pending_requests(self, handoff_id: str) -> List[InputRequest]:
-        """Get all pending requests for a handoff."""
-        raise NotImplementedError
-    
-    def save_response(self, response: InputResponse) -> None:
-        """Save an input response to storage."""
-        raise NotImplementedError
-    
-    def cleanup_expired_requests(self) -> List[str]:
-        """Remove expired requests and return their IDs."""
-        raise NotImplementedError
+        kwargs = {"namespace": namespace}
+        if kubeconfig:
+            kwargs["kubeconfig"] = kubeconfig
 
+        self._storage = get_storage(storage_type=storage_type_enum, **kwargs)
+        logger.info(
+            f"HandoffReceiver initialized for agent {agent_id}, "
+            f"capabilities {capabilities}, storage {type(self._storage).__name__}"
+        )
 
+    def __enter__(self) -> "HandoffReceiver":
+        """Context manager entry."""
+        return self
 
-def validate_transition(from_status: HandoffStatus, to_status: HandoffStatus) -> bool:
-    """Validate whether a state transition is allowed.
-    
-    Args:
-        from_status: Current handoff status
-        to_status: Desired target status
-        
-    Returns:
-        bool: True if transition is valid according to state machine rules
-        
-    Examples:
-        >>> validate_transition(HandoffStatus.PENDING, HandoffStatus.ACCEPTED)
-        True
-        >>> validate_transition(HandoffStatus.COMPLETED, HandoffStatus.IN_PROGRESS) 
-        False
-    """
-    # Self-transitions are not allowed
-    if from_status == to_status:
-        return False
-        
-    # Check if transition is in valid transitions mapping
-    valid_targets = VALID_TRANSITIONS.get(from_status, frozenset())
-    return to_status in valid_targets
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Context manager exit - triggers shutdown."""
+        self.shutdown()
 
+    async def __aenter__(self) -> "HandoffReceiver":
+        """Async context manager entry."""
+        return self
 
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Async context manager exit - triggers shutdown."""
+        self.shutdown()
 
-__all__ = ['Handoff', 'HandoffStatus', 'InputRequest', 'InputRequestManager', 'InputResponse', 'StateTransition', 'StorageBackend', 'validate_transition']
+    def shutdown(self) -> None:
+        """
+        Request graceful shutdown of polling loops.
+
+        Safe to call multiple times. After calling, poll_handoffs() and
+        watch_handoffs_async() will complete their current iteration and return.
+        """
+        if self._shutdown_requested:
+            return
+
+        self._shutdown_requested = True
+        logger.info(f"Shutdown requested for HandoffReceiver agent={self.agent_id}")
+
+        # Signal async watchers
+        if self._shutdown_event is not None:
+            self._shutdown_event.set()
+
+    @property
+    def is_shutdown(self) -> bool:
+        """Check if shutdown has been requested."""
+        return self._shutdown_requested
+
+    def poll_handoffs(
+        self,
+        project_id: str,
+        poll_interval_s: float = HANDOFF_POLL_INTERVAL_S,
+        timeout_s: Optional[float] = None,
+    ):
+        """
+        Poll for pending handoffs (generator).
+
+        Supports graceful shutdown via shutdown() method. When shutdown is
+        requested, the generator will complete its current iteration and return.
+
+        Args:
+            project_id: Project to poll
+            poll_interval_s: Seconds between polls
+            timeout_s: Total timeout (None = poll until shutdown)
+
+        Yields:
+            Handoff objects for this agent's capabilities
+        """
+        start = time.time()
+
+        while not self._shutdown_requested:
+            if timeout_s and (time.time() - start) > timeout_s:
+                logger.debug(f"Poll timeout reached after {timeout_s}s")
+                return
+
+            try:
+                handoffs = self._storage.list_handoffs(
+                    project_id=project_id,
+                    status=HandoffStatus.PENDING.value,
+                    to_agent=self.agent_id,
+                )
+
+                for h in handoffs:
+                    # Check shutdown between processing handoffs
+                    if self._shutdown_requested:
+                        logger.debug("Shutdown requested, stopping poll")
+                        return
+
+                    if h.capability_id in self.capabilities:
+                        expected_output = ExpectedOutput(
+                            type=h.expected_output.get("type", ""),
+                            fields=h.expected_output.get("fields", []),
+                        )
+                        yield Handoff(
+                            id=h.id,
+                            from_agent=h.from_agent,
+                            to_agent=h.to_agent,
+                            capability_id=h.capability_id,
+                            task=h.task,
+                            inputs=h.inputs,
+                            expected_output=expected_output,
+                            priority=HandoffPriority(h.priority),
+                            timeout_ms=h.timeout_ms,
+                            status=HandoffStatus(h.status),
+                            created_at=h.created_at,
+                        )
+
+            except Exception as e:
+                logger.warning(f"Error polling handoffs: {e}")
+
+            # Use interruptible sleep (check shutdown periodically)
+            sleep_remaining = poll_interval_s
+            while sleep_remaining > 0 and not self._shutdown_requested:
+                sleep_chunk = min(0.1, sleep_remaining)
+                time.sleep(sleep_chunk)
+                sleep_remaining -= sleep_chunk
+
+        logger.info(f"Polling stopped for agent {self.agent_id}")
+
+    async def watch_handoffs_async(
+        self,
+        project_id: str,
+        poll_interval_s: float = HANDOFF_POLL_INTERVAL_S,
+    ) -> AsyncIterator[Handoff]:
+        """
+        Async generator for watching handoffs.
+
+        Supports graceful shutdown via shutdown() method. When shutdown is
+        requested, the generator will complete its current iteration and return.
+
+        Args:
+            project_id: Project to watch
+            poll_interval_s: Seconds between polls
+
+        Yields:
+            Handoff objects for this agent's capabilities
+        """
+        # Initialize shutdown event for this async context
+        if self._shutdown_event is None:
+            self._shutdown_event = asyncio.Event()
+
+        while not self._shutdown_requested:
+            try:
+                handoffs = self._storage.list_handoffs(
+                    project_id=project_id,
+                    status=HandoffStatus.PENDING.value,
+                    to_agent=self.agent_id,
+                )
+
+                for h in handoffs:
+                    # Check shutdown between processing handoffs
+                    if self._shutdown_requested:
+                        logger.debug("Shutdown requested, stopping async watch")
+                        return
+
+                    if h.capability_id in self.capabilities:
+                        expected_output = ExpectedOutput(
+                            type=h.expected_output.get("type", ""),
+                            fields=h.expected_output.get("fields", []),
+                        )
+                        yield Handoff(
+                            id=h.id,
+                            from_agent=h.from_agent,
+                            to_agent=h.to_agent,
+                            capability_id=h.capability_id,
+                            task=h.task,
+                            inputs=h.inputs,
+                            expected_output=expected_output,
+                            priority=HandoffPriority(h.priority),
+                            timeout_ms=h.timeout_ms,
+                            status=HandoffStatus(h.status),
+                            created_at=h.created_at,
+                        )
+
+            except Exception as e:
+                logger.warning(f"Error watching handoffs: {e}")
+
+            # Use asyncio.wait with shutdown event for interruptible sleep
+            try:
+                await asyncio.wait_for(
+                    self._shutdown_event.wait(),
+                    timeout=poll_interval_s,
+                )
+                # If we get here, shutdown was requested
+                break
+            except asyncio.TimeoutError:
+                # Normal timeout, continue polling
+                pass
+
+        logger.info(f"Async watch stopped for agent {self.agent_id}")
+
+    def accept(self, handoff_id: str, project_id: str):
+        """Mark handoff as accepted."""
+        self._storage.update_handoff_status(
+            project_id=project_id,
+            handoff_id=handoff_id,
+            status=HandoffStatus.ACCEPTED.value,
+        )
+        logger.info(f"Accepted handoff {handoff_id}")
+
+    def complete(
+        self,
+        handoff_id: str,
+        project_id: str,
+        result_trace_id: str,
+    ):
+        """Mark handoff as completed with result."""
+        self._storage.update_handoff_status(
+            project_id=project_id,
+            handoff_id=handoff_id,
+            status=HandoffStatus.COMPLETED.value,
+            result_trace_id=result_trace_id,
+        )
+        logger.info(f"Completed handoff {handoff_id}")
+
+    def fail(
+        self,
+        handoff_id: str,
+        project_id: str,
+        reason: str,
+    ):
+        """Mark handoff as failed."""
+        self._storage.update_handoff_status(
+            project_id=project_id,
+            handoff_id=handoff_id,
+            status=HandoffStatus.FAILED.value,
+            error_message=reason,
+        )
+        logger.warning(f"Failed handoff {handoff_id}: {reason}")

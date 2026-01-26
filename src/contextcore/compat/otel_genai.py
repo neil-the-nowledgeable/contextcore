@@ -1021,4 +1021,30 @@ def warn_legacy_attribute(attr_name: str) -> None:
 
 
 
-__all__ = ['AttributeInfo', 'DualEmitAttributes', 'DualEmitLayer', 'EmitMode', 'GapAnalysisGenerator', 'HandoffManager', 'InsightEmitter', 'InsightQuerier', 'InsightRecord', 'InsightsAPI', 'MappingResult', 'TestDualEmitLayer', 'TestHandoffManager', 'emit', 'get_emit_mode', 'insight_group', 'query', 'transform', 'transform_attributes', 'warn_legacy_attribute', 'ATTRIBUTE_MAPPINGS', 'TOOL_ATTRIBUTES']
+class AttributeMapper:
+    """
+    Attribute mapper for dual-emit compatibility.
+    Provides map_attributes() method expected by insights.py.
+    """
+
+    def __init__(self):
+        self._emitter = DualEmitAttributes()
+
+    def map_attributes(self, attributes: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Map attributes using dual-emit transformation.
+
+        Args:
+            attributes: Dictionary of span attributes
+
+        Returns:
+            Transformed attributes with both legacy and OTel keys
+        """
+        return self._emitter.transform(attributes)
+
+
+# Singleton mapper instance for import
+mapper = AttributeMapper()
+
+
+__all__ = ['AttributeInfo', 'AttributeMapper', 'DualEmitAttributes', 'DualEmitLayer', 'EmitMode', 'GapAnalysisGenerator', 'HandoffManager', 'InsightEmitter', 'InsightQuerier', 'InsightRecord', 'InsightsAPI', 'MappingResult', 'TestDualEmitLayer', 'TestHandoffManager', 'emit', 'get_emit_mode', 'insight_group', 'mapper', 'query', 'transform', 'transform_attributes', 'warn_legacy_attribute', 'ATTRIBUTE_MAPPINGS', 'TOOL_ATTRIBUTES']
