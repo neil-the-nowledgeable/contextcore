@@ -68,7 +68,7 @@
       },
       "datasource": {
         "type": "tempo",
-        "uid": "P214B5B846CF3925F"
+        "uid": "tempo"
       },
       "fieldConfig": {
         "defaults": {},
@@ -181,7 +181,7 @@
         {
           "datasource": {
             "type": "tempo",
-            "uid": "P214B5B846CF3925F"
+            "uid": "tempo"
           },
           "queryType": "traceql",
           "query": "{ name =~ \"value_skill:.*\" } | select(.skill.id, .skill.type, .skill.version, .skill.capability_count, .value.persona_count, .value.channel_count, .skill.total_tokens)",
@@ -212,7 +212,7 @@
       },
       "datasource": {
         "type": "tempo",
-        "uid": "P214B5B846CF3925F"
+        "uid": "tempo"
       },
       "fieldConfig": {
         "defaults": {},
@@ -275,7 +275,7 @@
         {
           "datasource": {
             "type": "tempo",
-            "uid": "P214B5B846CF3925F"
+            "uid": "tempo"
           },
           "queryType": "traceql",
           "query": "{ name =~ \"value_skill:.*\" && .skill.id =~ \"${skill}\" } | select(.skill.id, .skill.description, .skill.source_path, .knowledge.source_file)",
@@ -295,7 +295,7 @@
       },
       "datasource": {
         "type": "tempo",
-        "uid": "P214B5B846CF3925F"
+        "uid": "tempo"
       },
       "fieldConfig": {
         "defaults": {},
@@ -346,7 +346,7 @@
         {
           "datasource": {
             "type": "tempo",
-            "uid": "P214B5B846CF3925F"
+            "uid": "tempo"
           },
           "queryType": "traceql",
           "query": "{ name =~ \"value_skill:.*\" && .skill.id =~ \"${skill}\" } | select(.skill.id, .value.personas_covered, .value.channels_supported)",
@@ -377,7 +377,7 @@
       },
       "datasource": {
         "type": "tempo",
-        "uid": "P214B5B846CF3925F"
+        "uid": "tempo"
       },
       "fieldConfig": {
         "defaults": {},
@@ -456,7 +456,7 @@
         {
           "datasource": {
             "type": "tempo",
-            "uid": "P214B5B846CF3925F"
+            "uid": "tempo"
           },
           "queryType": "traceql",
           "query": "{ name =~ \"value_capability:.*\" && .skill.id =~ \"${skill}\" } | select(.capability.name, .value.type, .value.personas, .capability.category, .capability.summary)",

@@ -1,18 +1,30 @@
 {
-  "uid": "contextcore-rabbit-contextcore-workflow-manager",
-  "title": "[RABBIT] ContextCore Workflow Manager",
-  "description": "View project tasks and workflow executions from Tempo traces",
+  "annotations": {
+    "list": []
+  },
+  "uid": "contextcore-tasks",
+  "title": "Project Tasks",
+  "description": "View project tasks as OpenTelemetry spans from Tempo. Core ContextCore dashboard for task tracking and workflow history.",
   "tags": [
     "contextcore",
-    "rabbit",
-    "workflow"
+    "core",
+    "tasks"
   ],
   "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "schemaVersion": 39,
   "refresh": "30s",
   "time": {
     "from": "now-7d",
     "to": "now"
   },
+  "timepicker": {},
+  "timezone": "",
+  "version": 1,
+  "weekStart": "",
   "templating": {
     "list": [
       {
@@ -348,7 +360,7 @@
         "y": 19
       },
       "options": {
-        "apiUrl": "http://localhost:8080",
+        "apiUrl": "http://localhost:8082",
         "projectId": "$project",
         "showDryRun": true,
         "showExecute": true,

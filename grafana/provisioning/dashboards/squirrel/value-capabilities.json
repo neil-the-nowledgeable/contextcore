@@ -69,7 +69,7 @@
       },
       "datasource": {
         "type": "tempo",
-        "uid": "P214B5B846CF3925F"
+        "uid": "tempo"
       },
       "fieldConfig": {
         "defaults": {},
@@ -146,7 +146,7 @@
         {
           "datasource": {
             "type": "tempo",
-            "uid": "P214B5B846CF3925F"
+            "uid": "tempo"
           },
           "queryType": "traceql",
           "query": "{ name =~ \"value_skill:.*\" } | select(.skill.id, .skill.capability_count, .value.persona_count, .value.channel_count)",
@@ -178,7 +178,7 @@
       },
       "datasource": {
         "type": "tempo",
-        "uid": "P214B5B846CF3925F"
+        "uid": "tempo"
       },
       "fieldConfig": {
         "defaults": {},
@@ -257,7 +257,7 @@
         {
           "datasource": {
             "type": "tempo",
-            "uid": "P214B5B846CF3925F"
+            "uid": "tempo"
           },
           "queryType": "traceql",
           "query": "{ name =~ \"value_capability:.*\" && .skill.id =~ \"${skill}\" } | select(.skill.id, .capability.name, .value.type, .value.personas, .capability.summary)",
