@@ -15,17 +15,24 @@ project:
 status:
   phase: "Phase 4 - OTel GenAI Alignment"
   recentChanges:
+    - "Added span-based generation contracts design for proactive LLM truncation prevention"
+    - "Enhanced Prime Contractor with validate-before-integrate pattern (fail on truncation)"
+    - "Added validate command to Prime Contractor CLI for pre-flight code validation"
+    - "Clarified Rabbit (Waabooz) design boundaries—trigger mechanism, NOT communication channel"
+    - "Moved workflow.json to core/project-tasks.json—task viewing is Core, not Rabbit"
+    - "Updated EXPANSION_PACKS.md with Design Boundaries section"
     - "OTel GenAI semantic convention alignment (dual-emit agent.* + gen_ai.*)"
     - "HistoricalTaskTracker now emits both spans AND logs for demo data"
     - "Exporter supports pushing logs to Loki via push API"
-    - "Portfolio dashboard updated with 11 dashboards provisioned (6 core + 5 expansion)"
+    - "Portfolio dashboard updated with 11 dashboards provisioned (7 core + 4 expansion)"
     - "Dashboard $project variables fixed to default to 'contextcore'"
     - "Identified task tracking vs deliverable validation gap"
     - "Added Fox (Waagosh) alert automation dashboard"
     - "Added Beaver (Amik) lead contractor progress dashboard"
     - "Established Dependency Manifest Pattern for tracking external dependencies"
-    - "Added Infinity datasource for Rabbit API integration"
   nextSteps:
+    - "Implement span-based generation contracts in CodeGenerationHandoff class"
+    - "Create Code Generation Health dashboard for truncation monitoring"
     - "Verify demo data appears in both Tempo and Loki"
     - "Create agent insights dashboard for gen_ai.* attributes"
     - "Implement Loki recording rules for task_percent_complete metrics"
@@ -121,6 +128,63 @@ business:
       pattern: "docs/DEPENDENCY_MANIFEST_PATTERN.md"
       antipattern: "Scattered implicit dependencies discovered only at deploy time"
 
+    - risk: "Multiple deployment sources target same namespace causing config drift"
+      priority: P2
+      mitigation: |
+        Consolidate to single source of truth for Kubernetes deployments:
+        1. Choose ONE directory as the canonical deployment source
+        2. Standardize credentials (passwords, tokens) across all configs
+        3. Keep dashboard JSON files in sync between sources
+        4. Add CI check that detects divergent deployments
+        5. Document which deployment source is authoritative
+      scope:
+        - "k8s/observability/"
+        - "/Users/neilyashinsky/Documents/Deploy/observability/"
+      lesson: |
+        Discovered two deployment directories targeting same Kind cluster namespace:
+        - ContextCore k8s (password: admin, older versions, 8 dashboards)
+        - Deploy directory (password: adminadminadmin, newer versions, 6 dashboards)
+        Both deploy to 'observability' namespace in 'o11y-dev' Kind cluster.
+        Result: Config drift, missing dashboards, authentication confusion.
+      antipattern: "Parallel deployment sources with different configs targeting same target"
+      pattern: |
+        Single Source of Truth: One canonical deployment directory per target environment.
+        All other references should import/copy from the source, not maintain parallel configs.
+      symptoms:
+        - "Dashboard missing after deployment"
+        - "Authentication fails with expected password"
+        - "Version mismatch between expected and deployed"
+        - "Different feature sets depending on which deploy ran last"
+
+    - risk: "Grafana plugin updates not propagating to Kind cluster"
+      priority: P2
+      mitigation: |
+        Docker Desktop's file sharing to Kind nodes can become stale, causing
+        plugin code changes to not appear even after rebuild and pod restart.
+        Workaround: Manually copy plugin files directly to Kind nodes:
+        1. Build plugin: npm run build
+        2. Copy to Kind nodes: docker cp module.js NODE:/plugins/contextcore/PLUGIN/
+        3. Restart Grafana pod
+        See contextcore-owl/CLAUDE.md "Known Issue: Docker Desktop File Sync" for details.
+      scope:
+        - "contextcore-owl/plugins/**"
+        - "contextcore-grafana/grafana/plugins/**"
+      lesson: |
+        Discovered when workflow panel CORS errors persisted after code fix.
+        The plugin source was updated to use /trigger endpoint but Kind nodes
+        served stale module.js with old /workflow/dry-run endpoint.
+        Root cause: Kind extraMounts use Docker Desktop file sharing which
+        doesn't reliably sync file changes to the VM.
+      symptoms:
+        - "CORS errors from old API endpoints"
+        - "Plugin behavior doesn't match source code"
+        - "kubectl rollout restart doesn't fix the issue"
+        - "grep shows different content in host vs container files"
+      antipattern: "Assuming file mounts are live-synced in Kind/Docker Desktop"
+      pattern: |
+        After plugin rebuild, manually sync to Kind nodes:
+        docker cp module.js o11y-dev-worker2:/plugins/contextcore/PLUGIN/module.js
+
 requirements:
   availability: "99.9%"
   latencyP99: "500ms"
@@ -154,9 +218,15 @@ ecosystem:
     - name: "contextcore-rabbit"
       animal: "Rabbit"
       anishinaabe: "Waabooz"
-      purpose: "Core alert automation framework (webhooks, parsers, actions)"
+      purpose: "Alert-triggered automation—wakes up systems in response to alerts (fire-and-forget)"
       status: "beta"
       formerName: "Hermes"
+      designNote: |
+        Rabbit is a TRIGGER mechanism, not a communication channel or workflow manager.
+        It receives alerts, fires actions, and is done. It does NOT:
+        - Serve as a message bus between components
+        - Manage ongoing workflows or conversations
+        - Coordinate multi-step processes (use Coyote for that)
     - name: "contextcore-fox"
       animal: "Fox"
       anishinaabe: "Waagosh"
@@ -185,10 +255,20 @@ ecosystem:
       animal: "Owl"
       anishinaabe: "Gookooko'oo"
       meaning: "Owl (watchful, excellent vision)"
-      purpose: "Unified Grafana plugin package (workflow triggers, chat panels, datasources)"
-      status: "beta"
+      purpose: "Internal Grafana plugin package (action triggers, chat panels, datasources)"
+      status: "internal"  # NOT user-facing
       formerName: "contextcore-grafana"
       dependsOn: ["contextcore-beaver"]  # Optional, for scaffold script LLM generation
+      userFacing: false
+      designNote: |
+        Owl is an INTERNAL sub-component for Grafana plugin development. The name
+        "contextcore-owl" is unofficial and should NOT be included in:
+        - User documentation or onboarding
+        - The "harbor tour" of capabilities
+        - Marketing or product descriptions
+
+        Users interact with Grafana dashboards directly—they don't need to know
+        about the plugin packaging implementation details.
 
 # Dashboards (11 total, provisioned to Grafana)
 # Dependencies declared in: grafana/provisioning/dashboards/dependencies.yaml
@@ -236,11 +316,13 @@ dashboards:
       file: "grafana/provisioning/dashboards/json/skills-browser.json"
       datasources: ["Tempo"]
       expansionPack: "contextcore-squirrel"
-    - id: "workflow"
-      name: "Workflow Manager"
-      file: "grafana/provisioning/dashboards/json/workflow.json"
+    - id: "contextcore-tasks"
+      name: "Project Tasks"
+      file: "grafana/provisioning/dashboards/core/project-tasks.json"
       datasources: ["Tempo"]
-      expansionPack: "contextcore-rabbit"
+      # NOTE: This is a CORE dashboard, not a Rabbit dashboard. It shows project tasks
+      # stored as spans in Tempo—this is core ContextCore functionality.
+      # Rabbit is only for triggering actions, not viewing/managing workflows.
     - id: "agent-trigger"
       name: "Agent Trigger"
       file: "grafana/provisioning/dashboards/json/agent-trigger.json"
@@ -301,3 +383,41 @@ designDecisions:
       APIs in configs) must be explicitly declared in component-level manifests and
       validated at design, build, and deploy time. Prevents "works on my machine" failures.
       See docs/DEPENDENCY_MANIFEST_PATTERN.md for full specification.
+
+  - decision: "Rabbit is a trigger mechanism, not a communication channel"
+    confidence: 0.95
+    rationale: |
+      Rabbit (Waabooz) is designed to "wake up" systems in response to alerts—it is
+      NOT a general communication channel, message bus, or workflow orchestration engine.
+
+  - decision: "Span-based generation contracts for proactive LLM truncation prevention"
+    confidence: 0.85
+    rationale: |
+      A2A handoffs for code generation should include size constraints in ExpectedOutput
+      (max_lines, max_tokens, completeness_markers). Receiving agents emit pre-flight
+      spans with size estimates BEFORE generation. If estimate exceeds limit, decomposition
+      is negotiated via span events rather than generating and failing.
+
+      Benefits: Proactive prevention (not reactive validation), auditable decisions via
+      TraceQL, graceful degradation via chunking, human visibility via dashboards.
+
+      See docs/A2A_TRUNCATION_PREVENTION.md for full design.
+
+      Rabbit IS:
+      - Alert receiver (webhooks from Grafana, Alertmanager)
+      - Action dispatcher (fire-and-forget execution)
+      - One-way trigger pipeline (alert → action)
+
+      Rabbit IS NOT:
+      - Communication bridge between components
+      - Workflow manager or orchestrator
+      - Bi-directional RPC mechanism
+      - Message queue or event bus
+
+      This distinction prevents scope creep and ensures each component serves its purpose.
+      For workflow viewing/management, use Core ContextCore dashboards querying Tempo.
+      For multi-step pipelines, use Coyote.
+    lesson: |
+      Previous confusion arose when "workflow" dashboards were attributed to Rabbit.
+      The Workflow Manager dashboard displays tasks from Tempo—this is Core ContextCore
+      functionality (tasks as spans), not Rabbit functionality (alert triggering).
