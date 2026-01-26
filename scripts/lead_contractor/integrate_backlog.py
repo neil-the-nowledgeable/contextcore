@@ -824,49 +824,86 @@ def clean_markdown_code_blocks(content: str) -> str:
 def detect_incomplete_file(content: str, file_path: Path) -> List[str]:
     """
     Detect if a file appears incomplete or truncated.
-    
+
     Returns:
         List of issues found (empty if file appears complete)
     """
     issues = []
-    
-    # Check for incomplete lines (lines ending with incomplete identifiers)
     lines = content.split('\n')
-    if lines:
-        last_line = lines[-1].strip()
-        # Check if last line looks incomplete (ends with identifier but no statement)
-        if last_line and not last_line.endswith((':', ')', ']', '}', '"""', "'''", '"""', "'''")):
-            # Check if it's just an identifier without assignment or function call
-            if re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*\s*$', last_line):
-                issues.append(f"File appears truncated - ends with incomplete identifier: '{last_line}'")
-        
-        # Check for incomplete function/class definitions
-        incomplete_defs = []
-        for i, line in enumerate(lines):
-            stripped = line.strip()
-            if stripped.startswith(('def ', 'class ')) and not stripped.endswith(':'):
-                # Check if next line exists and is indented
-                if i + 1 < len(lines):
-                    next_line = lines[i + 1]
-                    if next_line.strip() and not next_line.startswith((' ', '\t')):
-                        incomplete_defs.append(f"Line {i+1}: {stripped[:50]}")
-        
-        if incomplete_defs:
-            issues.append(f"Incomplete definitions found: {incomplete_defs[:3]}")
-    
+
+    if not lines:
+        issues.append("File is empty")
+        return issues
+
+    # Check for incomplete lines (lines ending with incomplete identifiers)
+    last_line = lines[-1].strip()
+    # Check if last line looks incomplete (ends with identifier but no statement)
+    if last_line and not last_line.endswith((':', ')', ']', '}', '"""', "'''", '"""', "'''", ',', '#')):
+        # Check if it's just an identifier without assignment or function call
+        if re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*\s*$', last_line):
+            issues.append(f"TRUNCATED: File ends with incomplete identifier: '{last_line}'")
+        # Check for incomplete assignment (e.g., "x = ")
+        elif re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*$', last_line):
+            issues.append(f"TRUNCATED: File ends with incomplete assignment: '{last_line}'")
+        # Check for incomplete method call (e.g., "foo.bar")
+        elif re.match(r'^[a-zA-Z_][a-zA-Z0-9_.]*\s*$', last_line) and '.' in last_line:
+            issues.append(f"TRUNCATED: File ends with incomplete expression: '{last_line}'")
+
+    # Check for incomplete function/class definitions
+    incomplete_defs = []
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith(('def ', 'class ')) and not stripped.endswith(':'):
+            # Check if next line exists and is indented
+            if i + 1 < len(lines):
+                next_line = lines[i + 1]
+                if next_line.strip() and not next_line.startswith((' ', '\t')):
+                    incomplete_defs.append(f"Line {i+1}: {stripped[:50]}")
+
+    if incomplete_defs:
+        issues.append(f"TRUNCATED: Incomplete definitions found: {incomplete_defs[:3]}")
+
     # Check for unmatched brackets/parentheses/braces (basic check)
-    if content.count('(') != content.count(')'):
-        issues.append("Unmatched parentheses detected")
-    if content.count('[') != content.count(']'):
-        issues.append("Unmatched brackets detected")
-    if content.count('{') != content.count('}'):
-        issues.append("Unmatched braces detected")
-    
+    paren_diff = content.count('(') - content.count(')')
+    bracket_diff = content.count('[') - content.count(']')
+    brace_diff = content.count('{') - content.count('}')
+
+    if paren_diff > 0:
+        issues.append(f"TRUNCATED: {paren_diff} unclosed parenthese(s)")
+    if bracket_diff > 0:
+        issues.append(f"TRUNCATED: {bracket_diff} unclosed bracket(s)")
+    if brace_diff > 0:
+        issues.append(f"TRUNCATED: {brace_diff} unclosed brace(s)")
+
     # Check for incomplete string literals
-    triple_quotes = content.count('"""') + content.count("'''")
-    if triple_quotes % 2 != 0:
-        issues.append("Unclosed triple-quoted string detected")
-    
+    triple_double = content.count('"""')
+    triple_single = content.count("'''")
+    if triple_double % 2 != 0:
+        issues.append("TRUNCATED: Unclosed triple-quoted string (\"\"\")")
+    if triple_single % 2 != 0:
+        issues.append("TRUNCATED: Unclosed triple-quoted string (''')")
+
+    # Check if __all__ exports reference missing definitions
+    all_match = re.search(r"__all__\s*=\s*\[([^\]]+)\]", content)
+    if all_match:
+        exports = re.findall(r"['\"]([a-zA-Z_][a-zA-Z0-9_]*)['\"]", all_match.group(1))
+        # Get defined classes and functions
+        defined_classes = set(re.findall(r'^class\s+([A-Za-z_][A-Za-z0-9_]*)', content, re.MULTILINE))
+        defined_functions = set(re.findall(r'^def\s+([A-Za-z_][A-Za-z0-9_]*)', content, re.MULTILINE))
+        defined_all = defined_classes | defined_functions
+
+        missing = [e for e in exports if e not in defined_all]
+        if missing:
+            issues.append(f"TRUNCATED: __all__ references missing definitions: {missing[:5]}")
+
+    # Check for Python syntax errors (quick validation)
+    try:
+        compile(content, str(file_path), 'exec')
+    except SyntaxError as e:
+        # Only flag as truncation if it's at the end of the file
+        if e.lineno and e.lineno > len(lines) - 5:
+            issues.append(f"TRUNCATED: Syntax error near end of file (line {e.lineno}): {e.msg}")
+
     return issues
 
 
@@ -1007,52 +1044,90 @@ def resolve_conflict_interactive(
     return None
 
 
-def integrate_file(source: Path, target: Path, dry_run: bool = False) -> bool:
-    """Integrate a single file."""
+def integrate_file(
+    source: Path,
+    target: Path,
+    dry_run: bool = False,
+    fail_on_truncation: bool = True
+) -> bool:
+    """
+    Integrate a single file.
+
+    Args:
+        source: Source file path
+        target: Target file path
+        dry_run: If True, only preview without modifying files
+        fail_on_truncation: If True, refuse to integrate truncated files (default: True)
+
+    Returns:
+        True if integration succeeded, False otherwise
+    """
     if dry_run:
         print(f"  [DRY RUN] Would copy {source.name}")
         print(f"    From: {source}")
         print(f"    To:   {target}")
         return True
-    
-    # Create backup if target exists
+
+    # Read source file and clean it BEFORE creating backup
+    try:
+        with open(source, 'r', encoding='utf-8') as f:
+            content = f.read()
+    except Exception as e:
+        print(f"  ✗ Failed to read {source.name}: {e}")
+        return False
+
+    # Clean markdown code blocks for Python files
+    if source.suffix == '.py':
+        original_content = content
+        content = clean_markdown_code_blocks(content)
+        if content != original_content:
+            print(f"  [Cleaned] Removed markdown code blocks from {source.name}")
+
+        # Check for incomplete/truncated files BEFORE making any changes
+        incomplete_issues = detect_incomplete_file(content, source)
+        truncation_issues = [i for i in incomplete_issues if i.startswith("TRUNCATED:")]
+
+        if truncation_issues:
+            print(f"  ❌ REJECTED: File appears truncated or incomplete:")
+            for issue in truncation_issues:
+                print(f"    - {issue}")
+
+            if fail_on_truncation:
+                print(f"  ⛔ Integration blocked to prevent corrupting target file.")
+                print(f"     The generated code was likely cut off due to LLM token limits.")
+                print(f"     Options:")
+                print(f"       1. Regenerate the feature with a smaller scope")
+                print(f"       2. Manually complete the truncated code")
+                print(f"       3. Use fail_on_truncation=False to force integration (dangerous)")
+                return False
+            else:
+                print(f"  ⚠️  Proceeding despite truncation (fail_on_truncation=False)")
+
+        # Show non-truncation warnings but don't block
+        other_issues = [i for i in incomplete_issues if not i.startswith("TRUNCATED:")]
+        if other_issues:
+            print(f"  ⚠️  Warnings:")
+            for issue in other_issues[:3]:
+                print(f"    - {issue}")
+
+    # Create backup if target exists (only after validation passes)
     if target.exists():
         backup = target.with_suffix(f"{target.suffix}.backup")
         shutil.copy2(target, backup)
         print(f"  Backed up existing file to {backup.name}")
-    
+
     # Create target directory
     target.parent.mkdir(parents=True, exist_ok=True)
-    
-    # Read source file and clean it
+
+    # Write cleaned content
     try:
-        with open(source, 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        # Clean markdown code blocks for Python files
-        if source.suffix == '.py':
-            original_content = content
-            content = clean_markdown_code_blocks(content)
-            if content != original_content:
-                print(f"  [Cleaned] Removed markdown code blocks from {source.name}")
-            
-            # Check for incomplete files
-            incomplete_issues = detect_incomplete_file(content, source)
-            if incomplete_issues:
-                print(f"  ⚠️  Warning: File may be incomplete:")
-                for issue in incomplete_issues[:3]:  # Show first 3 issues
-                    print(f"    - {issue}")
-                # Don't fail, but warn the user
-        
-        # Write cleaned content
         with open(target, 'w', encoding='utf-8') as f:
             f.write(content)
         print(f"  ✓ Integrated: {target.relative_to(PROJECT_ROOT)}")
-        
     except Exception as e:
-        print(f"  ✗ Failed to integrate {source.name}: {e}")
+        print(f"  ✗ Failed to write {target.name}: {e}")
         return False
-    
+
     return True
 
 

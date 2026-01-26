@@ -159,19 +159,113 @@ def cmd_import(args):
 def cmd_clear(args):
     """Clear the feature queue."""
     queue = FeatureQueue()
-    
+
     if not args.force:
         response = input("Are you sure you want to clear the queue? (yes/no): ")
         if response.lower() not in ("yes", "y"):
             print("Cancelled")
             return
-    
+
     # Clear features
     queue.features = {}
     queue.order = []
     queue.save_state()
-    
+
     print("✓ Queue cleared")
+
+
+def cmd_validate(args):
+    """Validate generated code files for truncation and other issues."""
+    from scripts.lead_contractor.integrate_backlog import (
+        detect_incomplete_file,
+        clean_markdown_code_blocks,
+        scan_backlog,
+    )
+
+    print("=" * 70)
+    print("VALIDATING GENERATED CODE")
+    print("=" * 70)
+
+    files_to_check = []
+
+    if args.file:
+        # Validate specific file
+        files_to_check = [Path(args.file)]
+    else:
+        # Scan backlog for all generated files
+        print("\nScanning backlog for generated files...")
+        backlog_files = scan_backlog()
+        files_to_check = [f.path for f in backlog_files]
+        print(f"Found {len(files_to_check)} generated file(s)")
+
+    if not files_to_check:
+        print("No files to validate")
+        return
+
+    valid_count = 0
+    truncated_count = 0
+    warning_count = 0
+    missing_count = 0
+
+    for file_path in files_to_check:
+        if not file_path.exists():
+            print(f"\n❓ {file_path.name}: FILE NOT FOUND")
+            missing_count += 1
+            continue
+
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+        except Exception as e:
+            print(f"\n❌ {file_path.name}: READ ERROR - {e}")
+            truncated_count += 1
+            continue
+
+        # Clean markdown
+        if file_path.suffix == '.py':
+            content = clean_markdown_code_blocks(content)
+
+        # Detect issues
+        issues = detect_incomplete_file(content, file_path)
+        truncation_issues = [i for i in issues if i.startswith("TRUNCATED:")]
+        other_issues = [i for i in issues if not i.startswith("TRUNCATED:")]
+
+        if truncation_issues:
+            print(f"\n❌ {file_path.name}: TRUNCATED")
+            for issue in truncation_issues:
+                print(f"   • {issue}")
+            truncated_count += 1
+        elif other_issues:
+            print(f"\n⚠️  {file_path.name}: WARNINGS")
+            for issue in other_issues:
+                print(f"   • {issue}")
+            warning_count += 1
+            valid_count += 1  # Warnings don't block integration
+        else:
+            if args.verbose:
+                print(f"\n✓ {file_path.name}: OK")
+            valid_count += 1
+
+    # Summary
+    print(f"\n{'='*70}")
+    print("VALIDATION SUMMARY")
+    print(f"{'='*70}")
+    print(f"  ✓ Valid:     {valid_count}")
+    print(f"  ❌ Truncated: {truncated_count}")
+    if warning_count > 0:
+        print(f"  ⚠️  Warnings:  {warning_count}")
+    if missing_count > 0:
+        print(f"  ❓ Missing:   {missing_count}")
+
+    if truncated_count > 0:
+        print(f"\n⛔ {truncated_count} file(s) are truncated and will be REJECTED during integration.")
+        print("   Options:")
+        print("     1. Regenerate with smaller scope")
+        print("     2. Manually fix the truncated code")
+        print("     3. Remove truncated features from the backlog")
+        sys.exit(1)
+    else:
+        print(f"\n✓ All files are valid for integration")
 
 
 def main():
@@ -188,6 +282,7 @@ Examples:
   %(prog)s run                    # Run full workflow
   %(prog)s run --dry-run          # Preview without changes
   %(prog)s status                 # Show queue status
+  %(prog)s validate               # Check for truncated files
   %(prog)s import                 # Import from Lead Contractor backlog
   %(prog)s retry my_feature       # Retry a failed feature
   %(prog)s reset                  # Reset failed features
@@ -252,7 +347,16 @@ Examples:
     clear_parser.add_argument("--force", "-f", action="store_true",
                              help="Skip confirmation")
     clear_parser.set_defaults(func=cmd_clear)
-    
+
+    # Validate command
+    validate_parser = subparsers.add_parser("validate",
+                                            help="Validate generated code for truncation")
+    validate_parser.add_argument("--file", "-f", type=str,
+                                help="Validate a specific file (default: all in backlog)")
+    validate_parser.add_argument("--verbose", "-v", action="store_true",
+                                help="Show details for valid files too")
+    validate_parser.set_defaults(func=cmd_validate)
+
     args = parser.parse_args()
     
     if not args.command:

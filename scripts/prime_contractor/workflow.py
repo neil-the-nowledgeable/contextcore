@@ -50,6 +50,8 @@ from scripts.lead_contractor.integrate_backlog import (
     detect_merge_strategy,
     analyze_file_content,
     check_if_integrated,
+    detect_incomplete_file,
+    clean_markdown_code_blocks,
 )
 from scripts.lead_contractor.runner import (
     Feature,
@@ -154,6 +156,49 @@ class PrimeContractorWorkflow:
         print(f"Imported {len(added)} feature(s) from backlog")
         return len(added)
     
+    def validate_generated_code(self, feature: FeatureSpec) -> Tuple[bool, List[str]]:
+        """
+        Validate generated code files before integration.
+
+        Checks for truncation, syntax errors, and other issues that would
+        corrupt the target codebase if integrated.
+
+        Args:
+            feature: Feature spec with generated_files list
+
+        Returns:
+            Tuple of (is_valid, list of error messages)
+        """
+        errors = []
+
+        for source_file in feature.generated_files:
+            source_path = Path(source_file)
+
+            if not source_path.exists():
+                errors.append(f"Source file not found: {source_path}")
+                continue
+
+            try:
+                with open(source_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            except Exception as e:
+                errors.append(f"Failed to read {source_path.name}: {e}")
+                continue
+
+            # Clean markdown code blocks
+            if source_path.suffix == '.py':
+                content = clean_markdown_code_blocks(content)
+
+                # Check for truncation and other issues
+                issues = detect_incomplete_file(content, source_path)
+                truncation_issues = [i for i in issues if i.startswith("TRUNCATED:")]
+
+                if truncation_issues:
+                    errors.append(f"{source_path.name}: {'; '.join(truncation_issues)}")
+
+        is_valid = len(errors) == 0
+        return is_valid, errors
+
     def detect_conflict_risk(self, feature: FeatureSpec) -> Tuple[str, List[str]]:
         """
         Detect if integrating this feature might cause conflicts.
@@ -305,6 +350,7 @@ class PrimeContractorWorkflow:
         Integrate a single feature immediately.
 
         This is the core of the Prime Contractor pattern:
+        - Validate generated code (check for truncation)
         - Integrate the feature
         - Run checkpoints
         - Commit if successful
@@ -316,7 +362,23 @@ class PrimeContractorWorkflow:
         print(f"\n{'='*70}")
         print(f"INTEGRATING FEATURE: {feature.name}")
         print(f"{'='*70}")
-        
+
+        # CRITICAL: Validate generated code BEFORE integration
+        # This prevents truncated/corrupted code from overwriting good code
+        is_valid, validation_errors = self.validate_generated_code(feature)
+        if not is_valid:
+            print(f"\n❌ VALIDATION FAILED - Generated code is invalid:")
+            for error in validation_errors:
+                print(f"   • {error}")
+            print(f"\n   The generated code appears truncated or corrupted.")
+            print(f"   This typically happens when LLM output exceeds token limits.")
+            print(f"\n   Options:")
+            print(f"     1. Regenerate with smaller scope (split into multiple features)")
+            print(f"     2. Manually fix the truncated code in generated/")
+            print(f"     3. Remove this feature from the queue")
+            self.queue.fail_feature(feature.id, f"Validation failed: {'; '.join(validation_errors[:2])}")
+            return False
+
         # Check for conflict risk
         risk_level, warnings = self.detect_conflict_risk(feature)
         if warnings:
