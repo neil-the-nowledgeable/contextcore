@@ -21,6 +21,8 @@ configMapGenerator:
       - dashboards/sprint-metrics.json
       - dashboards/project-operations.json
       - dashboards/value-capabilities.json
+      - dashboards/beaver-lead-contractor-progress.json
+      - dashboards/workflow.json
 
 generatorOptions:
   disableNameSuffixHash: true

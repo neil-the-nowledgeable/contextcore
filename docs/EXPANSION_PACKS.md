@@ -2,11 +2,101 @@
 
 ContextCore expansion packs extend the core framework with specialized capabilities. Each pack follows the [animal naming convention](NAMING_CONVENTION.md) and integrates seamlessly with ContextCore's observability infrastructure.
 
+## Design Boundaries
+
+Understanding what each component IS and IS NOT is critical for maintaining clean architecture. These boundaries prevent scope creep and ensure each component serves its intended purpose.
+
+### Core ContextCore (Asabikeshiinh - Spider)
+
+**IS**:
+- Project observability framework (tasks as OpenTelemetry spans)
+- Dual-telemetry emission (spans to Tempo, logs to Loki)
+- Agent insight storage and querying
+- Project context management (CRDs, metadata)
+- Dashboard provisioning for project health visualization
+
+**IS NOT**:
+- A communication channel between components
+- An alert automation system (use Rabbit)
+- An LLM provider (use Beaver)
+
+### Rabbit (Waabooz) - Alert Automation
+
+**IS**:
+- A trigger mechanism to "wake up" systems in response to alerts
+- Webhook receiver for alert payloads (Grafana, Alertmanager)
+- Action dispatcher for automated responses
+- One-way alert-to-action pipeline
+
+**IS NOT**:
+- A general communication channel between components
+- A message bus or queue system
+- A workflow orchestration engine
+- A bi-directional RPC mechanism
+
+**Key Design Principle**: Rabbit is for *triggering* actions, not *orchestrating* workflows. When an alert fires, Rabbit wakes up the appropriate handler. It does not manage ongoing conversations or coordinate multi-step processes.
+
+### Fox (Waagosh) - Context Enrichment
+
+**IS**:
+- ContextCore integration layer for Rabbit
+- Alert enrichment with project context (criticality, owner, SLOs)
+- Intelligent routing based on project metadata
+
+**IS NOT**:
+- A standalone system (requires Rabbit)
+- A replacement for Rabbit's core functionality
+
+### Beaver (Amik) - LLM Abstraction
+
+**IS**:
+- Unified interface for LLM providers (OpenAI, Anthropic, local)
+- Cost tracking and token accounting
+- Rate limiting and retry logic
+- Streaming support
+
+**IS NOT**:
+- A workflow orchestration engine
+- A task management system (use Core ContextCore)
+
+### Owl (Gookooko'oo) - Grafana Visualization
+
+> **Note**: Owl is currently an internal sub-component, not a user-facing expansion pack.
+> The name "contextcore-owl" is not official and should not be included in user onboarding,
+> documentation, or the "harbor tour" of capabilities. It exists purely as an implementation
+> detail for Grafana plugin development.
+
+**IS**:
+- Grafana plugins for ContextCore visualization
+- Chat panels for interactive LLM queries
+- Trigger panels for initiating actions (via Rabbit)
+- Datasources for CORS-free API access
+- **Internal tooling** (not user-facing)
+
+**IS NOT**:
+- A data storage layer
+- A backend service
+- The source of truth for workflows (that's Core ContextCore)
+- **A user-facing product or capability**
+
+### Squirrel (Ajidamoo) - Skills Library
+
+**IS**:
+- Token-efficient skill storage and discovery
+- Progressive disclosure for agent capabilities
+- Ready-to-use skills for common patterns
+
+**IS NOT**:
+- A runtime execution engine
+- A replacement for ContextCore task tracking
+
+---
+
 ## Official Expansion Packs
 
 ### contextcore-rabbit (Waabooz)
 
-**Core Alert Automation Framework**
+**Alert-Triggered Automation Framework**
 
 *Formerly known as Hermes / Hermes Conrad*
 
@@ -18,14 +108,20 @@ ContextCore expansion packs extend the core framework with specialized capabilit
 | **Repository** | [contextcore-rabbit](https://github.com/contextcore/contextcore-rabbit) |
 | **License** | Equitable Use License v1.0 |
 
-**Description**: Rabbit is the vendor-agnostic alert automation framework. It receives webhook payloads from monitoring systems (Grafana, Alertmanager), parses them into a unified format, and routes them through configurable action handlers.
+**Description**: Rabbit is a trigger mechanism that "wakes up" systems in response to alerts. It receives webhook payloads from monitoring systems (Grafana, Alertmanager), parses them into a unified format, and dispatches configured actions. Think of it as the alarm clock of the system—it doesn't manage the day, it just makes sure the right things wake up at the right time.
+
+**Key Design Principle**: Rabbit is for *triggering*, not *orchestrating*. It handles the alert → action pipeline but does not:
+- Manage ongoing workflows (use Core ContextCore for task tracking)
+- Serve as a communication channel between components
+- Coordinate multi-step processes (use Coyote for pipelines)
 
 **Key Features**:
 - Unified Alert model across alerting systems
 - Pluggable payload parsers (Grafana, Alertmanager, extensible)
-- Action framework with built-in actions (Log, Notify, Script)
+- Action framework with built-in actions (Log, Notify, Script, Wake Agent)
 - Flask-based webhook server
 - Optional OpenTelemetry integration
+- Fire-and-forget action dispatch
 
 **Installation**:
 ```bash
@@ -199,20 +295,26 @@ print(f"Tokens: {client.session_tokens}")
 
 **Unified Grafana Plugin Package**
 
+> ⚠️ **Internal Sub-Component**: Owl is not a user-facing expansion pack. The name
+> "contextcore-owl" is unofficial and exists only as an internal code organization
+> convention. Do not include Owl in user documentation, onboarding flows, or the
+> "harbor tour" of ContextCore capabilities. Users interact with Grafana dashboards
+> directly—they don't need to know about the plugin packaging.
+
 | Field | Value |
 |-------|-------|
 | **Animal** | Owl |
 | **Anishinaabe** | Gookooko'oo |
-| **Status** | Planned |
+| **Status** | Internal (not user-facing) |
 | **Repository** | [contextcore-owl](https://github.com/contextcore/contextcore-owl) |
 | **License** | Equitable Use License v1.0 |
 | **Depends On** | contextcore-beaver (optional, for scaffold script) |
 
-**Description**: Owl is the unified Grafana plugin package for ContextCore. It consolidates all Grafana extensions—workflow trigger panels, chat panels, and datasources—into a single package with consistent branding and shared infrastructure.
+**Description**: Owl is an internal package for Grafana plugin development. It consolidates all Grafana extensions—action trigger panels, chat panels, and datasources—into a single package with consistent branding and shared infrastructure.
 
 **Key Features**:
 - **contextcore-chat-panel**: Chat with Claude via webhook (ported from O11yBubo)
-- **contextcore-workflow-panel**: Trigger Rabbit workflows from dashboards
+- **contextcore-action-trigger-panel**: Trigger Rabbit actions from dashboards (fire-and-forget)
 - **contextcore-datasource**: Datasource with Grafana route proxy for CORS-free API calls
 - **scaffold_plugin.py**: Generate new plugins using contextcore-beaver for LLM assistance
 
@@ -220,8 +322,10 @@ print(f"Tokens: {client.session_tokens}")
 | Plugin ID | Type | Description |
 |-----------|------|-------------|
 | `contextcore-chat-panel` | Panel | Interactive chat panel for Claude via webhook |
-| `contextcore-workflow-panel` | Panel | Trigger and monitor Rabbit workflow executions |
+| `contextcore-action-trigger-panel` | Panel | Fire Rabbit actions (wake agents, run scripts) |
 | `contextcore-datasource` | Datasource | Proxied access to Rabbit API endpoints |
+
+**Note**: The action trigger panel is for *initiating* Rabbit actions, not for managing workflows. To view project tasks, workflow history, and progress, use the Core ContextCore dashboards that query Tempo.
 
 **Installation**:
 ```bash

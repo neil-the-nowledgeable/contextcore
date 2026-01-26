@@ -26,13 +26,13 @@ We honor the indigenous peoples of Michigan and the Great Lakes region by includ
 | **contextcore-coyote** | Coyote | Wiisagi-ma'iingan | wee-SAH-gee-MAH-een-gahn | — |
 | **contextcore-beaver** | Beaver | Amik | ah-MIK | "Beaver" |
 | **contextcore-squirrel** | Squirrel | Ajidamoo | ah-JID-ah-moo | "Red squirrel" |
-| **contextcore-owl** | Owl | Gookooko'oo | goo-koo-KOH-oh | "Owl" |
+| **contextcore-owl** | Owl | Gookooko'oo | goo-koo-KOH-oh | "Owl" (internal only) |
 
 ### Why These Animals?
 
 **Spider (Asabikeshiinh)** — ContextCore weaves together project artifacts, agent insights, and operational data into a unified observability web. Like a spider's web, it creates connections that capture and reveal patterns across the system.
 
-**Rabbit (Waabooz)** — The rabbit is swift, alert, and responsive. The Rabbit expansion pack (formerly Hermes) provides the core alert automation framework—receiving alerts, parsing payloads, and executing actions with speed and reliability.
+**Rabbit (Waabooz)** — The rabbit is swift, alert, and always ready to spring into action. Like a rabbit that bolts at the first sign of danger, the Rabbit expansion pack (formerly Hermes) is a trigger mechanism that "wakes up" systems in response to alerts. It receives alert webhooks, parses payloads, and fires actions—then it's done. Rabbit is not a communication channel or workflow manager; it's the alarm that gets things moving.
 
 **Fox (Waagosh)** — The fox is known for its intelligence and adaptability. The Fox expansion pack adds ContextCore integration to Rabbit, enriching alerts with project context for intelligent routing decisions.
 
@@ -42,7 +42,7 @@ We honor the indigenous peoples of Michigan and the Great Lakes region by includ
 
 **Squirrel (Ajidamoo)** — The squirrel is known for gathering, storing, and retrieving nuts with remarkable memory and efficiency. The Squirrel expansion pack (formerly contextcore-skills) provides a skills library for token-efficient agent discovery—gathering capabilities, protocols, and workflows that agents can retrieve as needed without loading entire context files.
 
-**Owl (Gookooko'oo)** — The owl is renowned for its exceptional vision, watchful nature, and wisdom. In many traditions, the owl sees what others cannot, observing patterns in the darkness. The Owl expansion pack (contextcore-owl) provides Grafana plugins for visualization and monitoring—workflow trigger panels, chat interfaces, and datasources that watch over systems and reveal insights through dashboards.
+**Owl (Gookooko'oo)** — The owl is renowned for its exceptional vision, watchful nature, and wisdom. In many traditions, the owl sees what others cannot, observing patterns in the darkness. The Owl package (contextcore-owl) provides Grafana plugins for visualization and monitoring—action trigger panels, chat interfaces, and datasources that watch over systems and reveal insights through dashboards. *Note: Owl is an internal sub-component, not a user-facing expansion pack. The name is unofficial and should not be included in user onboarding or the "harbor tour" of capabilities.*
 
 ## Cultural Context
 

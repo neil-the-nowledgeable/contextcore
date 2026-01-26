@@ -165,6 +165,7 @@ data:
     apiVersion: 1
     datasources:
       - name: Loki
+        uid: loki
         type: loki
         access: proxy
         url: http://loki.observability.svc.cluster.local:3100
@@ -172,7 +173,17 @@ data:
         jsonData:
           maxLines: 1000
 
+      - name: Mimir
+        uid: mimir
+        type: prometheus
+        access: proxy
+        url: http://mimir.observability.svc.cluster.local:9009/prometheus
+        isDefault: true
+        jsonData:
+          prometheusType: Mimir
+
       - name: Tempo
+        uid: tempo
         type: tempo
         access: proxy
         url: http://tempo.observability.svc.cluster.local:3200
@@ -192,14 +203,6 @@ data:
             enabled: true
           lokiSearch:
             datasourceUid: loki
-
-      - name: Mimir
-        type: prometheus
-        access: proxy
-        url: http://mimir.observability.svc.cluster.local:9009/prometheus
-        isDefault: true
-        jsonData:
-          prometheusType: Mimir
 ---
 # Grafana Dashboard Provisioning Config
 apiVersion: v1
