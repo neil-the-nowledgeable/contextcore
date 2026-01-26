@@ -1,11 +1,15 @@
+"""
+Lesson Retriever module for ContextCore.
+
+Queries lessons from Tempo using TraceQL for agent work sessions,
+enabling continuous learning from past experiences.
+"""
+
 import json
-import re
 import urllib.request
 import urllib.parse
-from typing import List, Optional, Tuple
 from datetime import datetime, timedelta
-__all__ = ['LessonRetriever']
-
+from typing import List, Optional
 
 from contextcore.learning.models import Lesson, LessonQuery, LessonCategory
 
@@ -13,55 +17,52 @@ __all__ = ['LessonRetriever']
 
 
 class LessonRetriever:
-    """Retrieves lessons from Tempo using TraceQL queries for agent work sessions."""
+    """Retrieves lessons from Tempo tracing backend using TraceQL queries."""
     
-    def __init__(self, tempo_url: str = "http://localhost:3200"):
+    def __init__(self, tempo_url: str = "http://localhost:3200") -> None:
         """Initialize the retriever with Tempo URL.
         
         Args:
-            tempo_url: Base URL for Tempo API (trailing slashes will be stripped)
+            tempo_url: Base URL for Tempo API (default: http://localhost:3200)
         """
         self.tempo_url = tempo_url.rstrip('/')
 
     def retrieve(self, query: LessonQuery) -> List[Lesson]:
-        """Execute a lesson query against Tempo.
+        """Retrieve lessons based on query parameters.
         
         Args:
-            query: LessonQuery object containing search parameters
+            query: LessonQuery object with search criteria
             
         Returns:
             List of Lesson objects sorted by effectiveness_score descending
         """
         try:
-            # Build TraceQL query from LessonQuery
-            traceql_query = self._build_traceql(query)
+            # Build TraceQL query string
+            traceql = self._build_traceql(query)
             
-            # Execute query against Tempo
-            raw_results = self._query_tempo(traceql_query, query.time_range or "7d")
+            # Query Tempo and get raw results
+            raw_results = self._query_tempo(traceql, query.time_range or "7d")
             
-            # Parse and filter results
+            # Parse results into Lesson objects
             lessons = self._parse_results(raw_results)
             
-            # Apply confidence filter
-            filtered_lessons = [
-                lesson for lesson in lessons 
-                if lesson.confidence_score >= query.min_confidence
-            ]
+            # Apply confidence filtering
+            min_confidence = query.min_confidence or 0.0
+            lessons = [lesson for lesson in lessons if lesson.confidence >= min_confidence]
             
             # Sort by effectiveness_score descending
-            filtered_lessons.sort(key=lambda x: x.effectiveness_score, reverse=True)
+            lessons.sort(key=lambda x: x.effectiveness_score, reverse=True)
             
             # Return top max_results
-            return filtered_lessons[:query.max_results] if query.max_results else filtered_lessons
+            return lessons[:query.max_results or len(lessons)]
             
         except Exception as e:
-            # Log error and return empty list for graceful degradation
-            print(f"Warning: Failed to retrieve lessons: {e}")
+            print(f"Error retrieving lessons: {e}")
             return []
 
     def get_lessons_for_file(self, file_path: str, project_id: Optional[str] = None, 
                            category: Optional[LessonCategory] = None) -> List[Lesson]:
-        """Get lessons applicable to a specific file.
+        """Get lessons that apply to a specific file.
         
         Args:
             file_path: Path to the file
@@ -69,12 +70,13 @@ class LessonRetriever:
             category: Optional lesson category filter
             
         Returns:
-            List of applicable lessons
+            List of relevant lessons
         """
         query = LessonQuery(
             project_id=project_id,
+            file_pattern=file_path,
             category=category,
-            applies_to=[file_path]
+            time_range="7d"
         )
         return self.retrieve(query)
 
@@ -82,75 +84,76 @@ class LessonRetriever:
         """Get lessons for a specific task type.
         
         Args:
-            task_type: Type of task (testing, debugging, refactoring, implementation, analysis)
+            task_type: Type of task (testing, debugging, implementation, refactoring)
             project_id: Optional project ID filter
             
         Returns:
             List of relevant lessons
         """
         # Map task types to categories
-        task_category_map = {
+        task_mapping = {
             "testing": LessonCategory.TESTING,
             "debugging": LessonCategory.DEBUGGING,
-            "refactoring": LessonCategory.REFACTORING,
             "implementation": LessonCategory.IMPLEMENTATION,
-            "analysis": LessonCategory.ANALYSIS
+            "refactoring": LessonCategory.REFACTORING
         }
         
-        category = task_category_map.get(task_type.lower(), LessonCategory.GENERAL)
-        query = LessonQuery(project_id=project_id, category=category)
+        category = task_mapping.get(task_type)
+        if not category:
+            return []
+            
+        query = LessonQuery(
+            project_id=project_id,
+            category=category,
+            time_range="7d"
+        )
         return self.retrieve(query)
 
     def get_global_lessons(self, category: Optional[LessonCategory] = None, 
-                          min_confidence: float = 0.9) -> List[Lesson]:
-        """Get global lessons (not project-specific).
+                         min_confidence: float = 0.9) -> List[Lesson]:
+        """Get global lessons across all projects.
         
         Args:
             category: Optional lesson category filter
-            min_confidence: Minimum confidence threshold (default 0.9)
+            min_confidence: Minimum confidence threshold (default: 0.9)
             
         Returns:
-            List of global lessons
+            List of high-confidence global lessons
         """
         query = LessonQuery(
-            project_id=None,  # None means global lessons
             category=category,
+            time_range="7d",
             min_confidence=min_confidence
         )
         return self.retrieve(query)
 
     def _build_traceql(self, query: LessonQuery) -> str:
-        """Build TraceQL query string from LessonQuery.
+        """Build TraceQL query string from LessonQuery object.
         
         Args:
-            query: LessonQuery object
+            query: LessonQuery object with search criteria
             
         Returns:
-            TraceQL query string
+            TraceQL query string in format "{ condition1 && condition2 && ... }"
         """
-        conditions = ['span.insight.type = "lesson"']
+        conditions = []
         
-        # Add project condition
+        # Always filter for lesson insights
+        conditions.append('span.insight.type = "lesson"')
+        
+        # Add project filter or include global lessons
         if query.project_id:
-            conditions.append(f'resource.project.id = "{query.project_id}"')
-        else:
-            # Include global lessons when no project specified
-            conditions.append('(resource.project.id = "global" || !has(resource.project.id))')
+            conditions.append(f'(resource.project.id = "{query.project_id}" || resource.project.id = "global")')
         
-        # Add category condition
+        # Add category filter
         if query.category:
-            conditions.append(f'span.lesson.category = "{query.category.value}"')
-        
-        # Add file pattern matching for applies_to
-        if query.applies_to:
-            file_conditions = []
-            for pattern in query.applies_to:
-                # Escape special regex characters for literal matching
-                escaped_pattern = re.escape(pattern)
-                file_conditions.append(f'span.lesson.applies_to =~ ".*{escaped_pattern}.*"')
+            conditions.append(f'span.insight.category = "{query.category.value}"')
             
-            if file_conditions:
-                conditions.append(f'({" || ".join(file_conditions)})')
+        # Add file pattern regex matching
+        if query.file_pattern:
+            # Escape special regex characters in file path
+            escaped_pattern = query.file_pattern.replace(".", r"\.")
+            conditions.append(f'span.lesson.applies_to =~ ".*{escaped_pattern}.*"')
         
         return "{ " + " && ".join(conditions) + " }"
 
@@ -162,36 +165,44 @@ class LessonRetriever:
             time_range: Time range string (e.g., "7d", "1h")
             
         Returns:
-            List of raw result dictionaries from Tempo
+            List of trace dictionaries from Tempo response
         """
-        start_time, end_time = self._parse_time_range(time_range)
-        
-        # Build query URL with proper encoding
-        params = {
-            'q': traceql,
-            'start': str(start_time),
-            'end': str(end_time)
-        }
-        query_string = urllib.parse.urlencode(params)
-        url = f"{self.tempo_url}/api/search?{query_string}"
-        
         try:
-            request = urllib.request.Request(url)
-            with urllib.request.urlopen(request) as response:
-                data = json.load(response)
-                # Extract traces from response
-                return data.get('traces', [])
+            # Parse time range to get start/end timestamps
+            start_time, end_time = self._parse_time_range(time_range)
+            
+            # Build API request URL
+            params = {
+                'q': traceql,
+                'start': str(int(start_time.timestamp() * 1000)),  # Convert to milliseconds
+                'end': str(int(end_time.timestamp() * 1000))
+            }
+            
+            url = f"{self.tempo_url}/api/search?" + urllib.parse.urlencode(params)
+            
+            # Execute HTTP request
+            with urllib.request.urlopen(url) as response:
+                result = json.loads(response.read())
+                return result.get('traces', [])
                 
+        except urllib.error.HTTPError as e:
+            print(f"HTTP error querying Tempo: {e}")
+            return []
         except urllib.error.URLError as e:
-            raise ConnectionError(f"Failed to connect to Tempo at {self.tempo_url}: {e}")
+            print(f"Network error querying Tempo: {e}")
+            return []
         except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON response from Tempo: {e}")
+            print(f"JSON decode error from Tempo response: {e}")
+            return []
+        except Exception as e:
+            print(f"Unexpected error querying Tempo: {e}")
+            return []
 
     def _parse_results(self, raw_results: List[dict]) -> List[Lesson]:
         """Parse raw Tempo results into Lesson objects.
         
         Args:
-            raw_results: List of raw trace dictionaries from Tempo
+            raw_results: List of trace dictionaries from Tempo
             
         Returns:
             List of parsed Lesson objects
@@ -199,77 +210,75 @@ class LessonRetriever:
         lessons = []
         
         for trace in raw_results:
-            # Extract spans from each trace
-            spans = trace.get('spans', [])
-            
-            for span in spans:
-                try:
-                    # Extract lesson attributes from span
+            try:
+                # Extract spans from trace
+                spans = trace.get('spans', [])
+                
+                for span in spans:
+                    # Extract lesson attributes
                     attributes = span.get('attributes', {})
                     
-                    # Parse applies_to as JSON if it's a string
-                    applies_to_raw = attributes.get('applies_to', [])
-                    if isinstance(applies_to_raw, str):
-                        try:
-                            applies_to = json.loads(applies_to_raw)
-                        except json.JSONDecodeError:
-                            applies_to = [applies_to_raw]  # Treat as single item
-                    else:
-                        applies_to = applies_to_raw if isinstance(applies_to_raw, list) else []
+                    # Parse applies_to from JSON string
+                    applies_to_str = attributes.get('applies_to', '[]')
+                    try:
+                        applies_to = json.loads(applies_to_str) if applies_to_str else []
+                    except json.JSONDecodeError:
+                        applies_to = [applies_to_str] if applies_to_str else []
                     
-                    # Create Lesson object
+                    # Create Lesson object with all required fields
                     lesson = Lesson(
+                        id=span.get('spanID', ''),
                         content=attributes.get('content', ''),
-                        context=attributes.get('context', ''),
                         category=LessonCategory(attributes.get('category', 'GENERAL')),
-                        applies_to=applies_to,
-                        confidence_score=float(attributes.get('confidence_score', 0.0)),
+                        confidence=float(attributes.get('confidence', 0.0)),
                         effectiveness_score=float(attributes.get('effectiveness_score', 0.0)),
-                        project_id=attributes.get('project_id'),
-                        timestamp=attributes.get('timestamp')
+                        applies_to=applies_to,
+                        context=attributes.get('context', {}),
+                        learned_at=datetime.fromisoformat(attributes.get('learned_at', datetime.now().isoformat())),
+                        project_id=attributes.get('project_id')
                     )
+                    
                     lessons.append(lesson)
                     
-                except (KeyError, ValueError, TypeError) as e:
-                    # Skip malformed records but continue processing
-                    continue
+            except (KeyError, ValueError, TypeError) as e:
+                print(f"Error parsing trace result: {e}")
+                continue
         
         return lessons
 
-    def _parse_time_range(self, time_range: str) -> Tuple[int, int]:
-        """Parse time range string to start/end timestamps.
+    def _parse_time_range(self, time_range: str) -> tuple[datetime, datetime]:
+        """Parse time range string into start and end datetime objects.
         
         Args:
             time_range: Time range string (e.g., "1h", "7d", "30d", "1m")
             
         Returns:
-            Tuple of (start_timestamp, end_timestamp) as Unix timestamps
+            Tuple of (start_time, end_time) datetime objects
         """
-        if not time_range:
-            time_range = "7d"  # Default to 7 days
-        
-        current_time = datetime.now()
-        end_timestamp = int(current_time.timestamp())
+        end_time = datetime.now()
         
         try:
-            # Parse the time range format
-            if time_range.endswith('h'):
+            if not time_range:
+                # Default to 7 days
+                start_time = end_time - timedelta(days=7)
+            elif time_range.endswith('h'):
+                # Hours
                 hours = int(time_range[:-1])
-                start_time = current_time - timedelta(hours=hours)
+                start_time = end_time - timedelta(hours=hours)
             elif time_range.endswith('d'):
+                # Days
                 days = int(time_range[:-1])
-                start_time = current_time - timedelta(days=days)
+                start_time = end_time - timedelta(days=days)
             elif time_range.endswith('m'):
-                # 'm' means months (30 days as specified)
+                # Months (approximate as 30 days)
                 months = int(time_range[:-1])
-                start_time = current_time - timedelta(days=months * 30)
+                start_time = end_time - timedelta(days=30 * months)
             else:
-                # Default to 7 days if format not recognized
-                start_time = current_time - timedelta(days=7)
+                # Default fallback
+                start_time = end_time - timedelta(days=7)
                 
-        except ValueError:
-            # Fallback to 7 days if parsing fails
-            start_time = current_time - timedelta(days=7)
+        except (ValueError, IndexError):
+            # If parsing fails, default to 7 days
+            start_time = end_time - timedelta(days=7)
         
-        start_timestamp = int(start_time.timestamp())
-        return start_timestamp, end_timestamp
+        return start_time, end_time
