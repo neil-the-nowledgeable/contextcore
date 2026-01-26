@@ -1,31 +1,18 @@
 {
-    "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
-    "type": "panel",
-    "name": "ContextCore Workflow",
-    "id": "contextcore-workflow-panel",
-    "info": {
-        "keywords": [
-            "panel",
-            "workflow",
-            "rabbit",
-            "contextcore"
-        ],
-        "description": "Execute and monitor ContextCore workflows from Grafana dashboards",
-        "author": {
-            "name": "ContextCore"
-        },
-        "logos": {
-            "small": "img/logo.svg",
-            "large": "img/logo.svg"
-        },
-        "links": [],
-        "screenshots": [],
-        "version": "1.0.0",
-        "updated": "2026-01-25"
+  "type": "panel",
+  "name": "ContextCore Workflow Trigger",
+  "id": "contextcore-workflow-panel",
+  "info": {
+    "description": "Trigger and monitor Rabbit workflow executions from Grafana dashboards",
+    "author": {
+      "name": "ContextCore"
     },
-    "dependencies": {
-        "grafanaDependency": ">=11.6.0",
-        "plugins": []
-    },
-    "buildMode": "production"
+    "keywords": ["workflow", "rabbit", "trigger", "automation", "contextcore"],
+    "version": "1.0.0",
+    "updated": "2026-01-25"
+  },
+  "dependencies": {
+    "grafanaDependency": ">=10.0.0",
+    "plugins": []
+  }
 }

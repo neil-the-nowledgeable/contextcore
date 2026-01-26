@@ -33,15 +33,27 @@ export const WorkflowPanel: React.FC<Props> = ({ options, width, height }) => {
     if (status === 'running' && runId && options.refreshInterval > 0) {
       intervalRef.current = setInterval(async () => {
         try {
-          const res = await fetch(`${options.apiUrl}/workflow/status/${runId}`);
+          // Call Rabbit's trigger endpoint with beaver_workflow_status action
+          const res = await fetch(`${options.apiUrl}/trigger`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'beaver_workflow_status',
+              payload: { run_id: runId },
+              context: {},
+            }),
+          });
           if (res.ok) {
-            const data: StatusResponse = await res.json();
-            setLastRun(data);
-            if (data.status === 'completed') {
-              setStatus('completed');
-            } else if (data.status === 'failed') {
-              setStatus('failed');
-              setError(data.error || 'Workflow failed');
+            const data = await res.json();
+            if (data.status === 'success' && data.data) {
+              const runData = data.data as StatusResponse;
+              setLastRun(runData);
+              if (runData.status === 'completed') {
+                setStatus('completed');
+              } else if (runData.status === 'failed') {
+                setStatus('failed');
+                setError(runData.error || 'Workflow failed');
+              }
             }
           }
         } catch (err) {
@@ -64,23 +76,30 @@ export const WorkflowPanel: React.FC<Props> = ({ options, width, height }) => {
     setDryRunSteps(null);
 
     try {
-      const res = await fetch(`${options.apiUrl}/workflow/dry-run`, {
+      // Call Rabbit's trigger endpoint with beaver_workflow_dry_run action
+      const res = await fetch(`${options.apiUrl}/trigger`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: resolvedProjectId }),
+        body: JSON.stringify({
+          action: 'beaver_workflow_dry_run',
+          payload: { project_id: resolvedProjectId },
+          context: { source: 'grafana_panel' },
+        }),
       });
 
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
 
-      const data: DryRunResponse = await res.json();
+      const data = await res.json();
 
       if (data.status === 'success') {
-        setDryRunSteps(data.steps);
-        setRunId(data.run_id);
+        // Rabbit returns data in the 'data' field
+        const actionData = data.data || {};
+        setDryRunSteps(actionData.steps || []);
+        setRunId(data.run_id || actionData.run_id);
       } else {
-        setError(data.error || 'Dry run failed');
+        setError(data.message || 'Dry run failed');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to connect to Rabbit API');
@@ -104,22 +123,29 @@ export const WorkflowPanel: React.FC<Props> = ({ options, width, height }) => {
     setDryRunSteps(null);
 
     try {
-      const res = await fetch(`${options.apiUrl}/workflow/execute`, {
+      // Call Rabbit's trigger endpoint with beaver_workflow action (fire-and-forget)
+      const res = await fetch(`${options.apiUrl}/trigger`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: resolvedProjectId }),
+        body: JSON.stringify({
+          action: 'beaver_workflow',
+          payload: { project_id: resolvedProjectId, dry_run: false },
+          context: { source: 'grafana_panel' },
+        }),
       });
 
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
 
-      const data: ExecuteResponse = await res.json();
+      const data = await res.json();
 
-      if (data.status === 'started') {
-        setRunId(data.run_id);
+      if (data.status === 'success') {
+        // Rabbit fires and forgets - workflow is now running in background
+        const actionData = data.data || {};
+        setRunId(actionData.run_id);
       } else {
-        setError(data.error || 'Failed to start workflow');
+        setError(data.message || 'Failed to start workflow');
         setStatus('failed');
       }
     } catch (err) {
