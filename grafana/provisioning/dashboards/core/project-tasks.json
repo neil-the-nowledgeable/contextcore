@@ -85,11 +85,12 @@
     },
     {
       "id": 1,
-      "title": "Projects with Activity",
+      "title": "Project Health Overview",
+      "description": "High-level view of project status to help humans quickly identify what needs attention",
       "type": "table",
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 10,
+        "w": 24,
         "x": 0,
         "y": 1
       },
@@ -100,17 +101,239 @@
       "fieldConfig": {
         "defaults": {
           "custom": {
-            "align": "auto",
+            "align": "left",
             "cellOptions": {
               "type": "auto"
+            },
+            "inspect": false,
+            "filterable": true
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Project"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "View Project Details",
+                    "url": "/d/contextcore-tasks?var-project=${__value.raw}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 120
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "done": {
+                        "color": "green",
+                        "text": "✓ Done"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "in_progress": {
+                        "color": "blue",
+                        "text": "▶ Active"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "blocked": {
+                        "color": "red",
+                        "text": "⚠ Blocked"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "pending": {
+                        "color": "yellow",
+                        "text": "◯ Pending"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Type"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "epic": {
+                        "text": "📋 Epic"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "story": {
+                        "text": "📖 Story"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "task": {
+                        "text": "✅ Task"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "bug": {
+                        "text": "🐛 Bug"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "feature": {
+                        "text": "✨ Feature"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Owner"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 140
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Last Activity"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsLocal"
+              },
+              {
+                "id": "custom.width",
+                "value": 160
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Duration"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "md",
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Last Activity"
+          }
+        ],
+        "footer": {
+          "show": true,
+          "reducer": ["count"],
+          "countRows": true
+        }
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "resource.project.id": "Project",
+              "span.task.status": "Status",
+              "span.task.type": "Type",
+              "span.task.title": "Current Task",
+              "span.task.owner": "Owner",
+              "intrinsic:duration": "Duration"
+            },
+            "indexByName": {
+              "Project": 0,
+              "Current Task": 1,
+              "Status": 2,
+              "Type": 3,
+              "Owner": 4,
+              "Duration": 5
             }
           }
         }
-      },
-      "options": {
-        "cellHeight": "sm",
-        "showHeader": true
-      },
+      ],
       "targets": [
         {
           "datasource": {
@@ -118,21 +341,22 @@
             "uid": "tempo"
           },
           "queryType": "traceql",
-          "query": "{resource.project.id != \"\"} | select(resource.project.id)",
-          "limit": 100,
+          "query": "{resource.project.id != \"\" && span.task.id != \"\"} | select(resource.project.id, span.task.title, span.task.status, span.task.type, span.task.owner, duration)",
+          "limit": 50,
           "refId": "A"
         }
       ]
     },
     {
       "id": 2,
-      "title": "Tasks - ${project}",
+      "title": "Tasks for ${project}",
+      "description": "Detailed task list for selected project - click a task to see full trace",
       "type": "table",
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 1
+        "w": 24,
+        "x": 0,
+        "y": 11
       },
       "datasource": {
         "type": "tempo",
@@ -230,7 +454,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 9
+        "y": 19
       },
       "id": 101,
       "collapsed": false
@@ -243,7 +467,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 10
+        "y": 20
       },
       "datasource": {
         "type": "tempo",
@@ -344,7 +568,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 18
+        "y": 28
       },
       "id": 102,
       "collapsed": false
@@ -357,7 +581,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 19
+        "y": 29
       },
       "options": {
         "apiUrl": "http://localhost:8082",
@@ -376,7 +600,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 19
+        "y": 29
       },
       "options": {
         "content": "### Run Workflows via CLI\n\nIf the workflow panel is not available, use the CLI:\n\n```bash\n# Dry run (preview without executing)\ncontextcore workflow run --project ${project} --dry-run\n\n# Execute workflow\ncontextcore workflow run --project ${project}\n\n# Check workflow status\ncontextcore workflow status --id <workflow-id>\n```\n\n### Plugin Installation\n\nTo enable the workflow trigger panel:\n\n```bash\ncd contextcore-owl\nnpm install && npm run build\ndocker compose restart grafana\n```",
