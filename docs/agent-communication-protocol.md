@@ -332,7 +332,206 @@ async for handoff in receiver.watch_handoffs():
 
 ---
 
-## Protocol 4: Human-to-Agent Guidance
+## Protocol 4: Code Generation with Truncation Prevention
+
+Specialized handoff protocol for code generation tasks with proactive truncation prevention.
+
+### Problem: LLM Output Truncation
+
+When Agent A requests code generation from Agent B, the generated code may be silently truncated due to LLM token limits. Standard validation happens **after** generation, when damage is already done.
+
+**Reactive Flow (Anti-Pattern):**
+```
+Agent A → Request → Agent B → Generate → [TRUNCATION] → Integrate → Validate → FAIL
+                                           ↑
+                                      Too late!
+```
+
+**Proactive Flow (This Protocol):**
+```
+Agent A → Request → Agent B → Pre-flight → [TOO BIG] → Decompose → Generate Chunks → Verify → Complete
+                                  ↓
+                             [OK SIZE] → Generate → Verify → Complete
+```
+
+### Extended ExpectedOutput Schema
+
+```yaml
+expected_output:
+  type: "code"
+  fields: ["content", "exports", "imports"]
+
+  # Size constraints (NEW in v2.1+)
+  max_lines: 150              # Safe limit for most LLMs
+  max_tokens: 500             # Token budget for output
+  completeness_markers:       # Required markers that must be present
+    - "FooBar"               # Class name that must exist
+    - "__all__"              # Module exports list
+
+  # Chunking support (NEW in v2.1+)
+  allows_chunking: true       # Can response be split?
+  chunk_correlation_id: null  # Parent ID for correlated chunks
+```
+
+### Pre-flight Validation Span
+
+Before generation, the receiving agent emits a validation span:
+
+```python
+# Receiver-side pre-flight check
+with tracer.start_as_current_span("code_generation.preflight") as span:
+    estimated = estimate_output_size(handoff.task, handoff.inputs)
+
+    span.set_attribute("gen_ai.code.estimated_lines", estimated.lines)
+    span.set_attribute("gen_ai.code.estimated_tokens", estimated.tokens)
+    span.set_attribute("gen_ai.code.max_lines_allowed", max_lines)
+
+    if estimated.lines > max_lines:
+        span.set_attribute("gen_ai.code.action", "decompose")
+        span.add_event("preflight_decision", {
+            "decision": "DECOMPOSE_REQUIRED",
+            "reason": f"Estimated {estimated.lines} exceeds limit {max_lines}",
+        })
+        return decompose_and_generate(handoff)
+    else:
+        span.set_attribute("gen_ai.code.action", "generate")
+        return generate_code(handoff)
+```
+
+### CodeGenerationHandoff SDK
+
+```python
+from contextcore.agent.code_generation import (
+    CodeGenerationHandoff,
+    CodeGenerationSpec,
+)
+
+# Requesting agent
+handoff = CodeGenerationHandoff(project_id="myproject", agent_id="orchestrator")
+
+result = handoff.request_code(
+    to_agent="code-generator",
+    spec=CodeGenerationSpec(
+        target_file="src/mymodule.py",
+        description="Implement FooBar class with methods x, y, z",
+        max_lines=150,                    # Size constraint
+        max_tokens=500,
+        required_exports=["FooBar"],      # Completeness markers
+        allows_decomposition=True,        # Allow chunking if needed
+    )
+)
+
+if result.status == HandoffStatus.COMPLETED:
+    # Code verified as complete
+    print(f"Generated {result.line_count} lines")
+elif result.decomposition_required:
+    # Agent triggered decomposition
+    print(f"Decomposed into {result.chunk_count} chunks")
+```
+
+### Receiving Agent: CodeGenerationCapability
+
+```python
+from contextcore.agent.code_generation import CodeGenerationCapability
+
+capability = CodeGenerationCapability(
+    generate_fn=my_llm_generation_function,
+    estimate_fn=my_size_estimator,
+)
+
+for handoff in receiver.poll_handoffs(project_id="myproject"):
+    if handoff.capability_id == "generate_code":
+        try:
+            result = capability.handle_handoff(handoff)
+            # Result verified as complete (syntax valid, exports present)
+            receiver.complete(handoff.id, project_id="myproject", result_trace_id=...)
+        except CodeTruncatedError as e:
+            # Verification failed - code was truncated
+            receiver.fail(handoff.id, project_id="myproject", reason=str(e))
+        except HandoffRejectedError as e:
+            # Pre-flight rejected - size too large, chunking disabled
+            receiver.fail(handoff.id, project_id="myproject", reason=str(e))
+```
+
+### Verification Span
+
+After generation, verify completeness:
+
+```python
+with tracer.start_as_current_span("code_generation.verify") as span:
+    issues = verify_completeness(content, required_exports)
+
+    span.set_attribute("gen_ai.code.actual_lines", line_count)
+    span.set_attribute("gen_ai.code.truncated", len(issues) > 0)
+    span.set_attribute("gen_ai.code.verification_result",
+                       "passed" if not issues else "failed_truncation")
+
+    if issues:
+        span.set_attribute("gen_ai.code.verification_issues", json.dumps(issues))
+        raise CodeTruncatedError(issues)
+```
+
+### TraceQL Queries
+
+```traceql
+# Find truncated generations
+{ span.gen_ai.code.truncated = true }
+| select(resource.project.id, span.gen_ai.code.estimated_lines, span.gen_ai.code.actual_lines)
+
+# Find handoffs that required decomposition
+{ span.gen_ai.code.action = "decompose" }
+| select(span.handoff.id, span.gen_ai.code.estimated_lines)
+
+# Track verification failures
+{ name = "code_generation.verify" && status = error }
+| select(span.gen_ai.code.verification_issues)
+```
+
+### Span Flow
+
+```
+code_generation.request (Agent A - Producer)
+├── gen_ai.code.target_file
+├── gen_ai.code.max_lines
+└── gen_ai.code.allows_decomposition
+
+    code_generation.preflight (Agent B)
+    ├── gen_ai.code.estimated_lines
+    ├── gen_ai.code.action ("generate" | "decompose" | "reject")
+    └── event: preflight_decision (if action != "generate")
+
+    code_generation.generate (Agent B)
+    ├── gen_ai.code.actual_lines
+    └── gen_ai.code.tokens_used
+
+    code_generation.verify (Agent B)
+    ├── gen_ai.code.truncated
+    ├── gen_ai.code.verification_result
+    └── gen_ai.code.verification_issues (if failed)
+```
+
+### Anti-Patterns Prevented
+
+| Anti-Pattern | How Prevented |
+|--------------|---------------|
+| **Warn-Then-Proceed** | Verification is BLOCKING, not advisory |
+| **Generate-Complete-Module** | Pre-flight estimation triggers decomposition |
+| **Post-Hoc Validation Only** | Pre-flight span emits BEFORE generation |
+| **Silent Truncation** | `gen_ai.code.truncated` attribute always recorded |
+| **Lost Context on Failure** | All decisions preserved in trace spans |
+
+### Dashboard
+
+The **Code Generation Health** dashboard (`contextcore-code-gen-health`) provides:
+
+1. **Truncation Rate**: Should be < 1%
+2. **Decomposition Decisions**: Distribution of generate/decompose/reject
+3. **Size Estimation Accuracy**: Estimated vs actual lines
+4. **Failed Verifications**: List of truncated generations with details
+
+---
+
+## Protocol 5: Human-to-Agent Guidance
 
 Humans provide persistent direction via ProjectContext CRD.
 
@@ -435,7 +634,7 @@ responder.answer_question(
 
 ---
 
-## Protocol 5: Personalized Presentation
+## Protocol 6: Personalized Presentation
 
 Same data, audience-appropriate views.
 
@@ -498,8 +697,9 @@ agent_view = querier.get_insights(
 1. **Insight Emission**: Agents persist knowledge that survives sessions
 2. **Insight Query**: Agents access other agents' discoveries without chat transcripts
 3. **Handoff**: Structured delegation eliminates prose parsing
-4. **Guidance**: Human direction persists across sessions
-5. **Personalization**: Same data serves all audiences appropriately
+4. **Code Generation**: Proactive truncation prevention ensures complete output
+5. **Guidance**: Human direction persists across sessions
+6. **Personalization**: Same data serves all audiences appropriately
 
 ### Design Principles
 

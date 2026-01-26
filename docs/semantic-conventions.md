@@ -119,6 +119,150 @@ mapped = mapper.map_attributes(attrs)
 
 ---
 
+## Code Generation Attributes (`gen_ai.code.*`)
+
+These attributes track code generation tasks with proactive truncation prevention.
+
+### Pre-flight Attributes (Estimation)
+
+#### `gen_ai.code.estimated_lines`
+- **Type**: `int`
+- **Description**: Estimated number of lines for generated output
+- **Example**: `150`
+
+#### `gen_ai.code.estimated_tokens`
+- **Type**: `int`
+- **Description**: Estimated token count for generated output
+- **Example**: `500`
+
+#### `gen_ai.code.estimated_complexity`
+- **Type**: `string`
+- **Description**: Complexity level of the generation task
+- **Allowed Values**: `low`, `medium`, `high`
+
+#### `gen_ai.code.estimation_confidence`
+- **Type**: `float`
+- **Description**: Confidence in the size estimate (0.0 to 1.0)
+- **Example**: `0.75`
+
+#### `gen_ai.code.max_lines_allowed`
+- **Type**: `int`
+- **Description**: Maximum lines allowed by the handoff contract
+- **Example**: `150`
+
+#### `gen_ai.code.action`
+- **Type**: `string`
+- **Description**: Pre-flight decision action
+- **Allowed Values**: `generate`, `decompose`, `reject`
+
+### Generation Attributes
+
+#### `gen_ai.code.target_file`
+- **Type**: `string`
+- **Description**: Target file path for generated code
+- **Example**: `"src/mymodule.py"`
+
+#### `gen_ai.code.actual_lines`
+- **Type**: `int`
+- **Description**: Actual number of lines generated
+- **Example**: `142`
+
+#### `gen_ai.code.tokens_used`
+- **Type**: `int`
+- **Description**: Actual tokens used in generation
+- **Example**: `426`
+
+### Verification Attributes
+
+#### `gen_ai.code.truncated`
+- **Type**: `boolean`
+- **Description**: Whether the output was truncated
+- **Example**: `false`
+
+#### `gen_ai.code.verification_result`
+- **Type**: `string`
+- **Description**: Result of post-generation verification
+- **Allowed Values**: `passed`, `failed_truncation`, `failed_syntax`, `failed_missing_exports`, `failed_incomplete`
+
+#### `gen_ai.code.verification_issues`
+- **Type**: `string` (JSON array)
+- **Description**: List of issues found during verification
+- **Example**: `["Missing required exports: {FooBar}", "Syntax error at line 42"]`
+
+#### `gen_ai.code.exports_found`
+- **Type**: `string` (JSON array)
+- **Description**: Exports detected in generated code
+- **Example**: `["FooBar", "baz_function"]`
+
+### Chunking Attributes (Decomposition)
+
+#### `gen_ai.code.chunk_index`
+- **Type**: `int`
+- **Description**: Index of the current chunk (0-based)
+- **Example**: `0`
+
+#### `gen_ai.code.chunk_total`
+- **Type**: `int`
+- **Description**: Total number of chunks
+- **Example**: `3`
+
+#### `gen_ai.code.parent_handoff`
+- **Type**: `string`
+- **Description**: Parent handoff ID for correlated chunks
+- **Example**: `"handoff-abc123"`
+
+### Feature Attributes (Prime Contractor)
+
+#### `gen_ai.code.feature_name`
+- **Type**: `string`
+- **Description**: Name of the feature being generated
+- **Example**: `"user_authentication"`
+
+#### `gen_ai.code.file_count`
+- **Type**: `int`
+- **Description**: Number of files in the generation
+- **Example**: `3`
+
+### TraceQL Queries for Code Generation
+
+**Find truncated generations:**
+```traceql
+{ span.gen_ai.code.truncated = true }
+| select(
+    resource.project.id,
+    span.gen_ai.code.estimated_lines,
+    span.gen_ai.code.actual_lines,
+    span.handoff.capability_id
+)
+```
+
+**Find handoffs that required decomposition:**
+```traceql
+{ span.gen_ai.code.action = "decompose" }
+| select(
+    span.handoff.id,
+    span.gen_ai.code.estimated_lines,
+    span.gen_ai.code.max_lines_allowed
+)
+```
+
+**Track size estimation accuracy:**
+```traceql
+{ name = "code_generation.generate" }
+| select(
+    span.gen_ai.code.estimated_lines,
+    span.gen_ai.code.actual_lines
+)
+```
+
+**Failed verifications:**
+```traceql
+{ name = "code_generation.verify" && status = error }
+| select(span.gen_ai.code.verification_issues)
+```
+
+---
+
 ## Where Attributes Appear
 
 ContextCore attributes appear on:

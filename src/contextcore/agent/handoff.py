@@ -64,9 +64,29 @@ class HandoffStatus(str, Enum):
 
 @dataclass
 class ExpectedOutput:
-    """Expected response format for a handoff."""
+    """Expected response format for a handoff.
+
+    Includes size constraints for proactive truncation prevention.
+    When max_lines or max_tokens are specified, receiving agents should
+    validate output size BEFORE generation and trigger decomposition
+    if the expected output exceeds limits.
+
+    Attributes:
+        type: Expected output type (e.g., "code", "analysis_report")
+        fields: Required fields in the output
+        max_lines: Maximum lines of code/text (150 = safe for most LLMs)
+        max_tokens: Maximum token estimate for output
+        completeness_markers: Required markers that must be present (e.g., ["__all__", "def main"])
+        allows_chunking: Whether the response can be split into chunks
+        chunk_correlation_id: Parent ID for correlating chunked responses
+    """
     type: str
     fields: list[str]
+    max_lines: Optional[int] = None
+    max_tokens: Optional[int] = None
+    completeness_markers: list[str] = field(default_factory=list)
+    allows_chunking: bool = True
+    chunk_correlation_id: Optional[str] = None
 
 
 @dataclass
@@ -234,6 +254,11 @@ class HandoffManager:
                 expected_output={
                     "type": expected_output.type,
                     "fields": expected_output.fields,
+                    "max_lines": expected_output.max_lines,
+                    "max_tokens": expected_output.max_tokens,
+                    "completeness_markers": expected_output.completeness_markers,
+                    "allows_chunking": expected_output.allows_chunking,
+                    "chunk_correlation_id": expected_output.chunk_correlation_id,
                 },
                 priority=priority.value,
                 timeout_ms=timeout_ms,
@@ -481,6 +506,11 @@ class HandoffReceiver:
                         expected_output = ExpectedOutput(
                             type=h.expected_output.get("type", ""),
                             fields=h.expected_output.get("fields", []),
+                            max_lines=h.expected_output.get("max_lines"),
+                            max_tokens=h.expected_output.get("max_tokens"),
+                            completeness_markers=h.expected_output.get("completeness_markers", []),
+                            allows_chunking=h.expected_output.get("allows_chunking", True),
+                            chunk_correlation_id=h.expected_output.get("chunk_correlation_id"),
                         )
                         yield Handoff(
                             id=h.id,
@@ -548,6 +578,11 @@ class HandoffReceiver:
                         expected_output = ExpectedOutput(
                             type=h.expected_output.get("type", ""),
                             fields=h.expected_output.get("fields", []),
+                            max_lines=h.expected_output.get("max_lines"),
+                            max_tokens=h.expected_output.get("max_tokens"),
+                            completeness_markers=h.expected_output.get("completeness_markers", []),
+                            allows_chunking=h.expected_output.get("allows_chunking", True),
+                            chunk_correlation_id=h.expected_output.get("chunk_correlation_id"),
                         )
                         yield Handoff(
                             id=h.id,

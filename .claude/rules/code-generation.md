@@ -57,6 +57,79 @@ Each feature should be committed separately, not batched:
 python3 scripts/prime_contractor/cli.py run --import-backlog --auto-commit
 ```
 
+## Rule 6: Pre-Flight Size Validation
+
+**ALWAYS** estimate output size BEFORE generating code. The Prime Contractor does this automatically, but when manually generating:
+
+```python
+from contextcore.agent.size_estimation import SizeEstimator
+
+estimator = SizeEstimator()
+estimate = estimator.estimate(
+    task="Implement user authentication with OAuth2",
+    inputs={"required_exports": ["AuthClient", "TokenManager"]}
+)
+
+if estimate.lines > 150:
+    # Split into smaller tasks
+    print(f"WARNING: Estimated {estimate.lines} lines exceeds safe limit")
+```
+
+**Safe limits:**
+- 150 lines per file (most LLMs)
+- 500 tokens per output
+- 100 lines for complex logic
+
+## Rule 7: Use CodeGenerationHandoff for A2A
+
+For agent-to-agent code generation requests, use `CodeGenerationHandoff` instead of raw `HandoffManager`:
+
+```python
+from contextcore.agent.code_generation import (
+    CodeGenerationHandoff,
+    CodeGenerationSpec,
+)
+
+handoff = CodeGenerationHandoff(project_id="myproject", agent_id="orchestrator")
+
+result = handoff.request_code(
+    to_agent="code-generator",
+    spec=CodeGenerationSpec(
+        target_file="src/mymodule.py",
+        description="Implement FooBar class",
+        max_lines=150,  # Size constraint
+        required_exports=["FooBar"],  # Completeness markers
+    )
+)
+```
+
+Benefits:
+- Size constraints in handoff contract
+- Pre-flight validation by receiver
+- Decomposition coordination
+- Verification spans for monitoring
+
+## Rule 8: Monitor Code Generation Health
+
+Check the Code Generation Health dashboard for:
+
+1. **Truncation Rate**: Should be < 1%
+2. **Decomposition Frequency**: High rates indicate scope issues
+3. **Size Estimation Accuracy**: Estimated vs actual lines
+4. **Failed Verifications**: Syntax errors, missing exports
+
+TraceQL queries for diagnostics:
+```traceql
+# Find truncated generations
+{ span.gen_ai.code.truncated = true }
+
+# Check decomposition decisions
+{ span.gen_ai.code.action = "decompose" }
+
+# Verification failures
+{ name = "code_generation.verify" && status = error }
+```
+
 ## Anti-Patterns to Avoid
 
 1. **Backlog Accumulation**: Generating many features without integration
@@ -64,6 +137,10 @@ python3 scripts/prime_contractor/cli.py run --import-backlog --auto-commit
 3. **Big Bang Integration**: Integrating all features at once
 4. **Ignoring Conflicts**: Hoping conflicts will resolve themselves
 5. **Context Loss**: Generating features without knowledge of recent changes
+6. **Warn-Then-Proceed**: Ignoring size warnings and generating anyway
+7. **Generate-Complete-Module**: Generating large outputs without size checks
+8. **Post-Hoc Validation Only**: Only validating after generation fails
+9. **Silent Truncation**: Not recording truncation events in telemetry
 
 ## When in Doubt
 

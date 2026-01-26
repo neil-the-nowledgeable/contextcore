@@ -17,12 +17,15 @@ next begins, the Prime Contractor coordinates Lead Contractor tasks and
 ensures each feature is integrated before moving on.
 """
 
+import json
 import shutil
 import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
+
+from opentelemetry import trace
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -102,10 +105,17 @@ class PrimeContractorWorkflow:
             run_tests=True,
             strict_mode=strict_checkpoints
         )
-        
+
         # Track integration history for conflict detection
         self.integration_history: List[Dict] = []
         self.files_modified_this_session: Dict[str, List[str]] = {}  # file -> [features]
+
+        # OpenTelemetry tracer for code generation spans
+        self.tracer = trace.get_tracer("contextcore.prime_contractor")
+
+        # Size limits for proactive truncation prevention
+        self.max_lines_per_feature = 150  # Safe limit for most LLMs
+        self.max_tokens_per_feature = 500
     
     def import_from_backlog(self) -> int:
         """
@@ -171,33 +181,118 @@ class PrimeContractorWorkflow:
         """
         errors = []
 
-        for source_file in feature.generated_files:
-            source_path = Path(source_file)
+        with self.tracer.start_as_current_span("code_generation.verify") as span:
+            span.set_attribute("gen_ai.code.feature_name", feature.name)
+            span.set_attribute("gen_ai.code.file_count", len(feature.generated_files))
 
-            if not source_path.exists():
-                errors.append(f"Source file not found: {source_path}")
-                continue
+            for source_file in feature.generated_files:
+                source_path = Path(source_file)
 
-            try:
-                with open(source_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-            except Exception as e:
-                errors.append(f"Failed to read {source_path.name}: {e}")
-                continue
+                if not source_path.exists():
+                    errors.append(f"Source file not found: {source_path}")
+                    continue
 
-            # Clean markdown code blocks
-            if source_path.suffix == '.py':
-                content = clean_markdown_code_blocks(content)
+                try:
+                    with open(source_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                except Exception as e:
+                    errors.append(f"Failed to read {source_path.name}: {e}")
+                    continue
 
-                # Check for truncation and other issues
-                issues = detect_incomplete_file(content, source_path)
-                truncation_issues = [i for i in issues if i.startswith("TRUNCATED:")]
+                # Clean markdown code blocks
+                if source_path.suffix == '.py':
+                    content = clean_markdown_code_blocks(content)
 
-                if truncation_issues:
-                    errors.append(f"{source_path.name}: {'; '.join(truncation_issues)}")
+                    # Record actual line count
+                    actual_lines = content.count('\n') + 1
+                    span.set_attribute("gen_ai.code.actual_lines", actual_lines)
 
-        is_valid = len(errors) == 0
+                    # Check for truncation and other issues
+                    issues = detect_incomplete_file(content, source_path)
+                    truncation_issues = [i for i in issues if i.startswith("TRUNCATED:")]
+
+                    if truncation_issues:
+                        errors.append(f"{source_path.name}: {'; '.join(truncation_issues)}")
+
+            is_valid = len(errors) == 0
+
+            # Record validation result
+            span.set_attribute("gen_ai.code.truncated", not is_valid)
+            span.set_attribute("gen_ai.code.verification_result", "PASSED" if is_valid else "FAILED")
+
+            if not is_valid:
+                span.set_attribute("gen_ai.code.verification_issues", json.dumps(errors[:5]))
+
         return is_valid, errors
+
+    def pre_flight_validation(self, feature: FeatureSpec) -> Tuple[bool, Optional[Dict]]:
+        """
+        Perform pre-flight size estimation BEFORE code generation.
+
+        This is the proactive truncation prevention pattern: estimate output size
+        before generation and trigger decomposition if it exceeds safe limits.
+
+        Args:
+            feature: Feature specification to validate
+
+        Returns:
+            Tuple of (should_proceed, decomposition_info)
+            - should_proceed: True if generation should proceed, False if decomposition needed
+            - decomposition_info: If decomposition needed, dict with suggested chunks
+        """
+        from contextcore.agent.size_estimation import SizeEstimator
+
+        with self.tracer.start_as_current_span("code_generation.preflight") as span:
+            span.set_attribute("gen_ai.code.feature_name", feature.name)
+            span.set_attribute("gen_ai.code.max_lines_allowed", self.max_lines_per_feature)
+
+            # Estimate output size
+            estimator = SizeEstimator()
+            estimate = estimator.estimate(
+                task=feature.description,
+                inputs={
+                    "target_files": feature.target_files,
+                    "required_exports": [],  # Could be extracted from description
+                },
+            )
+
+            span.set_attribute("gen_ai.code.estimated_lines", estimate.lines)
+            span.set_attribute("gen_ai.code.estimated_tokens", estimate.tokens)
+            span.set_attribute("gen_ai.code.estimated_complexity", estimate.complexity)
+            span.set_attribute("gen_ai.code.estimation_confidence", estimate.confidence)
+            span.set_attribute("gen_ai.code.estimation_reasoning", estimate.reasoning)
+
+            print(f"\n  Pre-flight size estimation:")
+            print(f"    Estimated lines: {estimate.lines}")
+            print(f"    Complexity: {estimate.complexity}")
+            print(f"    Confidence: {estimate.confidence:.0%}")
+
+            if estimate.lines > self.max_lines_per_feature:
+                span.set_attribute("gen_ai.code.action", "decompose")
+                span.add_event("preflight_decision", {
+                    "decision": "DECOMPOSE_REQUIRED",
+                    "reason": f"Estimated {estimate.lines} lines exceeds safe limit of {self.max_lines_per_feature}",
+                    "estimated_lines": estimate.lines,
+                    "max_allowed": self.max_lines_per_feature,
+                })
+
+                print(f"\n  WARNING: Estimated output ({estimate.lines} lines) exceeds safe limit ({self.max_lines_per_feature})")
+                print(f"    Consider splitting this feature into smaller tasks.")
+
+                # Suggest decomposition
+                decomposition_info = {
+                    "reason": f"Estimated {estimate.lines} lines exceeds limit of {self.max_lines_per_feature}",
+                    "estimated_lines": estimate.lines,
+                    "suggested_action": "Split into multiple smaller features",
+                }
+
+                # For now, we proceed with a warning rather than blocking
+                # In strict mode, this could return (False, decomposition_info)
+                if self.strict_checkpoints:
+                    return False, decomposition_info
+
+            span.set_attribute("gen_ai.code.action", "generate")
+            return True, None
 
     def detect_conflict_risk(self, feature: FeatureSpec) -> Tuple[str, List[str]]:
         """
@@ -260,6 +355,17 @@ class PrimeContractorWorkflow:
         print(f"\n{'='*70}")
         print(f"DEVELOPING FEATURE: {feature.name}")
         print(f"{'='*70}")
+
+        # PRE-FLIGHT VALIDATION: Estimate size before generation
+        # This is the proactive truncation prevention pattern
+        should_proceed, decomposition_info = self.pre_flight_validation(feature)
+
+        if not should_proceed:
+            print(f"\n  PRE-FLIGHT FAILED: Feature may be too large")
+            print(f"    {decomposition_info.get('reason', 'Size exceeds safe limits')}")
+            print(f"    Suggested: {decomposition_info.get('suggested_action', 'Split into smaller features')}")
+            self.queue.fail_feature(feature.id, f"Pre-flight failed: {decomposition_info.get('reason')}")
+            return False
 
         # Mark as developing
         self.queue.start_feature(feature.id)
