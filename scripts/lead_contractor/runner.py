@@ -79,7 +79,8 @@ def run_workflow(feature: Feature, verbose: bool = True) -> WorkflowResult:
         from startd8.workflows.builtin.lead_contractor_workflow import LeadContractorWorkflow
     except ImportError:
         print("Error: startd8 SDK not found. Please ensure it's installed.")
-        print("Expected path: /Users/neilyashinsky/Documents/dev/startd8-sdk/src")
+        print("Install via: pip install startd8")
+        print("Or set $STARTD8_SDK_ROOT and add $STARTD8_SDK_ROOT/src to PYTHONPATH")
         return WorkflowResult(
             feature_name=feature.name,
             success=False,

@@ -35,10 +35,12 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-# Add startd8 SDK to path
-STARTD8_SDK_PATH = "/Users/neilyashinsky/Documents/dev/startd8-sdk/src"
-if os.path.exists(STARTD8_SDK_PATH):
-    sys.path.insert(0, STARTD8_SDK_PATH)
+# Add startd8 SDK to path (prefer $STARTD8_SDK_ROOT if set)
+STARTD8_SDK_PATH = os.environ.get("STARTD8_SDK_ROOT", "")
+if STARTD8_SDK_PATH:
+    STARTD8_SDK_PATH = os.path.join(STARTD8_SDK_PATH, "src")
+    if os.path.exists(STARTD8_SDK_PATH):
+        sys.path.insert(0, STARTD8_SDK_PATH)
 
 # Output configuration
 OUTPUT_DIR = Path(__file__).parent.parent / "generated" / "tui"
@@ -917,8 +919,8 @@ def run_workflow(task_description: str, feature_name: str) -> dict:
         from startd8.workflows.builtin.lead_contractor_workflow import LeadContractorWorkflow
     except ImportError:
         print("Error: startd8 SDK not found.")
-        print(f"Expected path: {STARTD8_SDK_PATH}")
-        print("Please ensure the startd8 SDK is installed.")
+        print("Install via: pip install startd8")
+        print("Or set $STARTD8_SDK_ROOT environment variable (source contextcore-beaver/env.sh)")
         return {
             "feature": feature_name,
             "success": False,

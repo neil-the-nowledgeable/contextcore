@@ -67,11 +67,23 @@ The Prime Contractor acts as a "general contractor" that:
 Features are processed in order, with dependency tracking:
 
 ```python
-from scripts.prime_contractor import FeatureQueue
+from scripts.prime_contractor.feature_queue import FeatureQueue
 
 queue = FeatureQueue()
-queue.add_feature("auth_service", "Authentication Service")
-queue.add_feature("user_api", "User API", dependencies=["auth_service"])
+queue.add_feature(
+    feature_id="auth_service",
+    name="Authentication Service",
+    description="Handles user authentication",
+    dependencies=[],
+    target_files=["src/auth.py"]
+)
+queue.add_feature(
+    feature_id="user_api",
+    name="User API",
+    description="User management endpoints",
+    dependencies=["auth_service"],
+    target_files=["src/api/users.py"]
+)
 ```
 
 ### 2. Integration Checkpoints
@@ -106,18 +118,66 @@ STOPPING: Feature 'State_InputRequest' failed integration
 Fix the issue and re-run to continue
 ```
 
+### 5. Truncation Prevention
+
+Generated code may be truncated if the LLM hits its output token limit. The Prime Contractor has built-in protection against integrating corrupted code.
+
+**Why Truncation Happens:**
+- LLM output token limits (e.g., 4K-64K depending on model)
+- Complex features that generate large amounts of code
+- Network timeouts causing incomplete responses
+
+**Symptoms of Truncated Code:**
+- Unclosed code blocks (``` without closing ```)
+- Incomplete class or function definitions
+- Files ending mid-statement
+- Missing expected sections (e.g., no `return` statement)
+
+**Pre-Integration Validation:**
+
+Always validate before integrating:
+
+```bash
+# Step 1: Validate all generated files
+python3 scripts/prime_contractor/cli.py validate
+
+# Step 2: If all valid, proceed with integration
+python3 scripts/prime_contractor/cli.py run --import-backlog
+```
+
+**Handling Truncated Files:**
+
+1. **Regenerate with smaller scope** - Break the feature into smaller features
+2. **Manually complete the code** - Open the truncated file and complete it
+3. **Remove from backlog** - Delete the truncated feature file and skip it
+
+The integration process will automatically reject truncated files:
+
+```
+⛔ REJECTED: feature_auth_code.py is truncated
+   • Unclosed code block detected
+   Cannot integrate incomplete code.
+```
+
 ## Usage
 
 ### Basic Workflow
 
 ```bash
-# Import features from Lead Contractor backlog and run
-python3 scripts/prime_contractor/cli.py run --import-backlog
-
-# Or step by step:
+# Step 1: Import features from backlog
 python3 scripts/prime_contractor/cli.py import
+
+# Step 2: Validate for truncation (IMPORTANT)
+python3 scripts/prime_contractor/cli.py validate
+
+# Step 3: Check queue status
 python3 scripts/prime_contractor/cli.py status
+
+# Step 4: Run integration
 python3 scripts/prime_contractor/cli.py run
+
+# Or all at once (validation happens automatically during integration):
+python3 scripts/prime_contractor/cli.py run --import-backlog
 ```
 
 ### Dry Run (Preview)
@@ -160,6 +220,74 @@ python3 scripts/prime_contractor/cli.py retry state_inputrequest
 ```bash
 # Reset all failed features to try again
 python3 scripts/prime_contractor/cli.py reset
+
+# Reset ALL features to pending
+python3 scripts/prime_contractor/cli.py reset --all
+```
+
+### Validate Generated Code
+
+Before integrating, check for truncated or incomplete files:
+
+```bash
+# Validate all generated files in backlog
+python3 scripts/prime_contractor/cli.py validate
+
+# Validate a specific file
+python3 scripts/prime_contractor/cli.py validate --file generated/my_feature_code.py
+
+# Show details for all files (including valid ones)
+python3 scripts/prime_contractor/cli.py validate --verbose
+```
+
+Example output:
+```
+======================================================================
+VALIDATING GENERATED CODE
+======================================================================
+
+❌ feature_auth_code.py: TRUNCATED
+   • TRUNCATED: Unclosed code block (``` without closing ```)
+
+✓ feature_api_code.py: OK
+
+======================================================================
+VALIDATION SUMMARY
+======================================================================
+  ✓ Valid:     1
+  ❌ Truncated: 1
+
+⛔ 1 file(s) are truncated and will be REJECTED during integration.
+```
+
+### Add Features Manually
+
+Add features directly without importing from backlog:
+
+```bash
+python3 scripts/prime_contractor/cli.py add "My Feature" \
+    --description "Implements authentication" \
+    --depends-on auth_service \
+    --target-files src/mymodule.py src/api.py
+```
+
+### Clear the Queue
+
+Remove all features from the queue:
+
+```bash
+# With confirmation prompt
+python3 scripts/prime_contractor/cli.py clear
+
+# Skip confirmation
+python3 scripts/prime_contractor/cli.py clear --force
+```
+
+### Strict Checkpoint Mode
+
+```bash
+# Fail on warnings, not just errors
+python3 scripts/prime_contractor/cli.py run --import-backlog --strict
 ```
 
 ## Comparison: Lead Contractor vs Prime Contractor
@@ -173,6 +301,34 @@ python3 scripts/prime_contractor/cli.py reset
 | Mainline state | May be broken | Always working |
 | Commit granularity | One big commit | Per-feature commits |
 
+## CLI Reference
+
+| Command | Description |
+|---------|-------------|
+| `run` | Run the Prime Contractor workflow |
+| `run --import-backlog` | Import from backlog first, then run |
+| `run --dry-run` | Preview without making changes |
+| `run --auto-commit` | Commit each feature after integration |
+| `run --max-features N` | Process at most N features |
+| `run --continue-on-failure` | Don't stop on failures |
+| `run --strict` | Fail on warnings, not just errors |
+| `status` | Show queue status |
+| `status --verbose` | Show additional details |
+| `validate` | Check generated files for truncation |
+| `validate --file PATH` | Validate specific file |
+| `validate --verbose` | Show all files, not just problems |
+| `import` | Import features from Lead Contractor backlog |
+| `add NAME` | Add a feature manually |
+| `add --description TEXT` | Set feature description |
+| `add --depends-on ID...` | Set dependencies |
+| `add --target-files PATH...` | Set target files |
+| `retry FEATURE_ID` | Retry a failed feature |
+| `retry --dry-run` | Preview retry without executing |
+| `reset` | Reset failed features to pending |
+| `reset --all` | Reset ALL features to pending |
+| `clear` | Clear the entire queue |
+| `clear --force` | Clear without confirmation |
+
 ## Architecture
 
 ```
@@ -182,6 +338,8 @@ scripts/prime_contractor/
 ├── checkpoint.py        # IntegrationCheckpoint validation
 ├── feature_queue.py     # FeatureQueue management
 └── cli.py              # Command-line interface
+                         #   - run, status, validate, import
+                         #   - add, retry, reset, clear
 ```
 
 ### PrimeContractorWorkflow
@@ -293,6 +451,22 @@ Tests that were passing now fail. This means the integration broke something:
 1. Review what the feature changed
 2. Check if it overwrote existing functionality
 3. Merge manually if needed
+
+### "File is truncated and will be REJECTED"
+
+The generated code is incomplete. This happens when the LLM hits its output token limit.
+
+1. Run `validate` to see which files are affected
+2. Either regenerate with smaller scope or manually complete the code
+3. Re-run validation to confirm the fix
+
+```bash
+# See what's truncated
+python3 scripts/prime_contractor/cli.py validate
+
+# After fixing, verify
+python3 scripts/prime_contractor/cli.py validate --verbose
+```
 
 ## Related Documentation
 

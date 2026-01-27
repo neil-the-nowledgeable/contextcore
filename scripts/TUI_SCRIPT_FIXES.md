@@ -73,7 +73,7 @@ Before running the script, verify:
 
 1. **startd8 SDK is installed:**
    ```bash
-   ls -la /Users/neilyashinsky/Documents/dev/startd8-sdk/src
+   ls -la $STARTD8_SDK_ROOT/src  # Set via: source ~/Documents/dev/contextcore-beaver/env.sh
    ```
 
 2. **API keys are set:**

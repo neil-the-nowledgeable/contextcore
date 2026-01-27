@@ -112,3 +112,7 @@ demo_output/
 contextcore-owl/node_modules/
 contextcore-owl/plugins-new/*/node_modules/
 contextcore-owl/plugins/*/node_modules/
+*.LICENSE.txt
+
+# Legacy directory remnants
+contextcore-grafana/

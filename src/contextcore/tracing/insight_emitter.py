@@ -61,7 +61,7 @@ class InsightEmitter:
             return provider, model
             
         # Fallback to service name detection
-        service_name = self._get_clean_env("OTEL_SERVICE_NAME", "").lower()
+        service_name = (self._get_clean_env("OTEL_SERVICE_NAME", "") or "").lower()
         if service_name and not provider:
             if "claude" in service_name:
                 provider = "anthropic"
