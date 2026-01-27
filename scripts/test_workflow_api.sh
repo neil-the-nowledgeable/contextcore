@@ -13,7 +13,10 @@ echo "PROJECT_ID: $PROJECT_ID"
 echo -e "\n1. Health check..."
 if ! curl -sf "$API_URL/health" > /dev/null 2>&1; then
     echo "❌ Rabbit API not running at $API_URL"
-    echo "   Start it with: cd contextcore-rabbit && python -m contextcore_rabbit.cli serve"
+    echo "   Start it with:"
+    echo "     cd contextcore-rabbit"
+    echo "     pip3 install -e ."
+    echo "     python3 -m contextcore_rabbit.cli --port 8080"
     exit 1
 fi
 curl -s "$API_URL/health" | python3 -m json.tool

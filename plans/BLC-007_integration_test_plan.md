@@ -15,8 +15,9 @@ docker compose up -d prometheus grafana tempo loki
 ### 2. Start Rabbit API Server
 ```bash
 cd contextcore-rabbit
-pip install -e .
-python -m contextcore_rabbit.cli serve --port 8080
+pip3 install -e .
+python3 -m contextcore_rabbit.cli --port 8080
+# Or after install: contextcore-rabbit --port 8080
 ```
 
 ### 3. Verify Services Are Running
