@@ -132,14 +132,10 @@ class WebhookServer:
             dry_run = data.get("dry_run", False)
             max_features = data.get("max_features")
 
-            # Generate run_id for status tracking
-            run_id = str(uuid.uuid4())
-
             # Build payload for beaver_workflow action
             payload = {
                 "project_id": project_id,
                 "dry_run": dry_run,
-                "run_id": run_id,
                 "trigger_source": "workflow_api",
                 "trigger_time": datetime.now().isoformat(),
             }
@@ -158,6 +154,9 @@ class WebhookServer:
                     "status": "error",
                     "error": result.message or "Workflow execution failed"
                 }), 500
+
+            # Get run_id from action result (action generates its own ID)
+            run_id = result.data.get("run_id") if result.data else None
 
             return jsonify({
                 "status": "started",

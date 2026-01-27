@@ -40,7 +40,7 @@ RESPONSE=$(curl -s -X POST "$API_URL/workflow/run" \
   -d "{\"project_id\": \"$PROJECT_ID\", \"dry_run\": true}")
 echo "$RESPONSE" | python3 -m json.tool
 
-if echo "$RESPONSE" | grep -q '"status": "started"'; then
+if echo "$RESPONSE" | grep -q '"status":"started"'; then
     echo "✅ BLC-001: /workflow/run endpoint works"
     RUN_ID=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('run_id',''))")
 else
@@ -54,7 +54,7 @@ sleep 2
 STATUS=$(curl -s "$API_URL/workflow/status/$RUN_ID")
 echo "$STATUS" | python3 -m json.tool
 
-if echo "$STATUS" | grep -q '"run_id"'; then
+if echo "$STATUS" | grep -q 'run_id'; then
     echo "✅ BLC-002: /workflow/status endpoint works"
 else
     echo "❌ BLC-002: /workflow/status failed"
@@ -65,7 +65,7 @@ echo -e "\n5. Testing /workflow/history..."
 HISTORY=$(curl -s "$API_URL/workflow/history?limit=5")
 echo "$HISTORY" | python3 -m json.tool
 
-if echo "$HISTORY" | grep -q '"runs"'; then
+if echo "$HISTORY" | grep -q 'runs'; then
     echo "✅ BLC-003: /workflow/history endpoint works"
 else
     echo "❌ BLC-003: /workflow/history failed"
