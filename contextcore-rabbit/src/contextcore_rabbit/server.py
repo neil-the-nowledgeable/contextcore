@@ -166,6 +166,89 @@ class WebhookServer:
                 "mode": "dry_run" if dry_run else "execute"
             })
 
+        @self.app.route("/workflow/status/<run_id>", methods=["GET"])
+        def workflow_status(run_id: str):
+            """
+            Get status of a running workflow.
+
+            Response (200):
+                {
+                    "run_id": "uuid",
+                    "status": "starting" | "running" | "completed" | "failed",
+                    "project_id": "string",
+                    "dry_run": bool,
+                    "started_at": "ISO timestamp",
+                    "completed_at": "ISO timestamp" | null,
+                    "steps_total": int,
+                    "steps_completed": int,
+                    "progress_percent": float,
+                    "error": "string" | null
+                }
+
+            Response (404):
+                {
+                    "status": "error",
+                    "error": "Run not found"
+                }
+            """
+            result = action_registry.execute(
+                "beaver_workflow_status",
+                {"run_id": run_id},
+                {"api_endpoint": f"/workflow/status/{run_id}"}
+            )
+
+            if result.status != ActionStatus.SUCCESS:
+                return jsonify({
+                    "status": "error",
+                    "error": result.message or "Run not found"
+                }), 404
+
+            # Add progress percentage
+            data = result.data or {}
+            total = data.get("steps_total", 0)
+            completed = data.get("steps_completed", 0)
+            data["progress_percent"] = (completed / total * 100) if total > 0 else 0
+
+            return jsonify(data)
+
+        @self.app.route("/workflow/history", methods=["GET"])
+        def workflow_history():
+            """
+            Get history of workflow runs.
+
+            Query params:
+                - project_id: Optional filter by project
+                - limit: Max number of results (default 20)
+
+            Response (200):
+                {
+                    "runs": [
+                        {
+                            "run_id": "uuid",
+                            "status": "completed" | "failed",
+                            "project_id": "string",
+                            "dry_run": bool,
+                            "started_at": "ISO timestamp",
+                            "completed_at": "ISO timestamp",
+                            "steps_total": int,
+                            "steps_completed": int,
+                            "result": { ... }
+                        }
+                    ],
+                    "total": int
+                }
+            """
+            project_id = request.args.get("project_id")
+            limit = request.args.get("limit", 20, type=int)
+
+            result = action_registry.execute(
+                "beaver_workflow_history",
+                {"project_id": project_id, "limit": limit},
+                {"api_endpoint": "/workflow/history"}
+            )
+
+            return jsonify(result.data or {"runs": [], "total": 0})
+
         @self.app.route("/webhook/grafana", methods=["POST"])
         def grafana_webhook():
             """
