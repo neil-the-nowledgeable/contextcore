@@ -486,7 +486,7 @@ designDecisions:
     confidence: 0.88
     rationale: |
       Emit both agent.* (legacy) and gen_ai.* (OTel standard) attributes during
-      migration period. Controlled by CONTEXTCORE_OTEL_MODE env var.
+      migration period. Controlled by CONTEXTCORE_EMIT_MODE env var.
       See docs/OTEL_GENAI_MIGRATION_GUIDE.md for migration path.
 
   - decision: "Demo generator emits both spans and logs"

@@ -1,7 +1,7 @@
 # Gap Analysis: ContextCore vs OTel GenAI Semantic Conventions
 
-**Date:** 2026-01-18
-**Status:** Draft
+**Date:** 2026-01-29 (Updated)
+**Status:** Resolved
 **Related Plan:** [OTEL_GENAI_ADOPTION_PLAN.md](OTEL_GENAI_ADOPTION_PLAN.md)
 
 ---
@@ -16,55 +16,47 @@ This analysis identifies the gaps between ContextCore's current implementation a
 
 ### 2.1 Agent Identity
 
-| ContextCore Attribute | OTel GenAI Attribute | Status | Recommendation | Complexity (1-5) |
-|-----------------------|----------------------|--------|----------------|------------------|
-| `agent.id`            | `gen_ai.agent.id`    | Stable | **Alias + Migrate**. Emit both during transition. | 2 |
-| `agent.name` (implicit)| `gen_ai.agent.name` | Stable | **Add**. Currently inferred from ID or not present. | 1 |
-| `agent.type`          | `gen_ai.agent.description` | No direct match | **Map**. Map `agent.type` to `gen_ai.agent.description` or keep as custom extension. `gen_ai.agent.type` is not standard. | 2 |
-| `agent.version`       | - | - | **Keep**. No direct OTel equivalent for agent version yet. | 1 |
-| `agent.capabilities`  | - | - | **Keep**. ContextCore specific. | 1 |
-
-**Decision:**
-- Adopt `gen_ai.agent.id` and `gen_ai.agent.name`.
-- Retain `agent.type` as a valuable classification not covered by OTel.
+| ContextCore Attribute | OTel GenAI Attribute | Status | Resolution |
+|-----------------------|----------------------|--------|------------|
+| `agent.id`            | `gen_ai.agent.id`    | **Resolved** | Dual-emit via `ATTRIBUTE_MAPPINGS` in `otel_genai.py`. |
+| `agent.name` (implicit)| `gen_ai.agent.name` | **Resolved** | Added as `agent_name` param on `InsightEmitter.__init__()`. Emits `gen_ai.agent.name`. |
+| `agent.type`          | `gen_ai.agent.description` | **Resolved** | Added as `agent_description` param on `InsightEmitter.__init__()`. Emits `gen_ai.agent.description`. |
+| `agent.version`       | - | **Keep** | No direct OTel equivalent. ContextCore-specific. |
+| `agent.capabilities`  | - | **Keep** | ContextCore-specific. |
 
 ### 2.2 Session Management
 
-| ContextCore Attribute | OTel GenAI Attribute | Status | Recommendation | Complexity (1-5) |
-|-----------------------|----------------------|--------|----------------|------------------|
-| `agent.session_id`    | `gen_ai.conversation.id` | Stable | **Migrate**. `gen_ai.conversation.id` is the standard for grouping interactions. | 3 |
-| `agent.parent_session_id` | - | - | **Keep/Refine**. OTel uses span parentage, but explicit session linkage is useful. | 2 |
-
-**Decision:**
-- Migrate `agent.session_id` to `gen_ai.conversation.id`. This is a critical interoperability change.
+| ContextCore Attribute | OTel GenAI Attribute | Status | Resolution |
+|-----------------------|----------------------|--------|------------|
+| `agent.session_id`    | `gen_ai.conversation.id` | **Resolved** | Dual-emit via `ATTRIBUTE_MAPPINGS`. |
+| `agent.parent_session_id` | - | **Keep** | OTel uses span parentage. Explicit linkage retained for ContextCore. |
 
 ### 2.3 Operations & Models
 
-ContextCore currently lacks explicit attributes for the underlying LLM operations, which is a core part of OTel GenAI.
-
-| ContextCore Attribute | OTel GenAI Attribute | Status | Recommendation | Complexity (1-5) |
-|-----------------------|----------------------|--------|----------------|------------------|
-| -                     | `gen_ai.system`      | Stable | **Add**. Identify provider (e.g., `openai`, `anthropic`). | 2 |
-| -                     | `gen_ai.request.model`| Stable | **Add**. Identify model (e.g., `gpt-4o`). | 2 |
-| -                     | `gen_ai.operation.name`| Stable | **Add**. Critical for backend grouping (e.g., `chat`, `rag`). | 3 |
-| -                     | `gen_ai.token.usage.*`| Stable | **Add**. Standardize token counting if available. | 2 |
-
-**Decision:**
-- Implement all above attributes to enable standard "LLM Observability" dashboards to work with ContextCore data.
+| ContextCore Attribute | OTel GenAI Attribute | Status | Resolution |
+|-----------------------|----------------------|--------|------------|
+| -                     | `gen_ai.system`      | **Resolved** | Emitted by `InsightEmitter.emit()` and `HandoffManager` (provider param). |
+| -                     | `gen_ai.request.model`| **Resolved** | Emitted by `InsightEmitter.emit()` and `HandoffManager` (model param). |
+| -                     | `gen_ai.operation.name`| **Resolved** | Emitted on all insight and handoff spans. |
+| -                     | `gen_ai.usage.input_tokens`| **Resolved** | Added as `input_tokens` param on `InsightEmitter.emit()`. |
+| -                     | `gen_ai.usage.output_tokens`| **Resolved** | Added as `output_tokens` param on `InsightEmitter.emit()`. |
+| -                     | `gen_ai.request.temperature`| **Resolved** | Added as `temperature` param on `InsightEmitter.emit()`. |
+| -                     | `gen_ai.request.top_p`| **Resolved** | Added as `top_p` param on `InsightEmitter.emit()`. |
+| -                     | `gen_ai.request.max_tokens`| **Resolved** | Added as `max_tokens` param on `InsightEmitter.emit()`. |
+| -                     | `gen_ai.response.model`| **Resolved** | Added as `response_model` param on `InsightEmitter.emit()`. |
+| -                     | `gen_ai.response.id`| **Resolved** | Added as `response_id` param on `InsightEmitter.emit()`. |
+| -                     | `gen_ai.response.finish_reasons`| **Resolved** | Added as `finish_reasons` param on `InsightEmitter.emit()`. |
 
 ### 2.4 Handoffs & Tools
 
-ContextCore uses `handoff.*` for agent collaboration. OTel uses `gen_ai.tool.*` for tool execution.
-
-| ContextCore Attribute | OTel GenAI Attribute | Status | Recommendation | Complexity (1-5) |
-|-----------------------|----------------------|--------|----------------|------------------|
-| `handoff.capability_id`| `gen_ai.tool.name`  | Stable | **Map**. Treat handoffs as tool calls. | 3 |
-| `handoff.inputs`      | `gen_ai.tool.call.arguments` | Stable | **Map**. Serialize to JSON if needed. | 3 |
-| `handoff.status`      | `error.type` / status | Stable | **Align**. Map failure statuses to OTel span status. | 2 |
-
-**Decision:**
-- Model agent handoffs as OTel Tool calls (`gen_ai.operation.name = "tool.call"` maybe? Or just use tool attributes on the handoff span).
-- Use `gen_ai.tool.name` for the capability.
+| ContextCore Attribute | OTel GenAI Attribute | Status | Resolution |
+|-----------------------|----------------------|--------|------------|
+| `handoff.capability_id`| `gen_ai.tool.name`  | **Resolved** | Emitted directly on handoff spans. |
+| `handoff.inputs`      | `gen_ai.tool.call.arguments` | **Resolved** | Serialized as JSON on handoff spans. |
+| `handoff.id`          | `gen_ai.tool.call.id` | **Resolved** | Emitted on handoff spans. |
+| -                     | `gen_ai.tool.type` | **Resolved** | Set to `agent_handoff` on handoff spans. |
+| -                     | `gen_ai.system` | **Resolved** | Added `provider` param to `HandoffManager.__init__()`. |
+| -                     | `gen_ai.request.model` | **Resolved** | Added `model` param to `HandoffManager.__init__()`. |
 
 ## 3. Migration Strategy
 
@@ -78,7 +70,7 @@ When the code emits `agent.id="claude"`, the layer will automatically emit:
 - `gen_ai.agent.id="claude"` (New)
 
 **Configuration:**
-Environment variable `CONTEXTCORE_OTEL_MODE`:
+Environment variable `CONTEXTCORE_EMIT_MODE`:
 - `dual` (Default): Emit both.
 - `legacy`: Emit only old attributes.
 - `otel`: Emit only new attributes (Target state).
@@ -92,12 +84,14 @@ Environment variable `CONTEXTCORE_OTEL_MODE`:
 
 See [OTEL_GENAI_ADOPTION_PLAN.md](OTEL_GENAI_ADOPTION_PLAN.md) for the execution breakdown.
 
-1. **Gap Analysis** (Completed by this document)
-2. **Dual-Emit Layer** implementation
-3. **Core Attribute Migration** (`agent.id`, `session_id`)
-4. **Operation & Model** enrichment (`gen_ai.system`, `model`)
-5. **Tool/Handoff** alignment
-6. **Documentation** & Deprecation notices
+1. **Gap Analysis** — Completed (this document)
+2. **Dual-Emit Layer** — Completed (`otel_genai.py`, `CONTEXTCORE_EMIT_MODE` env var)
+3. **Core Attribute Migration** — Completed (`agent.id` → `gen_ai.agent.id`, `session_id` → `gen_ai.conversation.id`)
+4. **Operation & Model** — Completed (`gen_ai.system`, `gen_ai.request.model`, `gen_ai.operation.name`)
+5. **Tool/Handoff** — Completed (`gen_ai.tool.*` on handoff spans, provider/model on `HandoffManager`)
+6. **Token Usage & Request/Response** — Completed (Phase 3: `gen_ai.usage.*`, `gen_ai.request.*`, `gen_ai.response.*`)
+7. **Agent Metadata** — Completed (Phase 3: `gen_ai.agent.name`, `gen_ai.agent.description`)
+8. **Documentation** — Completed (env var fix, semantic-conventions.md GenAI reference)
 
 ## 5. References
 

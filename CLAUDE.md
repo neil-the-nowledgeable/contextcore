@@ -305,11 +305,11 @@ contextcore install init --endpoint tempo.observability:4317
 | `MIMIR_URL` | `http://localhost:9009` | Mimir base URL |
 | `LOKI_URL` | `http://localhost:3100` | Loki base URL |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `localhost:4317` | OTLP gRPC endpoint |
-| `CONTEXTCORE_OTEL_MODE` | `dual` | OTel emit mode: `dual`, `legacy`, or `otel` |
+| `CONTEXTCORE_EMIT_MODE` | `dual` | OTel emit mode: `dual`, `legacy`, or `otel` |
 
 ### OTel GenAI Semantic Conventions
 
-ContextCore is migrating to [OTel GenAI Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/). The `CONTEXTCORE_OTEL_MODE` environment variable controls attribute emission:
+ContextCore is migrating to [OTel GenAI Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/). The `CONTEXTCORE_EMIT_MODE` environment variable controls attribute emission:
 
 | Mode | Behavior |
 |------|----------|

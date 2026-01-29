@@ -2,7 +2,7 @@
 
 Standard protocols for agent-to-agent, agent-to-human, and human-to-agent communication in ContextCore.
 
-> **OTel GenAI Alignment (v2.0+)**: ContextCore is migrating to [OTel GenAI Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/). By default, the SDK emits **both** legacy `agent.*` attributes and new `gen_ai.*` attributes. Control this with `CONTEXTCORE_OTEL_MODE` environment variable (`dual`|`legacy`|`otel`). See [Migration Guide](OTEL_GENAI_MIGRATION_GUIDE.md).
+> **OTel GenAI Alignment (v2.0+)**: ContextCore is migrating to [OTel GenAI Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/). By default, the SDK emits **both** legacy `agent.*` attributes and new `gen_ai.*` attributes. Control this with `CONTEXTCORE_EMIT_MODE` environment variable (`dual`|`legacy`|`otel`). See [Migration Guide](OTEL_GENAI_MIGRATION_GUIDE.md).
 
 ---
 
@@ -142,7 +142,7 @@ Agents query insights from other agents via TraceQL.
 { span.gen_ai.system = "anthropic" && span.insight.type = "recommendation" }
 ```
 
-> **Migration Note**: Both query patterns work in dual-emit mode. Transition to `gen_ai.*` attributes before `CONTEXTCORE_OTEL_MODE=otel` becomes default in v3.0.
+> **Migration Note**: Both query patterns work in dual-emit mode. Transition to `gen_ai.*` attributes before `CONTEXTCORE_EMIT_MODE=otel` becomes default in v3.0.
 
 ### Python SDK Query
 

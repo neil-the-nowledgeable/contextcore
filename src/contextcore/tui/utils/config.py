@@ -68,7 +68,7 @@ CONFIG_SCHEMA: Dict[str, List[ConfigItem]] = {
     ],
     "OTel Settings": [
         ConfigItem(
-            "CONTEXTCORE_OTEL_MODE",
+            "CONTEXTCORE_EMIT_MODE",
             "dual",
             "OpenTelemetry emission mode",
             choices=["dual", "legacy", "otel"]

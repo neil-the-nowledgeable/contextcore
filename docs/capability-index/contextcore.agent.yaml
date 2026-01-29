@@ -1,11 +1,12 @@
 # ContextCore Agent Capability Index
-# Version: 1.0.0
+# Version: 1.1.0
 # Created: 2026-01-28
+# Updated: 2026-01-28
 # Audience: AI Agents (primary), Developers (secondary)
 
 manifest_id: contextcore.agent
 name: ContextCore Agent Capabilities
-version: "1.0.0"
+version: "1.1.0"
 description: |
   Agent-focused capabilities for ContextCore SDK.
   Tasks as OTel spans, insights as knowledge, handoffs as coordination.
@@ -571,6 +572,337 @@ capabilities:
 
     confidence: 0.75
 
+# ============================================================================
+  # AOS COMPLIANCE CAPABILITIES (Draft)
+  # ============================================================================
+
+  - capability_id: contextcore.aos.message_emit
+    category: action
+    maturity: draft
+    summary: Emit AOS-compliant steps/message events for agent communication
+
+    audiences: [agent, human]
+
+    description:
+      agent: |
+        Emit AOS message event. In: {role: enum[user|agent|system], content: string, reasoning?: string, citations?: Citation[]}. Out: {event_id: string, trace_id: string}. Emits steps/message event with AOS-compliant attributes. Dual-emits with existing spans.
+      human: |
+        Emits message events following the OWASP Agent Observability Standard (AOS)
+        format. Captures message exchanges with sender role, content, reasoning,
+        and citations. Enables interoperability with AOS-compliant observability
+        tools without custom adapters.
+
+    triggers:
+      - "aos message"
+      - "emit message event"
+      - "aos compliant"
+      - "steps/message"
+
+    inputs:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [user, agent, system]
+          description: Message sender role
+        content:
+          type: string
+          description: Message content
+        reasoning:
+          type: string
+          description: Agent reasoning behind the message
+        citations:
+          type: array
+          items:
+            type: object
+            properties:
+              source: { type: string }
+              text: { type: string }
+              confidence: { type: number }
+
+    outputs:
+      type: object
+      properties:
+        event_id: { type: string }
+        trace_id: { type: string }
+        aos_compliant: { type: boolean, const: true }
+
+    evidence:
+      - type: doc
+        ref: docs/STANDARDS_ALIGNMENT.md
+        description: AOS event mapping documentation
+
+    confidence: 0.5
+
+    delivers_benefit: interop.aos_compliance
+
+    roadmap:
+      phase: 1
+      depends_on: []
+      estimated_effort: small
+      implements_frs: [FR-100]
+
+  - capability_id: contextcore.aos.decision_emit
+    category: action
+    maturity: draft
+    summary: Emit AOS-compliant guardian decisions with Allow/Deny/Modify outcomes
+
+    audiences: [agent, human]
+
+    description:
+      agent: |
+        Emit AOS decision event. In: {outcome: enum[allow|deny|modify], reason_code: string, reasoning: string, modified_request?: object}. Out: {decision_id: string, trace_id: string}. Extends insight.emit with AOS decision semantics. outcome=modify requires modified_request.
+      human: |
+        Emits guardian-style decision events following the OWASP AOS format.
+        Decisions have explicit outcomes (Allow, Deny, Modify) with structured
+        reason codes. For Modify outcomes, includes the modified request details.
+        Builds on the existing insight system with AOS-specific attributes.
+
+    triggers:
+      - "aos decision"
+      - "guardian decision"
+      - "allow deny modify"
+      - "emit decision"
+
+    inputs:
+      type: object
+      required: [outcome, reason_code, reasoning]
+      properties:
+        outcome:
+          type: string
+          enum: [allow, deny, modify]
+          description: Decision outcome
+        reason_code:
+          type: string
+          description: Structured reason code (e.g., rate_limit_exceeded, policy_violation)
+        reasoning:
+          type: string
+          description: Human-readable explanation
+        modified_request:
+          type: object
+          description: Required when outcome=modify; the altered request
+
+    outputs:
+      type: object
+      properties:
+        decision_id: { type: string }
+        trace_id: { type: string }
+        insight_id: { type: string }
+
+    evidence:
+      - type: doc
+        ref: docs/STANDARDS_ALIGNMENT.md
+        description: AOS decision event mapping
+
+    confidence: 0.5
+
+    delivers_benefit: interop.aos_compliance
+
+    roadmap:
+      phase: 1
+      depends_on: [contextcore.insight.emit]
+      estimated_effort: small
+      implements_frs: [FR-102, FR-103]
+
+  - capability_id: contextcore.aos.trigger_emit
+    category: action
+    maturity: draft
+    summary: Emit AOS-compliant steps/agentTrigger events for autonomous activations
+
+    audiences: [agent, human]
+
+    description:
+      agent: |
+        Emit AOS agent trigger event. In: {trigger_type: enum[user|autonomous|webhook|scheduled], source?: string, payload?: object}. Out: {event_id: string, trace_id: string}. Records autonomous agent activations per AOS spec.
+      human: |
+        Emits agent trigger events following the OWASP AOS format. Captures
+        how the agent was activated (user interaction, autonomous decision,
+        webhook, scheduled task). Essential for distinguishing human-initiated
+        vs autonomous agent actions in observability data.
+
+    triggers:
+      - "aos trigger"
+      - "agent activation"
+      - "autonomous trigger"
+      - "steps/agentTrigger"
+
+    inputs:
+      type: object
+      required: [trigger_type]
+      properties:
+        trigger_type:
+          type: string
+          enum: [user, autonomous, webhook, scheduled]
+          description: How the agent was activated
+        source:
+          type: string
+          description: Source identifier (webhook URL, cron expression, etc.)
+        payload:
+          type: object
+          description: Trigger payload data
+
+    outputs:
+      type: object
+      properties:
+        event_id: { type: string }
+        trace_id: { type: string }
+
+    evidence:
+      - type: doc
+        ref: docs/STANDARDS_ALIGNMENT.md
+        description: AOS trigger event mapping
+
+    confidence: 0.5
+
+    delivers_benefit: interop.aos_compliance
+
+    roadmap:
+      phase: 1
+      depends_on: []
+      estimated_effort: small
+      implements_frs: [FR-101]
+
+  - capability_id: contextcore.aos.mcp_emit
+    category: action
+    maturity: draft
+    summary: Emit AOS-compliant protocols/MCP events for Model Context Protocol interactions
+
+    audiences: [agent, human]
+
+    description:
+      agent: |
+        Emit MCP protocol event. In: {event_type: enum[tools_list|tool_call|resource_read|prompt_get], tool_name?: string, arguments?: object, resource_uri?: string, result?: object, error?: object}. Out: {event_id: string, trace_id: string}. Maps MCP interactions to ContextCore capabilities.
+      human: |
+        Emits Model Context Protocol (MCP) events following the OWASP AOS format.
+        Captures tool listing, tool calls, resource reads, and prompt retrieval
+        operations. Maps MCP tool invocations to ContextCore capability lookups,
+        enabling unified observability across MCP and native ContextCore operations.
+
+    triggers:
+      - "mcp event"
+      - "protocols/MCP"
+      - "mcp tool call"
+      - "mcp telemetry"
+
+    inputs:
+      type: object
+      required: [event_type]
+      properties:
+        event_type:
+          type: string
+          enum: [tools_list, tool_call, resource_read, prompt_get]
+        tool_name:
+          type: string
+          description: Tool name for tool_call events
+        arguments:
+          type: object
+          description: Tool arguments for tool_call events
+        resource_uri:
+          type: string
+          description: Resource URI for resource_read events
+        result:
+          type: object
+          description: Operation result
+        error:
+          type: object
+          description: Error details if operation failed
+
+    outputs:
+      type: object
+      properties:
+        event_id: { type: string }
+        trace_id: { type: string }
+        mapped_capability_id: { type: string }
+
+    evidence:
+      - type: doc
+        ref: docs/STANDARDS_ALIGNMENT.md
+        description: MCP protocol event mapping
+
+    confidence: 0.5
+
+    delivers_benefit: interop.aos_compliance
+
+    roadmap:
+      phase: 2
+      depends_on: [contextcore.handoff.initiate]
+      estimated_effort: medium
+      implements_frs: [FR-200, FR-201]
+
+  - capability_id: contextcore.aos.validate
+    category: query
+    maturity: draft
+    summary: Validate trace data against AOS schema and report compliance gaps
+
+    audiences: [agent, human]
+
+    description:
+      agent: |
+        Validate AOS compliance. In: {trace_id?: string, time_range?: string, event_types?: string[]}. Out: {compliant: bool, score: float, missing_attributes: object[], invalid_events: object[], recommendations: string[]}. Checks emitted events against AOS spec.
+      human: |
+        Validates trace data against the OWASP Agent Observability Standard schema.
+        Reports compliance score, identifies missing required attributes, and flags
+        invalid event structures. Provides recommendations for achieving full
+        AOS compliance. Can validate specific traces or scan time ranges.
+
+    triggers:
+      - "validate aos"
+      - "aos compliance check"
+      - "check aos schema"
+      - "aos audit"
+
+    inputs:
+      type: object
+      properties:
+        trace_id:
+          type: string
+          description: Specific trace to validate
+        time_range:
+          type: string
+          description: Time range to scan (e.g., "24h", "7d")
+        event_types:
+          type: array
+          items: { type: string }
+          description: Filter to specific event types
+
+    outputs:
+      type: object
+      properties:
+        compliant: { type: boolean }
+        score: { type: number, minimum: 0, maximum: 100 }
+        missing_attributes:
+          type: array
+          items:
+            type: object
+            properties:
+              event_type: { type: string }
+              attribute: { type: string }
+              required: { type: boolean }
+        invalid_events:
+          type: array
+          items:
+            type: object
+            properties:
+              event_id: { type: string }
+              reason: { type: string }
+        recommendations: { type: array, items: { type: string } }
+
+    evidence:
+      - type: doc
+        ref: docs/STANDARDS_ALIGNMENT.md
+        description: AOS schema validation requirements
+
+    confidence: 0.5
+
+    delivers_benefit: interop.aos_compliance
+
+    roadmap:
+      phase: 1
+      depends_on: []
+      estimated_effort: small
+      implements_frs: []
+
 # ==============================================================================
 # GLOBAL EVIDENCE
 # ==============================================================================
@@ -609,13 +941,21 @@ pivoted_work:
     original: "Emit task data to Tempo only (spans are sufficient)"
     outcome: "Portfolio dashboard couldn't derive metrics from spans alone"
     lesson: "Different backends excel at different queries; dual-emit to Tempo AND Loki"
-    evidence: CONTEXTCORE_OTEL_MODE env var
+    evidence: CONTEXTCORE_EMIT_MODE env var
 
 # ==============================================================================
 # CHANGELOG
 # ==============================================================================
 
 changelog:
+  - version: "1.1.0"
+    date: "2026-01-28"
+    changes:
+      - "Added AOS compliance capabilities (5 new): aos.message_emit, aos.decision_emit, aos.trigger_emit, aos.mcp_emit, aos.validate"
+      - "New category: AOS COMPLIANCE CAPABILITIES"
+      - "All AOS capabilities at draft maturity with roadmap metadata"
+      - "Capabilities deliver benefit: interop.aos_compliance"
+      - "13 total capabilities: insight (2), handoff (2), guidance (2), code_generation (1), size_estimation (1), aos (5)"
   - version: "1.0.0"
     date: "2026-01-28"
     changes:

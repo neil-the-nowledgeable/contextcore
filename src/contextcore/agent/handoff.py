@@ -158,6 +158,8 @@ class HandoffManager:
         namespace: str = "default",
         storage_type: Optional[str] = None,
         kubeconfig: Optional[str] = None,
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
     ):
         """
         Initialize the handoff manager.
@@ -168,10 +170,14 @@ class HandoffManager:
             namespace: Kubernetes namespace (for K8s storage)
             storage_type: Storage backend type (auto-detected if None)
             kubeconfig: Path to kubeconfig (for K8s storage)
+            provider: LLM provider (e.g. "openai", "anthropic") for gen_ai.system
+            model: LLM model name (e.g. "gpt-4o") for gen_ai.request.model
         """
         self.project_id = project_id
         self.agent_id = agent_id
         self.namespace = namespace
+        self.provider = provider
+        self.model = model
 
         # Initialize storage backend
         from contextcore.storage import get_storage, StorageType
@@ -231,13 +237,19 @@ class HandoffManager:
                 "handoff.priority": priority.value,
                 "project.id": self.project_id,
                 "gen_ai.operation.name": "handoff.request",
-                
+
                 # OTel Tool Attributes (Task 5)
                 "gen_ai.tool.name": capability_id,
                 "gen_ai.tool.type": "agent_handoff",
                 "gen_ai.tool.call.id": handoff_id,
                 "gen_ai.tool.call.arguments": args_json,
             }
+
+            # Provider/model metadata
+            if self.provider:
+                attributes["gen_ai.system"] = self.provider
+            if self.model:
+                attributes["gen_ai.request.model"] = self.model
             
             # Map attributes
             attributes = mapper.map_attributes(attributes)

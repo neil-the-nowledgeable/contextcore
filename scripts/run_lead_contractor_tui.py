@@ -516,7 +516,7 @@ Organize settings into collapsible sections:
 **OTel Settings Section:**
 | Variable | Default | Description |
 |----------|---------|-------------|
-| CONTEXTCORE_OTEL_MODE | dual | Emit mode: dual/legacy/otel |
+| CONTEXTCORE_EMIT_MODE | dual | Emit mode: dual/legacy/otel |
 
 ### 3. ConfigInput Widget
 Custom widget for each config item:

@@ -73,7 +73,7 @@ ContextCore aligns with the [OpenTelemetry GenAI Semantic Conventions](https://o
 
 ### Dual-Emit Compatibility
 
-ContextCore currently emits both legacy attributes (`agent.*`) and new OTel attributes (`gen_ai.*`) to support migration. Control this behavior with the `CONTEXTCORE_OTEL_MODE` environment variable:
+ContextCore currently emits both legacy attributes (`agent.*`) and new OTel attributes (`gen_ai.*`) to support migration. Control this behavior with the `CONTEXTCORE_EMIT_MODE` environment variable:
 
 | Mode | Value | Behavior |
 |------|-------|----------|
@@ -83,7 +83,7 @@ ContextCore currently emits both legacy attributes (`agent.*`) and new OTel attr
 
 ```bash
 # Example: Enable OTel-only mode for testing
-export CONTEXTCORE_OTEL_MODE=otel
+export CONTEXTCORE_EMIT_MODE=otel
 ```
 
 See the [Migration Guide](OTEL_GENAI_MIGRATION_GUIDE.md) for details.
@@ -116,6 +116,64 @@ mapped = mapper.map_attributes(attrs)
 | - | `gen_ai.system` | Provider (e.g. `openai`) |
 | - | `gen_ai.request.model` | Model (e.g. `gpt-4o`) |
 | - | `gen_ai.operation.name` | Operation type (e.g. `task`, `insight.emit`) |
+
+### GenAI Attributes Reference
+
+All `gen_ai.*` attributes emitted by ContextCore, grouped by category.
+
+#### Agent Identity
+
+| Attribute | Type | Description | Set By |
+|-----------|------|-------------|--------|
+| `gen_ai.agent.id` | `string` | Agent identifier (mapped from `agent.id`) | `InsightEmitter`, `HandoffManager` |
+| `gen_ai.agent.name` | `string` | Human-readable agent name | `InsightEmitter` (constructor) |
+| `gen_ai.agent.description` | `string` | Agent description or role | `InsightEmitter` (constructor) |
+| `gen_ai.conversation.id` | `string` | Session/conversation ID (mapped from `agent.session_id`) | `InsightEmitter` |
+
+#### Provider & Model
+
+| Attribute | Type | Description | Set By |
+|-----------|------|-------------|--------|
+| `gen_ai.system` | `string` | LLM provider (e.g. `openai`, `anthropic`) | `InsightEmitter`, `HandoffManager` |
+| `gen_ai.request.model` | `string` | Model name used for the request (e.g. `gpt-4o`) | `InsightEmitter`, `HandoffManager` |
+| `gen_ai.response.model` | `string` | Model that generated the response (may differ from request) | `InsightEmitter` |
+
+#### Token Usage
+
+| Attribute | Type | Description | Set By |
+|-----------|------|-------------|--------|
+| `gen_ai.usage.input_tokens` | `int` | Number of input/prompt tokens | `InsightEmitter` |
+| `gen_ai.usage.output_tokens` | `int` | Number of output/completion tokens | `InsightEmitter` |
+
+#### Request Parameters
+
+| Attribute | Type | Description | Set By |
+|-----------|------|-------------|--------|
+| `gen_ai.request.temperature` | `float` | Sampling temperature | `InsightEmitter` |
+| `gen_ai.request.top_p` | `float` | Top-p (nucleus) sampling parameter | `InsightEmitter` |
+| `gen_ai.request.max_tokens` | `int` | Maximum tokens requested | `InsightEmitter` |
+
+#### Response Metadata
+
+| Attribute | Type | Description | Set By |
+|-----------|------|-------------|--------|
+| `gen_ai.response.id` | `string` | Unique response identifier | `InsightEmitter` |
+| `gen_ai.response.finish_reasons` | `string[]` | Reasons the model stopped generating | `InsightEmitter` |
+
+#### Operation
+
+| Attribute | Type | Description | Set By |
+|-----------|------|-------------|--------|
+| `gen_ai.operation.name` | `string` | Operation type (e.g. `insight.emit`, `handoff.request`) | `InsightEmitter`, `HandoffManager` |
+
+#### Tool (Handoff)
+
+| Attribute | Type | Description | Set By |
+|-----------|------|-------------|--------|
+| `gen_ai.tool.name` | `string` | Capability/tool name | `HandoffManager` |
+| `gen_ai.tool.type` | `string` | Tool type (`agent_handoff`) | `HandoffManager` |
+| `gen_ai.tool.call.id` | `string` | Handoff/call identifier | `HandoffManager` |
+| `gen_ai.tool.call.arguments` | `string` | Serialized JSON input arguments | `HandoffManager` |
 
 ---
 

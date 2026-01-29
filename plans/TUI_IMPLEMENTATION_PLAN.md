@@ -273,7 +273,7 @@ src/contextcore/
 │                                                               │
 │  OTel Settings                                                │
 │  ─────────────────────────────────────────────────────────── │
-│  CONTEXTCORE_OTEL_MODE         │ dual                  [Edit] │
+│  CONTEXTCORE_EMIT_MODE         │ dual                  [Edit] │
 │    Options: dual | legacy | otel                              │
 │                                                               │
 │  [Save to .env]    [Reset to Defaults]    [Back]              │

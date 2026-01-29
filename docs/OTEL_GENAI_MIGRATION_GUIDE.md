@@ -11,7 +11,7 @@ ContextCore is adopting the official [OpenTelemetry GenAI Semantic Conventions](
 
 To ensure a smooth transition, ContextCore introduces a **Dual-Emit Layer**. By default, the SDK emits **BOTH** the legacy `agent.*` attributes and the new `gen_ai.*` attributes.
 
-You can control this behavior with the `CONTEXTCORE_OTEL_MODE` environment variable:
+You can control this behavior with the `CONTEXTCORE_EMIT_MODE` environment variable:
 
 | Mode | Value | Behavior | Use Case |
 |------|-------|----------|----------|
@@ -114,6 +114,6 @@ You should begin updating your TraceQL and LogQL queries to use the new attribut
 
 - **v2.0 (Current)**: Dual-emit enabled by default. `gen_ai.*` attributes introduced.
 - **v2.1**: Warnings added when accessing legacy attributes in code.
-- **v3.0**: `CONTEXTCORE_OTEL_MODE` defaults to `otel`. Legacy attributes removed.
+- **v3.0**: `CONTEXTCORE_EMIT_MODE` defaults to `otel`. Legacy attributes removed.
 
-We recommend switching `CONTEXTCORE_OTEL_MODE` to `otel` in your non-production environments to verify your dashboards and alerts are updated.
+We recommend switching `CONTEXTCORE_EMIT_MODE` to `otel` in your non-production environments to verify your dashboards and alerts are updated.

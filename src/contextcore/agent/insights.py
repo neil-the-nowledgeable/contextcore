@@ -122,12 +122,16 @@ class InsightEmitter:
         session_id: str | None = None,
         tracer_name: str = "contextcore.insights",
         local_storage_path: str | None = None,
+        agent_name: str | None = None,
+        agent_description: str | None = None,
     ):
         self.project_id = project_id
         self.agent_id = agent_id
         self.session_id = session_id or f"session-{uuid.uuid4().hex[:8]}"
         self.tracer = trace.get_tracer(tracer_name)
         self.local_storage_path = local_storage_path
+        self.agent_name = agent_name
+        self.agent_description = agent_description
 
     def emit(
         self,
@@ -143,6 +147,14 @@ class InsightEmitter:
         category: str | None = None,
         provider: str | None = None,
         model: str | None = None,
+        input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        temperature: float | None = None,
+        top_p: float | None = None,
+        max_tokens: int | None = None,
+        response_model: str | None = None,
+        response_id: str | None = None,
+        finish_reasons: list[str] | None = None,
     ) -> Insight:
         """
         Emit an insight as an OTel span.
@@ -160,6 +172,14 @@ class InsightEmitter:
             category: Category for grouping (e.g., "testing", "architecture")
             provider: LLM provider (e.g. "openai", "anthropic"). Auto-detected if None.
             model: LLM model name (e.g. "gpt-4o"). Auto-detected if None.
+            input_tokens: Number of input/prompt tokens used.
+            output_tokens: Number of output/completion tokens generated.
+            temperature: Sampling temperature for the request.
+            top_p: Top-p (nucleus) sampling parameter.
+            max_tokens: Maximum tokens requested for generation.
+            response_model: Model that generated the response (may differ from request).
+            response_id: Unique identifier for the LLM response.
+            finish_reasons: Reasons the model stopped generating (e.g. ["stop"]).
 
         Returns:
             The emitted Insight with trace_id populated
@@ -207,6 +227,34 @@ class InsightEmitter:
                 attributes["gen_ai.system"] = provider  # OTel standard for provider
             if model:
                 attributes["gen_ai.request.model"] = model
+
+            # Agent metadata (from constructor)
+            if self.agent_name:
+                attributes["gen_ai.agent.name"] = self.agent_name
+            if self.agent_description:
+                attributes["gen_ai.agent.description"] = self.agent_description
+
+            # Token usage
+            if input_tokens is not None:
+                attributes["gen_ai.usage.input_tokens"] = input_tokens
+            if output_tokens is not None:
+                attributes["gen_ai.usage.output_tokens"] = output_tokens
+
+            # Request parameters
+            if temperature is not None:
+                attributes["gen_ai.request.temperature"] = temperature
+            if top_p is not None:
+                attributes["gen_ai.request.top_p"] = top_p
+            if max_tokens is not None:
+                attributes["gen_ai.request.max_tokens"] = max_tokens
+
+            # Response metadata
+            if response_model:
+                attributes["gen_ai.response.model"] = response_model
+            if response_id:
+                attributes["gen_ai.response.id"] = response_id
+            if finish_reasons:
+                attributes["gen_ai.response.finish_reasons"] = finish_reasons
 
             # Optional attributes
             if rationale:
