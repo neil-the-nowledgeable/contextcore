@@ -10,6 +10,18 @@ See @.contextcore.yaml for live project metadata including:
 - SLO requirements (availability, latency, throughput)
 - Design decisions with confidence scores
 
+### Terminology Reference
+
+See @terminology/MANIFEST.yaml for authoritative definitions. Key distinctions:
+
+| Term | Type | What it is |
+|------|------|------------|
+| **ContextCore** | Standard | The metadata model/specification |
+| **Wayfinder** | Implementation | The reference implementation suite (this project) |
+| **Business Observability** | Paradigm | Grounding observability in business context |
+
+Use `contextcore terminology lookup <term>` for full definitions.
+
 ### Quick Commands
 
 - `/project-context` - Display full project context summary
@@ -47,6 +59,13 @@ Both target `observability` namespace in `o11y-dev` Kind cluster.
 
 ```
 ContextCore/
+├── terminology/             # Wayfinder terminology (Squirrel pattern)
+│   ├── MANIFEST.yaml        # Entry point (~200 tokens)
+│   ├── _index.yaml          # Routing and distinctions
+│   └── definitions/         # Full term definitions
+│       ├── contextcore.yaml
+│       ├── wayfinder.yaml
+│       └── *.yaml           # Package definitions
 ├── src/contextcore/
 │   ├── __init__.py
 │   ├── models.py            # Pydantic models for CRD spec
@@ -59,7 +78,12 @@ ContextCore/
 │   │   ├── install.py       # Installation verification
 │   │   ├── task.py          # Task management
 │   │   ├── demo.py          # Demo data generation
-│   │   └── dashboards.py    # Dashboard provisioning
+│   │   ├── dashboards.py    # Dashboard provisioning
+│   │   └── terminology.py   # Terminology management
+│   ├── terminology/         # Terminology emission module
+│   │   ├── models.py        # Pydantic models
+│   │   ├── parser.py        # YAML parser
+│   │   └── emitter.py       # OTel span emitter
 │   ├── dashboards/          # Dashboard provisioning
 │   │   └── provisioner.py   # Grafana API dashboard provisioning
 │   ├── agent/               # Agent communication layer
@@ -221,6 +245,13 @@ contextcore install verify --no-telemetry           # Skip emitting metrics
 contextcore install verify --format json            # JSON output for automation
 contextcore install verify --category infrastructure # Check specific category
 contextcore install status                          # Quick status check (no telemetry)
+
+# Terminology management
+contextcore terminology list -p terminology/        # List all terms
+contextcore terminology lookup -p terminology/ wayfinder  # Look up specific term
+contextcore terminology routing -p terminology/     # Show keyword routing table
+contextcore terminology emit -p terminology/        # Emit to Tempo for discovery
+contextcore terminology emit -p terminology/ --dry-run  # Preview without emitting
 ```
 
 ## Installation Monitoring (Self-Monitoring)
@@ -441,7 +472,7 @@ questions = reader.get_open_questions()
 
 ## Expansion Pack Ecosystem
 
-ContextCore uses an animal naming convention with Anishinaabe (Ojibwe) names honoring the indigenous peoples of Michigan and the Great Lakes region. See [docs/NAMING_CONVENTION.md](docs/NAMING_CONVENTION.md) for philosophy and guidelines.
+ContextCore uses an animal naming convention with Anishinaabe (Ojibwe) names honoring the indigenous peoples of Michigan and the Great Lakes region. See [terminology/definitions/naming-principles.yaml](terminology/definitions/naming-principles.yaml) for authoritative guidelines and [docs/NAMING_CONVENTION.md](docs/NAMING_CONVENTION.md) for extended documentation.
 
 | Package | Animal | Anishinaabe | Purpose |
 |---------|--------|-------------|---------|
@@ -499,6 +530,9 @@ See [docs/EXPANSION_PACKS.md](docs/EXPANSION_PACKS.md) for full expansion pack d
 
 - [README.md](README.md) — Vision, benefits, quick start
 - [CLAUDE-full.md](CLAUDE-full.md) — Extended documentation with diagrams
+- [terminology/MANIFEST.yaml](terminology/MANIFEST.yaml) — Terminology definitions (entry point)
+- [docs/adr/001-tasks-as-spans.md](docs/adr/001-tasks-as-spans.md) — ADR: Tasks as Spans architecture
+- [docs/adr/002-naming-wayfinder.md](docs/adr/002-naming-wayfinder.md) — ADR: Wayfinder naming convention
 - [docs/semantic-conventions.md](docs/semantic-conventions.md) — Full attribute reference
 - [docs/agent-semantic-conventions.md](docs/agent-semantic-conventions.md) — Agent attributes
 - [docs/agent-communication-protocol.md](docs/agent-communication-protocol.md) — Agent integration

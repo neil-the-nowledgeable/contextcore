@@ -2,26 +2,27 @@
 ContextCore CLI - Manage ProjectContext resources and track tasks as spans.
 
 Commands:
-    contextcore create     Create a new ProjectContext
-    contextcore annotate   Annotate K8s resources with context
-    contextcore generate   Generate observability artifacts
-    contextcore runbook    Generate operational runbook
-    contextcore controller Run the controller locally
-    contextcore sync       Sync from external project tools
-    contextcore task       Track project tasks as OTel spans
-    contextcore sprint     Track sprints as parent spans
-    contextcore metrics    View derived project metrics
-    contextcore git        Git integration for automatic task linking
-    contextcore demo       Demo data generation (microservices-demo)
-    contextcore skill      Manage skill capabilities
-    contextcore insight    Agent insights (persistent memory)
-    contextcore knowledge  Convert markdown to queryable telemetry
-    contextcore value      Value capability tracking
-    contextcore rbac       Manage RBAC roles and permissions
-    contextcore dashboards Provision Grafana dashboards
-    contextcore ops        Operational health and backup
-    contextcore install    Installation verification
-    contextcore graph      Knowledge graph commands (Phase 3)
+    contextcore create      Create a new ProjectContext
+    contextcore annotate    Annotate K8s resources with context
+    contextcore generate    Generate observability artifacts
+    contextcore runbook     Generate operational runbook
+    contextcore controller  Run the controller locally
+    contextcore sync        Sync from external project tools
+    contextcore task        Track project tasks as OTel spans
+    contextcore sprint      Track sprints as parent spans
+    contextcore metrics     View derived project metrics
+    contextcore git         Git integration for automatic task linking
+    contextcore demo        Demo data generation (microservices-demo)
+    contextcore skill       Manage skill capabilities
+    contextcore insight     Agent insights (persistent memory)
+    contextcore knowledge   Convert markdown to queryable telemetry
+    contextcore value       Value capability tracking
+    contextcore terminology Manage Wayfinder terminology definitions
+    contextcore rbac        Manage RBAC roles and permissions
+    contextcore dashboards  Provision Grafana dashboards
+    contextcore ops         Operational health and backup
+    contextcore install     Installation verification
+    contextcore graph       Knowledge graph commands (Phase 3)
 """
 
 import click
@@ -41,6 +42,7 @@ from .value import value
 from .skill import skill
 from .insight import insight
 from .knowledge import knowledge
+from .terminology import terminology
 from .core import create, annotate, generate, runbook, controller
 
 # Phase 2 commands
@@ -84,6 +86,7 @@ main.add_command(value)
 main.add_command(skill)
 main.add_command(insight)
 main.add_command(knowledge)
+main.add_command(terminology)
 
 # Phase 2 command groups
 main.add_command(review)

@@ -30,9 +30,9 @@ term:
       context: Product naming (e.g., "LM-native", "cloud-native tooling")
       reason: Potential for cultural appropriation
       alternatives:
-        - "built for" instead of "native to"
-        - "designed for" instead of "native"
-        - "first-class" instead of "native support"
+        - '"built for" instead of "native to"'
+        - '"designed for" instead of "native"'
+        - '"first-class" instead of "native support"'
       note: Technical usage in code (e.g., "native code") is acceptable
 
   # ---------------------------------------------------------------------------
