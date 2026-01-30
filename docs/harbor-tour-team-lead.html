@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wayfinder for Team Leads | Status Updates That Write Themselves</title>
+    <style>
+        :root {
+            --bg: #0f1419;
+            --surface: #1c2128;
+            --surface-hover: #2d333b;
+            --text: #f0f6fc;
+            --text-muted: #8b949e;
+            --accent: #58a6ff;
+            --accent-hover: #79c0ff;
+            --success: #3fb950;
+            --warning: #d29922;
+            --error: #f85149;
+            --border: #30363d;
+            --gradient-start: #238636;
+            --gradient-end: #1f6feb;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Navigation */
+        .persona-nav {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            padding: 1rem;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+
+        .persona-nav a {
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .persona-nav a:hover {
+            background: var(--surface-hover);
+            color: var(--text);
+        }
+
+        .persona-nav a.active {
+            background: var(--accent);
+            color: var(--bg);
+            font-weight: 600;
+        }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            padding: 4rem 0 3rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 3rem;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .hero h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero .subtitle {
+            font-size: 1.3rem;
+            color: var(--text-muted);
+            max-width: 700px;
+            margin: 0 auto 2rem;
+        }
+
+        /* Section styles */
+        section {
+            margin-bottom: 4rem;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: var(--text);
+        }
+
+        h3 {
+            font-size: 1.2rem;
+            margin: 2rem 0 1rem;
+            color: var(--accent);
+        }
+
+        p {
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+
+        /* Time calculation */
+        .time-calc {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+
+        .time-calc h3 {
+            margin-top: 0;
+            color: var(--success);
+        }
+
+        .time-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .time-row:last-child {
+            border-bottom: none;
+            font-weight: 600;
+            color: var(--success);
+            font-size: 1.1rem;
+        }
+
+        .time-row .activity {
+            color: var(--text-muted);
+        }
+
+        .time-row .hours {
+            color: var(--text);
+        }
+
+        /* Comparison grid */
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .comparison-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .comparison-card.before {
+            border-color: var(--error);
+        }
+
+        .comparison-card.after {
+            border-color: var(--success);
+        }
+
+        .comparison-card h4 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+
+        .comparison-card.before h4 {
+            color: var(--error);
+        }
+
+        .comparison-card.after h4 {
+            color: var(--success);
+        }
+
+        .comparison-card ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .comparison-card li {
+            padding: 0.4rem 0;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Metric dashboard preview */
+        .dashboard-preview {
+            background: #161b22;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .dashboard-header h4 {
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .live-badge {
+            background: var(--success);
+            color: var(--bg);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .metric-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .metric-box {
+            background: var(--surface);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .metric-box .label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .metric-box .value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin: 0.25rem 0;
+        }
+
+        .metric-box .value.green { color: var(--success); }
+        .metric-box .value.yellow { color: var(--warning); }
+        .metric-box .value.blue { color: var(--accent); }
+
+        .metric-box .delta {
+            font-size: 0.8rem;
+        }
+
+        .metric-box .delta.up { color: var(--success); }
+        .metric-box .delta.down { color: var(--error); }
+
+        /* Feature cards */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .feature-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.2s;
+        }
+
+        .feature-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-3px);
+        }
+
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card h4 {
+            color: var(--text);
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-card p {
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        /* Report template */
+        .report-box {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+        }
+
+        .report-box .heading {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .report-box .stat {
+            color: var(--success);
+        }
+
+        .report-box .project {
+            color: var(--warning);
+        }
+
+        .report-box .muted {
+            color: var(--text-muted);
+        }
+
+        /* Code blocks */
+        .code-block {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            margin: 1rem 0;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        .code-block code {
+            color: #e6edf3;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+
+        .code-block .comment { color: #8b949e; }
+        .code-block .command { color: var(--accent); }
+        .code-block .string { color: #a5d6ff; }
+        .code-block .flag { color: #ff7b72; }
+
+        .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-family: inherit;
+        }
+
+        .copy-btn:hover {
+            color: var(--text);
+            border-color: var(--accent);
+        }
+
+        /* Workflow steps */
+        .workflow-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .workflow-step {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            position: relative;
+        }
+
+        .workflow-step::after {
+            content: ">";
+            position: absolute;
+            right: -0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--accent);
+            font-size: 1.5rem;
+        }
+
+        .workflow-step:last-child::after {
+            display: none;
+        }
+
+        .workflow-step .number {
+            background: var(--accent);
+            color: var(--bg);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .workflow-step h4 {
+            color: var(--text);
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .workflow-step p {
+            font-size: 0.85rem;
+            margin: 0;
+        }
+
+        /* Use case scenarios */
+        .scenario-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+
+        .scenario-card h4 {
+            color: var(--text);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .scenario-card .trigger {
+            background: rgba(88, 166, 255, 0.1);
+            color: var(--accent);
+            padding: 0.75rem;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .scenario-card .result {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* CTA section */
+        .cta-section {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            border-radius: 16px;
+            padding: 3rem;
+            text-align: center;
+            margin: 3rem 0;
+        }
+
+        .cta-section h2 {
+            color: white;
+            margin-bottom: 1rem;
+        }
+
+        .cta-section p {
+            color: rgba(255, 255, 255, 0.9);
+            max-width: 600px;
+            margin: 0 auto 2rem;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .cta-btn {
+            background: white;
+            color: var(--gradient-start);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .cta-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .cta-btn.secondary {
+            background: transparent;
+            border: 2px solid white;
+            color: white;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            border-top: 1px solid var(--border);
+            margin-top: 3rem;
+            color: var(--text-muted);
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .hero h1 { font-size: 1.8rem; }
+            .comparison-grid { grid-template-columns: 1fr; }
+            .metric-row { grid-template-columns: repeat(2, 1fr); }
+            .workflow-grid { grid-template-columns: 1fr; }
+            .workflow-step::after { display: none; }
+            .persona-nav { gap: 0.5rem; }
+            .persona-nav a { padding: 0.4rem 0.75rem; font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Persona Navigation -->
+    <nav class="persona-nav">
+        <a href="harbor-tour.html">All Audiences</a>
+        <a href="harbor-tour-platform-engineer.html">Platform Engineer</a>
+        <a href="harbor-tour-ai-developer.html">AI Developer</a>
+        <a href="harbor-tour-team-lead.html" class="active">Team Lead</a>
+        <a href="getting-started-solopreneur.html">Solo-preneur</a>
+    </nav>
+
+    <div class="container">
+        <header class="hero">
+            <span class="hero-badge">For Team Leads</span>
+            <h1>Status Updates That Write Themselves</h1>
+            <p class="subtitle">Stop chasing developers for updates. Wayfinder derives project health from what actually happened—commits, tasks, blockers—not what people remember to report.</p>
+        </header>
+
+        <!-- Time Saved -->
+        <section>
+            <h2>The Math on Status Meetings</h2>
+            <div class="time-calc">
+                <h3>Annual Time Recovered</h3>
+                <div class="time-row">
+                    <span class="activity">Status meetings (15 min/day x team of 5)</span>
+                    <span class="hours">312 hrs/year</span>
+                </div>
+                <div class="time-row">
+                    <span class="activity">Sprint retrospective prep</span>
+                    <span class="hours">26 hrs/year</span>
+                </div>
+                <div class="time-row">
+                    <span class="activity">"What's the status of X?" interruptions</span>
+                    <span class="hours">52 hrs/year</span>
+                </div>
+                <div class="time-row">
+                    <span class="activity">Stakeholder status reports</span>
+                    <span class="hours">78 hrs/year</span>
+                </div>
+                <div class="time-row">
+                    <span class="activity"><strong>Total recoverable</strong></span>
+                    <span class="hours"><strong>468 hrs/year</strong></span>
+                </div>
+            </div>
+            <p style="text-align: center; color: var(--success); font-weight: 500;">That's 12 full work weeks. What would your team build with that time?</p>
+        </section>
+
+        <!-- Before/After -->
+        <section>
+            <h2>The Status Meeting Problem</h2>
+            <div class="comparison-grid">
+                <div class="comparison-card before">
+                    <h4>Current Reality</h4>
+                    <ul>
+                        <li>"What did you work on yesterday?"</li>
+                        <li>People forget, underreport, or overreport</li>
+                        <li>Blockers discovered in meetings, not before</li>
+                        <li>Velocity is gut feel, not data</li>
+                        <li>Stakeholders ask the same questions weekly</li>
+                    </ul>
+                </div>
+                <div class="comparison-card after">
+                    <h4>Wayfinder Reality</h4>
+                    <ul>
+                        <li>Dashboard shows exactly what happened</li>
+                        <li>Tasks tracked automatically as work occurs</li>
+                        <li>Blockers visible the moment they're logged</li>
+                        <li>Velocity derived from actual completion data</li>
+                        <li>Stakeholders have live dashboard access</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Live Dashboard -->
+        <section>
+            <h2>Real-Time Project Health</h2>
+            <div class="dashboard-preview">
+                <div class="dashboard-header">
+                    <h4>Project Portfolio Overview <span class="live-badge">LIVE</span></h4>
+                    <span style="color: var(--text-muted); font-size: 0.85rem;">Updated: Just now</span>
+                </div>
+                <div class="metric-row">
+                    <div class="metric-box">
+                        <div class="label">Active Tasks</div>
+                        <div class="value blue">12</div>
+                        <div class="delta up">+3 from last week</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="label">Completed (14d)</div>
+                        <div class="value green">28</div>
+                        <div class="delta up">+8 vs target</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="label">Blocked</div>
+                        <div class="value yellow">2</div>
+                        <div class="delta">checkout-api, auth-flow</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="label">Avg Cycle Time</div>
+                        <div class="value green">2.3d</div>
+                        <div class="delta down">-0.5d improvement</div>
+                    </div>
+                </div>
+            </div>
+
+            <h3>Derived Metrics (No Manual Entry)</h3>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">Cycle Time</div>
+                    <h4>Cycle Time</h4>
+                    <p>Time from "in progress" to "done". Calculated from task span timestamps, not estimates.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">Lead Time</div>
+                    <h4>Lead Time</h4>
+                    <p>Time from task creation to completion. See where work sits in queues.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">WIP</div>
+                    <h4>Work in Progress</h4>
+                    <p>Live count of "in_progress" tasks. Spot overload before burnout.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">Velocity</div>
+                    <h4>Sprint Velocity</h4>
+                    <p>Story points per sprint based on actual completions. True historical data.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Auto-generated Reports -->
+        <section>
+            <h2>Reports That Generate Themselves</h2>
+            <p>Stop spending Friday afternoon writing status reports. Query the data and let it speak.</p>
+
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<code><span class="comment"># Generate weekly summary</span>
+<span class="command">contextcore metrics summary</span> <span class="flag">--project</span> checkout-service <span class="flag">--days</span> <span class="string">7</span>
+
+<span class="comment"># Output:</span>
+<span class="comment"># Completed: 8 tasks (12 story points)</span>
+<span class="comment"># In Progress: 3 tasks</span>
+<span class="comment"># Blocked: 1 task (checkout-api: waiting on 3rd party API)</span>
+<span class="comment"># Avg Cycle Time: 2.1 days</span>
+<span class="comment"># Sprint Progress: 67% complete</span></code>
+            </div>
+
+            <div class="report-box">
+<span class="heading">## Weekly Status: Checkout Service</span>
+<span class="muted">Auto-generated from ContextCore | Week of Jan 27, 2026</span>
+
+<span class="heading">### Completed This Week</span>
+<span class="stat">- TASK-142: Implement cart persistence</span> (2d cycle time)
+<span class="stat">- TASK-145: Add payment validation</span> (1.5d cycle time)
+<span class="stat">- TASK-148: Fix checkout timeout</span> (0.5d cycle time)
+
+<span class="heading">### In Progress</span>
+<span class="project">- TASK-150: Checkout API v2</span> (started 2d ago)
+<span class="project">- TASK-151: Mobile checkout flow</span> (started 1d ago)
+
+<span class="heading">### Blocked</span>
+<span class="muted">- TASK-149: 3rd party API integration</span>
+  <span class="muted">Blocked since: Jan 25 | Reason: Waiting on vendor credentials</span>
+
+<span class="heading">### Metrics</span>
+Velocity: <span class="stat">12 points</span> (target: 10)
+Cycle Time: <span class="stat">1.3d avg</span> (improving)
+            </div>
+        </section>
+
+        <!-- Daily Workflow -->
+        <section>
+            <h2>Your New Daily Workflow</h2>
+            <div class="workflow-grid">
+                <div class="workflow-step">
+                    <span class="number">1</span>
+                    <h4>Morning Glance</h4>
+                    <p>Open dashboard. See what's active, what's blocked, what completed overnight.</p>
+                </div>
+                <div class="workflow-step">
+                    <span class="number">2</span>
+                    <h4>Unblock</h4>
+                    <p>Address blockers immediately. They're visible the moment they're logged.</p>
+                </div>
+                <div class="workflow-step">
+                    <span class="number">3</span>
+                    <h4>Move On</h4>
+                    <p>No status meeting needed. Everyone can see the same dashboard.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Scenarios -->
+        <section>
+            <h2>Common Scenarios</h2>
+
+            <div class="scenario-card">
+                <h4>"What's the status of the checkout feature?"</h4>
+                <div class="trigger">contextcore task list --project checkout --status in_progress</div>
+                <div class="result">Instant answer with timestamps, no interrupting developers.</div>
+            </div>
+
+            <div class="scenario-card">
+                <h4>"Why is velocity down this sprint?"</h4>
+                <div class="trigger">contextcore metrics blocked --project checkout --days 14</div>
+                <div class="result">See exactly which tasks were blocked and for how long. Data, not guesses.</div>
+            </div>
+
+            <div class="scenario-card">
+                <h4>"When will this be done?"</h4>
+                <div class="trigger">Dashboard: Project Progress > Burndown Chart</div>
+                <div class="result">Based on actual velocity, not optimistic estimates.</div>
+            </div>
+
+            <div class="scenario-card">
+                <h4>"What did the team accomplish this quarter?"</h4>
+                <div class="trigger">contextcore metrics summary --project all --days 90</div>
+                <div class="result">Aggregate metrics across projects. Perfect for stakeholder reviews.</div>
+            </div>
+        </section>
+
+        <!-- Dashboards -->
+        <section>
+            <h2>Pre-Built Dashboards</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon"></div>
+                    <h4>Project Portfolio Overview</h4>
+                    <p>All projects at a glance. Health status, active tasks, recent completions, blocked items.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"></div>
+                    <h4>Sprint Metrics</h4>
+                    <p>Burndown, velocity trends, WIP gauge, cycle time distribution.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"></div>
+                    <h4>Project Progress</h4>
+                    <p>Epic/story/task breakdown, timeline view, dependency visualization.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"></div>
+                    <h4>Project Operations</h4>
+                    <p>Correlate project tasks with runtime telemetry. See the impact of work.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Start -->
+        <section>
+            <h2>Quick Start for Teams</h2>
+
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<code><span class="comment"># Install ContextCore</span>
+<span class="command">pip3 install</span> contextcore
+
+<span class="comment"># Start the observability stack</span>
+<span class="command">make</span> full-setup
+
+<span class="comment"># Track your first task</span>
+<span class="command">contextcore task start</span> <span class="flag">--id</span> <span class="string">TASK-001</span> <span class="flag">--title</span> <span class="string">"Setup project tracking"</span> <span class="flag">--type</span> task
+
+<span class="comment"># Mark it in progress</span>
+<span class="command">contextcore task update</span> <span class="flag">--id</span> <span class="string">TASK-001</span> <span class="flag">--status</span> in_progress
+
+<span class="comment"># Complete it</span>
+<span class="command">contextcore task complete</span> <span class="flag">--id</span> <span class="string">TASK-001</span>
+
+<span class="comment"># View metrics</span>
+<span class="command">contextcore metrics summary</span> <span class="flag">--project</span> my-project
+
+<span class="comment"># Open the dashboard</span>
+<span class="command">open</span> http://localhost:3000</code>
+            </div>
+
+            <h3>For Existing Projects</h3>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<code><span class="comment"># Generate demo data to see what dashboards look like</span>
+<span class="command">contextcore demo generate</span> <span class="flag">--project</span> my-project
+
+<span class="comment"># Load to Tempo</span>
+<span class="command">contextcore demo load</span> <span class="flag">--file</span> ./demo_output/demo_spans.json
+
+<span class="comment"># Provision dashboards to Grafana</span>
+<span class="command">contextcore dashboards provision</span>
+
+<span class="comment"># Then start tracking real work</span></code>
+            </div>
+        </section>
+
+        <!-- Integration Points -->
+        <section>
+            <h2>Integrate With Your Workflow</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon"></div>
+                    <h4>CI/CD Integration</h4>
+                    <p>Auto-complete tasks when PRs merge. Link commits to task spans.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"></div>
+                    <h4>Slack/Teams</h4>
+                    <p>Get notified on blockers. Share dashboard links instead of typing status.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"></div>
+                    <h4>Jira Sync</h4>
+                    <p>Pull task metadata from Jira. Status updates flow back automatically.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"></div>
+                    <h4>GitHub Issues</h4>
+                    <p>Sync issue state with ContextCore tasks. One source of truth.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA -->
+        <div class="cta-section">
+            <h2>Stop Asking for Status</h2>
+            <p>Let the work speak for itself. ContextCore gives you live visibility without the meeting overhead.</p>
+            <div class="cta-buttons">
+                <a href="http://localhost:3000" class="cta-btn" target="_blank">Open Dashboard</a>
+                <a href="dashboards/PROJECT_PORTFOLIO_OVERVIEW.html" class="cta-btn secondary">Dashboard Specs</a>
+            </div>
+        </div>
+
+        <footer>
+            <p>Wayfinder for Team Leads — Status Updates That Write Themselves</p>
+            <p>Built on the ContextCore Standard by Force Multiplier Labs</p>
+            <p><a href="harbor-tour.html">All Audiences</a> | <a href="semantic-conventions.md">Metric Definitions</a> | <a href="INSTALLATION.md">Installation Guide</a></p>
+        </footer>
+    </div>
+
+    <script>
+        function copyCode(btn) {
+            const code = btn.parentElement.querySelector('code').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                const original = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = original, 2000);
+            });
+        }
+    </script>
+</body>
+</html>

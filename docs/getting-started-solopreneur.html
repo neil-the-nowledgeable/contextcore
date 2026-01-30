@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ContextCore for Solo-Preneurs</title>
+    <title>Wayfinder for Solo-Preneurs</title>
     <style>
         :root {
             --bg: #18181b;
@@ -33,6 +33,40 @@
             color: var(--text);
             line-height: 1.7;
             min-height: 100vh;
+        }
+
+        /* Persona Navigation */
+        .persona-nav {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            padding: 1rem;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .persona-nav a {
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .persona-nav a:hover {
+            background: var(--surface-hover);
+            color: var(--text);
+        }
+
+        .persona-nav a.active {
+            background: var(--accent);
+            color: var(--bg);
+            font-weight: 600;
         }
 
         .container {
@@ -506,6 +540,15 @@
     </style>
 </head>
 <body>
+    <!-- Persona Navigation -->
+    <nav class="persona-nav">
+        <a href="harbor-tour.html">All Audiences</a>
+        <a href="harbor-tour-platform-engineer.html">Platform Engineer</a>
+        <a href="harbor-tour-ai-developer.html">AI Developer</a>
+        <a href="harbor-tour-team-lead.html">Team Lead</a>
+        <a href="getting-started-solopreneur.html" class="active">Solo-preneur</a>
+    </nav>
+
     <div class="container">
         <header class="hero">
             <h1>Stop Maintaining TODO.md</h1>
@@ -551,7 +594,7 @@
                     </ul>
                 </div>
                 <div class="comparison-side after">
-                    <h4>ContextCore Reality</h4>
+                    <h4>Wayfinder Reality</h4>
                     <ul>
                         <li>Tasks derived from your commits</li>
                         <li>Query: "What did I decide?"</li>
@@ -740,7 +783,7 @@ emitter.emit_decision(<span class="string">"Chose X because Y"</span>, confidenc
         <!-- CTA -->
         <div class="cta-section">
             <h2>Ready to Stop Managing Markdown?</h2>
-            <p>Your memory shouldn't be a single point of failure. Let ContextCore remember for you.</p>
+            <p>Your memory shouldn't be a single point of failure. Let Wayfinder remember for you.</p>
             <div class="cta-buttons">
                 <a href="http://localhost:3000" class="cta-btn" target="_blank">Open Dashboard</a>
                 <a href="./harbor-tour-solopreneur.md" class="cta-btn secondary">Read Full Guide</a>
@@ -759,7 +802,8 @@ emitter.emit_decision(<span class="string">"Chose X because Y"</span>, confidenc
         </div>
 
         <footer>
-            <p>ContextCore — Because your memory shouldn't be a single point of failure.</p>
+            <p>Wayfinder — Because your memory shouldn't be a single point of failure.</p>
+            <p>Built on the ContextCore Standard by Force Multiplier Labs</p>
             <p><a href="https://github.com/contextcore/contextcore">GitHub</a> · <a href="./harbor-tour-solopreneur.md">Full Guide</a> · <a href="./getting-started.html">Team Version</a></p>
         </footer>
     </div>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ContextCore Harbor Tour | Project Observability Fleet</title>
+    <title>Wayfinder Harbor Tour | The ContextCore Reference Implementation</title>
     <style>
         :root {
             --water-dark: #0a1628;
@@ -37,6 +37,40 @@
             color: var(--text-primary);
             min-height: 100vh;
             line-height: 1.6;
+        }
+
+        /* Persona Navigation */
+        .persona-nav {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            padding: 1rem;
+            background: var(--water-dark);
+            border-bottom: 1px solid var(--water-light);
+            flex-wrap: wrap;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .persona-nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .persona-nav a:hover {
+            background: var(--water-light);
+            color: var(--text-primary);
+        }
+
+        .persona-nav a.active {
+            background: var(--sunset-gold);
+            color: var(--water-dark);
+            font-weight: 600;
         }
 
         /* Header with sunset gradient */
@@ -458,10 +492,19 @@
     </style>
 </head>
 <body>
+    <!-- Persona Navigation -->
+    <nav class="persona-nav">
+        <a href="harbor-tour.html" class="active">All Audiences</a>
+        <a href="harbor-tour-platform-engineer.html">Platform Engineer</a>
+        <a href="harbor-tour-ai-developer.html">AI Developer</a>
+        <a href="harbor-tour-team-lead.html">Team Lead</a>
+        <a href="getting-started-solopreneur.html">Solo-preneur</a>
+    </nav>
+
     <!-- Header -->
     <header class="harbor-header">
-        <h1 class="harbor-title">⚓ CONTEXTCORE HARBOR</h1>
-        <p class="harbor-subtitle">Project Observability Fleet</p>
+        <h1 class="harbor-title">⚓ WAYFINDER HARBOR</h1>
+        <p class="harbor-subtitle">The ContextCore Reference Implementation</p>
         <div class="philosophy-quote">
             <p>"The true measure of wealth is not what we extract, but what we sustain."</p>
         </div>
@@ -807,12 +850,12 @@
     <!-- Footer -->
     <footer class="harbor-footer">
         <div class="naming-note">
-            <strong>On Naming:</strong> The ContextCore ecosystem uses Anishinaabe (Ojibwe) animal names
-            to honor the indigenous peoples of Michigan and the Great Lakes region. Each animal's
-            character reflects its package's purpose.
+            <strong>On Naming:</strong> <em>Wayfinder</em> is the reference implementation of the <em>ContextCore</em> standard.
+            The fleet uses Anishinaabe (Ojibwe) animal names to honor the indigenous peoples of Michigan
+            and the Great Lakes region. Each animal's character reflects its package's purpose.
         </div>
         <p>
-            ContextCore Ecosystem • Created with capability-value-promoter (Audience of 1 mode)<br>
+            Wayfinder by Force Multiplier Labs • Built on the ContextCore Standard<br>
             Last Updated: January 2026
         </p>
     </footer>

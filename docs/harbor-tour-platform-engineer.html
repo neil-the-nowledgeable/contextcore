@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wayfinder for Platform Engineers | Infrastructure That Understands Business Value</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --surface-hover: #334155;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #38bdf8;
+            --accent-hover: #7dd3fc;
+            --success: #4ade80;
+            --warning: #fbbf24;
+            --error: #f87171;
+            --border: #475569;
+            --gradient-start: #0ea5e9;
+            --gradient-end: #8b5cf6;
+            --infra-blue: #3b82f6;
+            --k8s-blue: #326ce5;
+            --otel-purple: #a855f7;
+            --grafana-orange: #f97316;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Navigation */
+        .persona-nav {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            padding: 1rem;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+
+        .persona-nav a {
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .persona-nav a:hover {
+            background: var(--surface-hover);
+            color: var(--text);
+        }
+
+        .persona-nav a.active {
+            background: var(--accent);
+            color: var(--bg);
+            font-weight: 600;
+        }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            padding: 4rem 0 3rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 3rem;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--k8s-blue), var(--otel-purple));
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .hero h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero .subtitle {
+            font-size: 1.3rem;
+            color: var(--text-muted);
+            max-width: 700px;
+            margin: 0 auto 2rem;
+        }
+
+        /* Section styles */
+        section {
+            margin-bottom: 4rem;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: var(--text);
+        }
+
+        h3 {
+            font-size: 1.2rem;
+            margin: 2rem 0 1rem;
+            color: var(--accent);
+        }
+
+        p {
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+
+        /* Architecture diagram */
+        .architecture-box {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            overflow-x: auto;
+        }
+
+        .architecture-box pre {
+            color: var(--text-muted);
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.8rem;
+            line-height: 1.5;
+        }
+
+        .architecture-box .highlight {
+            color: var(--accent);
+        }
+
+        .architecture-box .otel {
+            color: var(--otel-purple);
+        }
+
+        .architecture-box .k8s {
+            color: var(--k8s-blue);
+        }
+
+        .architecture-box .grafana {
+            color: var(--grafana-orange);
+        }
+
+        /* Feature cards */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .feature-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.2s;
+        }
+
+        .feature-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-3px);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-icon.otel { background: linear-gradient(135deg, var(--otel-purple), #7c3aed); }
+        .feature-icon.k8s { background: linear-gradient(135deg, var(--k8s-blue), #2563eb); }
+        .feature-icon.grafana { background: linear-gradient(135deg, var(--grafana-orange), #ea580c); }
+        .feature-icon.alert { background: linear-gradient(135deg, var(--error), #dc2626); }
+
+        .feature-card h4 {
+            color: var(--text);
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .feature-card p {
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        /* Code blocks */
+        .code-block {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            margin: 1rem 0;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        .code-block code {
+            color: #e6edf3;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+
+        .code-block .comment { color: #8b949e; }
+        .code-block .command { color: var(--accent); }
+        .code-block .string { color: #a5d6ff; }
+        .code-block .keyword { color: #ff7b72; }
+        .code-block .yaml-key { color: #7ee787; }
+
+        .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-family: inherit;
+        }
+
+        .copy-btn:hover {
+            color: var(--text);
+            border-color: var(--accent);
+        }
+
+        /* Comparison table */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .comparison-table th {
+            color: var(--accent);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: var(--surface);
+        }
+
+        .comparison-table td {
+            color: var(--text-muted);
+        }
+
+        .comparison-table code {
+            background: var(--surface);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        /* Metric cards */
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .metric-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .metric-card .label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .metric-card .context {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+        }
+
+        /* Integration flow */
+        .integration-flow {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .flow-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border-left: 4px solid var(--accent);
+        }
+
+        .flow-step .number {
+            background: var(--accent);
+            color: var(--bg);
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .flow-step h4 {
+            color: var(--text);
+            margin-bottom: 0.25rem;
+        }
+
+        .flow-step p {
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        /* Dashboard preview */
+        .dashboard-preview {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .dashboard-preview h4 {
+            color: var(--text);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .dashboard-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+
+        .dashboard-item {
+            background: var(--bg);
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .dashboard-item .name {
+            color: var(--text);
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .dashboard-item .desc {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* CTA section */
+        .cta-section {
+            background: linear-gradient(135deg, var(--k8s-blue), var(--otel-purple));
+            border-radius: 16px;
+            padding: 3rem;
+            text-align: center;
+            margin: 3rem 0;
+        }
+
+        .cta-section h2 {
+            color: white;
+            margin-bottom: 1rem;
+        }
+
+        .cta-section p {
+            color: rgba(255, 255, 255, 0.9);
+            max-width: 600px;
+            margin: 0 auto 2rem;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .cta-btn {
+            background: white;
+            color: var(--k8s-blue);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .cta-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .cta-btn.secondary {
+            background: transparent;
+            border: 2px solid white;
+            color: white;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            border-top: 1px solid var(--border);
+            margin-top: 3rem;
+            color: var(--text-muted);
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .hero h1 { font-size: 1.8rem; }
+            .feature-grid { grid-template-columns: 1fr; }
+            .metric-grid { grid-template-columns: repeat(2, 1fr); }
+            .persona-nav { gap: 0.5rem; }
+            .persona-nav a { padding: 0.4rem 0.75rem; font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Persona Navigation -->
+    <nav class="persona-nav">
+        <a href="harbor-tour.html">All Audiences</a>
+        <a href="harbor-tour-platform-engineer.html" class="active">Platform Engineer</a>
+        <a href="harbor-tour-ai-developer.html">AI Developer</a>
+        <a href="harbor-tour-team-lead.html">Team Lead</a>
+        <a href="getting-started-solopreneur.html">Solo-preneur</a>
+    </nav>
+
+    <div class="container">
+        <header class="hero">
+            <span class="hero-badge">For Platform Engineers</span>
+            <h1>Infrastructure That Understands Business Value</h1>
+            <p class="subtitle">Stop configuring observability in a vacuum. Wayfinder derives alerting thresholds, sampling rates, and dashboards from business context via the ContextCore standard and Kubernetes CRDs.</p>
+        </header>
+
+        <!-- The Problem -->
+        <section>
+            <h2>The Platform Engineering Gap</h2>
+            <p>You maintain observability infrastructure. But do you know which services are business-critical? Which latency SLOs matter? Why that service gets paged at 3am?</p>
+
+            <div class="architecture-box">
+<pre>
+<span class="comment"># Current reality: Business context trapped in Jira/Confluence</span>
+
+Product Team  ──────▶  Jira: "checkout is P1 critical"
+                            │
+                            │ (Manual translation)
+                            ▼
+Platform Team ──────▶  prometheus-rules.yaml:
+                         - alert: CheckoutLatency
+                           expr: ???  <span class="comment"># What threshold?</span>
+                           labels:
+                             severity: ???  <span class="comment"># Critical? Warning?</span>
+</pre>
+            </div>
+
+            <div class="metric-grid">
+                <div class="metric-card">
+                    <div class="label">Context Lost</div>
+                    <div class="value">100%</div>
+                    <div class="context">Business intent to infra config</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">Manual Config</div>
+                    <div class="value">Per Service</div>
+                    <div class="context">Repeated boilerplate</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">Alert Accuracy</div>
+                    <div class="value">?</div>
+                    <div class="context">Guessing thresholds</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">Runbook Links</div>
+                    <div class="value">Stale</div>
+                    <div class="context">If they exist at all</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- The Solution -->
+        <section>
+            <h2>Value-Based Observability</h2>
+            <p>ContextCore introduces the ProjectContext CRD - a single source of truth that drives observability configuration from business metadata.</p>
+
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<code><span class="yaml-key">apiVersion:</span> contextcore.io/v1
+<span class="yaml-key">kind:</span> ProjectContext
+<span class="yaml-key">metadata:</span>
+  <span class="yaml-key">name:</span> checkout-service
+  <span class="yaml-key">namespace:</span> commerce
+<span class="yaml-key">spec:</span>
+  <span class="yaml-key">project:</span>
+    <span class="yaml-key">id:</span> <span class="string">"commerce-platform"</span>
+    <span class="yaml-key">epic:</span> <span class="string">"EPIC-42"</span>
+  <span class="yaml-key">business:</span>
+    <span class="yaml-key">criticality:</span> critical      <span class="comment"># Drives alert severity</span>
+    <span class="yaml-key">value:</span> revenue-primary     <span class="comment"># Drives sampling rate</span>
+    <span class="yaml-key">owner:</span> commerce-team       <span class="comment"># Drives routing</span>
+  <span class="yaml-key">requirements:</span>
+    <span class="yaml-key">availability:</span> <span class="string">"99.95"</span>      <span class="comment"># Generates SLO alerts</span>
+    <span class="yaml-key">latencyP99:</span> <span class="string">"200ms"</span>        <span class="comment"># Generates latency alerts</span>
+  <span class="yaml-key">design:</span>
+    <span class="yaml-key">doc:</span> <span class="string">"https://docs.internal/checkout"</span>
+    <span class="yaml-key">adr:</span> <span class="string">"ADR-015"</span>
+  <span class="yaml-key">targets:</span>
+    - <span class="yaml-key">kind:</span> Deployment
+      <span class="yaml-key">name:</span> checkout-service</code>
+            </div>
+
+            <h3>What Gets Generated</h3>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Project Signal</th>
+                        <th>Generated Artifact</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>business.criticality: critical</code></td>
+                        <td>100% trace sampling, 10s metric scrape, page severity</td>
+                    </tr>
+                    <tr>
+                        <td><code>requirements.latencyP99: 200ms</code></td>
+                        <td>PrometheusRule with <code>histogram_quantile(0.99, ...) > 0.2</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>requirements.availability: 99.95</code></td>
+                        <td>SLO burn rate alerts with appropriate windows</td>
+                    </tr>
+                    <tr>
+                        <td><code>design.doc</code></td>
+                        <td>Runbook link in alert annotations</td>
+                    </tr>
+                    <tr>
+                        <td><code>business.owner</code></td>
+                        <td>Alert routing to team's Slack/PagerDuty</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Architecture -->
+        <section>
+            <h2>Architecture Overview</h2>
+            <div class="architecture-box">
+<pre>
+┌─────────────────────────────────────────────────────────────────────┐
+│                      <span class="k8s">Kubernetes Cluster</span>                            │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │  <span class="highlight">ProjectContext CRD</span>                                           │  │
+│  │  ├─ business.criticality: critical                           │  │
+│  │  ├─ requirements.latencyP99: 200ms                           │  │
+│  │  └─ targets: [checkout-service]                              │  │
+│  └───────────────────────┬───────────────────────────────────────┘  │
+│                          │                                          │
+│                          ▼                                          │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │  <span class="highlight">ContextCore Controller</span>                                       │  │
+│  │  ├─ Watches ProjectContext resources                         │  │
+│  │  ├─ Generates: ServiceMonitor, PrometheusRule, Dashboard     │  │
+│  │  └─ Annotates target Deployments/Services                    │  │
+│  └───────────────────────┬───────────────────────────────────────┘  │
+│                          │                                          │
+│         ┌────────────────┼────────────────┐                         │
+│         ▼                ▼                ▼                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                  │
+│  │ <span class="otel">ServiceMonitor</span>│  │<span class="otel">PrometheusRule</span>│  │  <span class="grafana">Dashboard</span>  │                  │
+│  │ (generated)  │  │ (generated)  │  │ (generated) │                  │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘                  │
+│         │                │                │                         │
+└─────────┼────────────────┼────────────────┼─────────────────────────┘
+          │                │                │
+          ▼                ▼                ▼
+   ┌─────────────────────────────────────────────────┐
+   │              <span class="grafana">Observability Backend</span>               │
+   │  ┌─────────┐  ┌─────────┐  ┌─────────┐          │
+   │  │  <span class="otel">Tempo</span>  │  │  <span class="otel">Mimir</span>  │  │  <span class="otel">Loki</span>   │          │
+   │  │ (traces)│  │(metrics)│  │ (logs)  │          │
+   │  └─────────┘  └─────────┘  └─────────┘          │
+   │                                                 │
+   │  ┌─────────────────────────────────────────┐    │
+   │  │  <span class="grafana">Grafana</span> (11 provisioned dashboards)    │    │
+   │  └─────────────────────────────────────────┘    │
+   └─────────────────────────────────────────────────┘
+</pre>
+            </div>
+        </section>
+
+        <!-- Key Integrations -->
+        <section>
+            <h2>Platform Integrations</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon otel">
+                        <span>O</span>
+                    </div>
+                    <h4>OpenTelemetry Native</h4>
+                    <p>Tasks as spans, metrics via OTLP, Tempo/Mimir/Loki backend. Uses OTel GenAI conventions for AI agent observability.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon k8s">
+                        <span>K</span>
+                    </div>
+                    <h4>Kubernetes CRDs</h4>
+                    <p>ProjectContext CRD as single source of truth. Controller generates ServiceMonitor, PrometheusRule, GrafanaDashboard.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon grafana">
+                        <span>G</span>
+                    </div>
+                    <h4>Grafana Ecosystem</h4>
+                    <p>11 pre-built dashboards auto-provisioned. Custom Grafana plugins for workflow triggers and chat panels.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon alert">
+                        <span>!</span>
+                    </div>
+                    <h4>Alert Automation</h4>
+                    <p>Rabbit (alert framework) + Fox (context enrichment) = alerts that carry business context for intelligent routing.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Dashboards -->
+        <section>
+            <h2>Pre-Built Dashboards</h2>
+            <div class="dashboard-preview">
+                <h4>11 Dashboards Auto-Provisioned</h4>
+                <div class="dashboard-list">
+                    <div class="dashboard-item">
+                        <div class="name">Project Portfolio Overview</div>
+                        <div class="desc">All projects, health status, active tasks</div>
+                    </div>
+                    <div class="dashboard-item">
+                        <div class="name">Installation Verification</div>
+                        <div class="desc">Self-monitoring, component health</div>
+                    </div>
+                    <div class="dashboard-item">
+                        <div class="name">Value Capabilities Explorer</div>
+                        <div class="desc">Capability maturity, usage patterns</div>
+                    </div>
+                    <div class="dashboard-item">
+                        <div class="name">Project Progress</div>
+                        <div class="desc">Task velocity, sprint metrics</div>
+                    </div>
+                    <div class="dashboard-item">
+                        <div class="name">Sprint Metrics</div>
+                        <div class="desc">Burndown, cycle time, WIP</div>
+                    </div>
+                    <div class="dashboard-item">
+                        <div class="name">Project Operations</div>
+                        <div class="desc">Runtime correlation with tasks</div>
+                    </div>
+                    <div class="dashboard-item">
+                        <div class="name">Fox Alert Automation</div>
+                        <div class="desc">Context-enriched alert history</div>
+                    </div>
+                    <div class="dashboard-item">
+                        <div class="name">Lead Contractor Progress</div>
+                        <div class="desc">Code generation pipeline status</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Start -->
+        <section>
+            <h2>Quick Start: Kubernetes</h2>
+            <div class="integration-flow">
+                <div class="flow-step">
+                    <span class="number">1</span>
+                    <div>
+                        <h4>Install the CRD and Controller</h4>
+                        <p>Deploy ContextCore to your cluster</p>
+                    </div>
+                </div>
+            </div>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<code><span class="comment"># Install via Helm</span>
+<span class="command">helm repo add</span> contextcore https://contextcore.io/charts
+<span class="command">helm install</span> contextcore contextcore/contextcore \
+  --namespace contextcore-system \
+  --create-namespace
+
+<span class="comment"># Or via kustomize</span>
+<span class="command">kubectl apply</span> -k github.com/contextcore/contextcore/k8s/observability</code>
+            </div>
+
+            <div class="integration-flow">
+                <div class="flow-step">
+                    <span class="number">2</span>
+                    <div>
+                        <h4>Create a ProjectContext</h4>
+                        <p>Define business context for your service</p>
+                    </div>
+                </div>
+            </div>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<code><span class="command">cat</span> &lt;&lt;EOF | <span class="command">kubectl apply</span> -f -
+<span class="yaml-key">apiVersion:</span> contextcore.io/v1
+<span class="yaml-key">kind:</span> ProjectContext
+<span class="yaml-key">metadata:</span>
+  <span class="yaml-key">name:</span> my-service
+  <span class="yaml-key">namespace:</span> default
+<span class="yaml-key">spec:</span>
+  <span class="yaml-key">business:</span>
+    <span class="yaml-key">criticality:</span> high
+    <span class="yaml-key">owner:</span> my-team
+  <span class="yaml-key">requirements:</span>
+    <span class="yaml-key">latencyP99:</span> <span class="string">"500ms"</span>
+  <span class="yaml-key">targets:</span>
+    - <span class="yaml-key">kind:</span> Deployment
+      <span class="yaml-key">name:</span> my-service
+EOF</code>
+            </div>
+
+            <div class="integration-flow">
+                <div class="flow-step">
+                    <span class="number">3</span>
+                    <div>
+                        <h4>Verify Generated Resources</h4>
+                        <p>Check what the controller created</p>
+                    </div>
+                </div>
+            </div>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<code><span class="comment"># View generated ServiceMonitor</span>
+<span class="command">kubectl get</span> servicemonitor -l contextcore.io/project=my-service
+
+<span class="comment"># View generated PrometheusRule</span>
+<span class="command">kubectl get</span> prometheusrule -l contextcore.io/project=my-service
+
+<span class="comment"># Check annotations on target</span>
+<span class="command">kubectl get</span> deployment my-service -o jsonpath='{.metadata.annotations}'</code>
+            </div>
+        </section>
+
+        <!-- CLI Tools -->
+        <section>
+            <h2>CLI for Operators</h2>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<code><span class="comment"># Install the CLI</span>
+<span class="command">pip3 install</span> contextcore
+
+<span class="comment"># Verify installation (self-monitoring)</span>
+<span class="command">contextcore install verify</span>
+
+<span class="comment"># Provision dashboards to Grafana</span>
+<span class="command">contextcore dashboards provision</span> --grafana-url http://grafana:3000
+
+<span class="comment"># Check project health</span>
+<span class="command">contextcore metrics summary</span> --project checkout-service
+
+<span class="comment"># Operational commands</span>
+<span class="command">contextcore ops doctor</span>      <span class="comment"># Preflight checks</span>
+<span class="command">contextcore ops health</span>      <span class="comment"># Component status</span>
+<span class="command">contextcore ops smoke-test</span>  <span class="comment"># Full stack validation</span>
+<span class="command">contextcore ops backup</span>      <span class="comment"># Export Grafana state</span></code>
+            </div>
+        </section>
+
+        <!-- CTA -->
+        <div class="cta-section">
+            <h2>Stop Guessing Thresholds</h2>
+            <p>Let business context drive your observability configuration. ContextCore connects the dots between project requirements and infrastructure.</p>
+            <div class="cta-buttons">
+                <a href="http://localhost:3000" class="cta-btn" target="_blank">Open Grafana</a>
+                <a href="semantic-conventions.html" class="cta-btn secondary">Semantic Conventions</a>
+            </div>
+        </div>
+
+        <footer>
+            <p>Wayfinder for Platform Engineers — Value-Based Observability</p>
+            <p>Built on the ContextCore Standard by Force Multiplier Labs</p>
+            <p><a href="harbor-tour.html">All Audiences</a> | <a href="INSTALLATION.md">Installation Guide</a> | <a href="semantic-conventions.md">Full Conventions</a></p>
+        </footer>
+    </div>
+
+    <script>
+        function copyCode(btn) {
+            const code = btn.parentElement.querySelector('code').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                const original = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = original, 2000);
+            });
+        }
+    </script>
+</body>
+</html>

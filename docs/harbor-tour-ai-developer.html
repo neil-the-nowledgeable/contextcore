@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wayfinder for AI Developers | Agents That Remember</title>
+    <style>
+        :root {
+            --bg: #0c0a1d;
+            --surface: #1a1530;
+            --surface-hover: #2a2445;
+            --text: #f8fafc;
+            --text-muted: #a5a0c5;
+            --accent: #c084fc;
+            --accent-hover: #d8b4fe;
+            --success: #4ade80;
+            --warning: #fbbf24;
+            --error: #f87171;
+            --border: #3d3660;
+            --gradient-start: #a855f7;
+            --gradient-end: #6366f1;
+            --claude-orange: #d97706;
+            --gpt-green: #10b981;
+            --gemini-blue: #3b82f6;
+            --otel-purple: #a855f7;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Navigation */
+        .persona-nav {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            padding: 1rem;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+
+        .persona-nav a {
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .persona-nav a:hover {
+            background: var(--surface-hover);
+            color: var(--text);
+        }
+
+        .persona-nav a.active {
+            background: var(--accent);
+            color: var(--bg);
+            font-weight: 600;
+        }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            padding: 4rem 0 3rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 3rem;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--claude-orange), var(--gpt-green));
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .hero h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero .subtitle {
+            font-size: 1.3rem;
+            color: var(--text-muted);
+            max-width: 700px;
+            margin: 0 auto 2rem;
+        }
+
+        /* Section styles */
+        section {
+            margin-bottom: 4rem;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: var(--text);
+        }
+
+        h3 {
+            font-size: 1.2rem;
+            margin: 2rem 0 1rem;
+            color: var(--accent);
+        }
+
+        p {
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+
+        /* Problem illustration */
+        .problem-box {
+            background: #1c0f1f;
+            border: 1px solid #4a2850;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .problem-box pre {
+            color: #c9a0d0;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+        }
+
+        /* Agent cards */
+        .agent-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .agent-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.2s;
+        }
+
+        .agent-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-3px);
+        }
+
+        .agent-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .agent-icon.beaver { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
+        .agent-icon.squirrel { background: linear-gradient(135deg, #ec4899, #db2777); }
+        .agent-icon.spider { background: linear-gradient(135deg, #a855f7, #7c3aed); }
+        .agent-icon.coyote { background: linear-gradient(135deg, #eab308, #ca8a04); }
+
+        .agent-card h4 {
+            color: var(--text);
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .agent-card .anishinaabe {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-style: italic;
+            margin-bottom: 0.75rem;
+        }
+
+        .agent-card p {
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        /* Code blocks */
+        .code-block {
+            background: #0d0a14;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            margin: 1rem 0;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        .code-block code {
+            color: #e6edf3;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+
+        .code-block .comment { color: #8b8a9e; }
+        .code-block .keyword { color: #ff7b72; }
+        .code-block .string { color: #a5d6ff; }
+        .code-block .function { color: #d2a8ff; }
+        .code-block .class { color: #79c0ff; }
+        .code-block .number { color: #ffa657; }
+
+        .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-family: inherit;
+        }
+
+        .copy-btn:hover {
+            color: var(--text);
+            border-color: var(--accent);
+        }
+
+        /* Capability table */
+        .capability-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+        }
+
+        .capability-table th,
+        .capability-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .capability-table th {
+            color: var(--accent);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: var(--surface);
+        }
+
+        .capability-table td {
+            color: var(--text-muted);
+        }
+
+        .capability-table code {
+            background: var(--surface);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: var(--accent);
+        }
+
+        .maturity-badge {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .maturity-badge.stable {
+            background: rgba(74, 222, 128, 0.2);
+            color: var(--success);
+        }
+
+        .maturity-badge.beta {
+            background: rgba(251, 191, 36, 0.2);
+            color: var(--warning);
+        }
+
+        /* Flow diagram */
+        .flow-box {
+            background: #0d0a14;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            overflow-x: auto;
+        }
+
+        .flow-box pre {
+            color: var(--text-muted);
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.8rem;
+            line-height: 1.5;
+        }
+
+        .flow-box .highlight { color: var(--accent); }
+        .flow-box .claude { color: var(--claude-orange); }
+        .flow-box .gpt { color: var(--gpt-green); }
+        .flow-box .gemini { color: var(--gemini-blue); }
+
+        /* Use case cards */
+        .usecase-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .usecase-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .usecase-card h4 {
+            color: var(--text);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .usecase-card h4::before {
+            content: attr(data-icon);
+            font-size: 1.25rem;
+        }
+
+        .usecase-card ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .usecase-card li {
+            padding: 0.3rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .usecase-card li::before {
+            content: ">";
+            position: absolute;
+            left: 0;
+            color: var(--accent);
+        }
+
+        /* Semantic conventions */
+        .semconv-section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+
+        .semconv-section h3 {
+            margin-top: 0;
+        }
+
+        .attr-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .attr-item {
+            background: var(--bg);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .attr-item code {
+            color: var(--accent);
+            font-size: 0.85rem;
+        }
+
+        .attr-item .desc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        /* OTel alignment */
+        .otel-box {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(99, 102, 241, 0.1));
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .otel-box h4 {
+            color: var(--accent);
+            margin-bottom: 0.75rem;
+        }
+
+        .otel-box p {
+            font-size: 0.95rem;
+        }
+
+        /* CTA section */
+        .cta-section {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            border-radius: 16px;
+            padding: 3rem;
+            text-align: center;
+            margin: 3rem 0;
+        }
+
+        .cta-section h2 {
+            color: white;
+            margin-bottom: 1rem;
+        }
+
+        .cta-section p {
+            color: rgba(255, 255, 255, 0.9);
+            max-width: 600px;
+            margin: 0 auto 2rem;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .cta-btn {
+            background: white;
+            color: var(--gradient-start);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .cta-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .cta-btn.secondary {
+            background: transparent;
+            border: 2px solid white;
+            color: white;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            border-top: 1px solid var(--border);
+            margin-top: 3rem;
+            color: var(--text-muted);
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .hero h1 { font-size: 1.8rem; }
+            .agent-grid { grid-template-columns: 1fr; }
+            .usecase-grid { grid-template-columns: 1fr; }
+            .persona-nav { gap: 0.5rem; }
+            .persona-nav a { padding: 0.4rem 0.75rem; font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Persona Navigation -->
+    <nav class="persona-nav">
+        <a href="harbor-tour.html">All Audiences</a>
+        <a href="harbor-tour-platform-engineer.html">Platform Engineer</a>
+        <a href="harbor-tour-ai-developer.html" class="active">AI Developer</a>
+        <a href="harbor-tour-team-lead.html">Team Lead</a>
+        <a href="getting-started-solopreneur.html">Solo-preneur</a>
+    </nav>
+
+    <div class="container">
+        <header class="hero">
+            <span class="hero-badge">For AI Developers</span>
+            <h1>Agents That Remember</h1>
+            <p class="subtitle">Build AI agents with persistent memory, observable execution, and cross-session context using the Wayfinder suite. Your agents learn from yesterday's sessions.</p>
+        </header>
+
+        <!-- The Problem -->
+        <section>
+            <h2>The Amnesia Problem</h2>
+            <p>Every agent session starts from zero. Decisions made, lessons learned, context gathered—all lost when the session ends.</p>
+
+            <div class="problem-box">
+<pre>
+# Session 1 (Monday)
+Claude: "I'll use async/await for this - it's cleaner than callbacks"
+       [writes implementation, explains rationale, session ends]
+
+# Session 2 (Tuesday)
+Claude: "Let me understand this codebase..."
+       [re-discovers the same patterns]
+       "Should we use async or callbacks here?"
+User:   "We discussed this yesterday!"
+Claude: "I apologize, I don't have memory of previous sessions."
+
+# Session 3 (Wednesday)
+[Same conversation repeats...]
+</pre>
+            </div>
+
+            <p><strong>The cost:</strong> Re-explaining context, repeated decisions, lost institutional knowledge. Every session is groundhog day.</p>
+        </section>
+
+        <!-- The Solution -->
+        <section>
+            <h2>Agent Insights: Persistent Memory</h2>
+            <p>ContextCore stores agent insights as OpenTelemetry spans in Tempo. Query them across sessions, agents, and time.</p>
+
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<code><span class="keyword">from</span> contextcore.agent <span class="keyword">import</span> InsightEmitter, InsightQuerier
+
+<span class="comment"># Emit a decision (persists to Tempo)</span>
+emitter = <span class="class">InsightEmitter</span>(project_id=<span class="string">"checkout"</span>, agent_id=<span class="string">"claude"</span>)
+emitter.<span class="function">emit_decision</span>(
+    summary=<span class="string">"Using async/await for cleaner API handlers"</span>,
+    confidence=<span class="number">0.92</span>,
+    context={<span class="string">"file"</span>: <span class="string">"src/api/handlers.py"</span>}
+)
+
+<span class="comment"># Query prior decisions (in future sessions)</span>
+querier = <span class="class">InsightQuerier</span>()
+prior = querier.<span class="function">query</span>(
+    project_id=<span class="string">"checkout"</span>,
+    insight_type=<span class="string">"decision"</span>,
+    time_range=<span class="string">"30d"</span>
+)
+
+<span class="keyword">for</span> decision <span class="keyword">in</span> prior:
+    <span class="function">print</span>(f<span class="string">"{decision.summary} (confidence: {decision.confidence})"</span>)</code>
+            </div>
+
+            <h3>Insight Types</h3>
+            <table class="capability-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Use Case</th>
+                        <th>Example</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>decision</code></td>
+                        <td>Architectural choices, design rationale</td>
+                        <td>"Chose Redis over Memcached for TTL support"</td>
+                    </tr>
+                    <tr>
+                        <td><code>lesson</code></td>
+                        <td>Patterns learned, gotchas discovered</td>
+                        <td>"Always mock OTLP exporter in unit tests"</td>
+                    </tr>
+                    <tr>
+                        <td><code>question</code></td>
+                        <td>Open items needing human input</td>
+                        <td>"Should we support OAuth 2.1?"</td>
+                    </tr>
+                    <tr>
+                        <td><code>handoff</code></td>
+                        <td>Context passed between agents</td>
+                        <td>"Investigation complete, ready for implementation"</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Ecosystem -->
+        <section>
+            <h2>The Wayfinder Fleet</h2>
+            <div class="agent-grid">
+                <div class="agent-card">
+                    <div class="agent-icon beaver">
+                    </div>
+                    <h4>Beaver (Amik)</h4>
+                    <div class="anishinaabe">LLM Provider Abstraction</div>
+                    <p>Unified interface for Claude, GPT-4, Gemini. Automatic cost tracking, token accounting, and span emission for every call.</p>
+                </div>
+                <div class="agent-card">
+                    <div class="agent-icon squirrel">
+                    </div>
+                    <h4>Squirrel (Ajidamoo)</h4>
+                    <div class="anishinaabe">Skills Library</div>
+                    <p>Token-efficient capability discovery. Progressive disclosure pattern—agents load only the skills they need.</p>
+                </div>
+                <div class="agent-card">
+                    <div class="agent-icon spider">
+                    </div>
+                    <h4>Spider (Asabikeshiinh)</h4>
+                    <div class="anishinaabe">Core Framework</div>
+                    <p>Agent insights, handoffs, and guidance. The memory layer that persists across sessions.</p>
+                </div>
+                <div class="agent-card">
+                    <div class="agent-icon coyote">
+                    </div>
+                    <h4>Coyote (Wiisagi-ma'iingan)</h4>
+                    <div class="anishinaabe">Multi-Agent Pipeline</div>
+                    <p>Orchestrate investigator, designer, and implementer agents. Structured incident resolution that learns.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Capabilities -->
+        <section>
+            <h2>Indexed Capabilities</h2>
+            <p>ContextCore capabilities are indexed in machine-readable format for agent discovery. Each capability has maturity level, triggers, and API documentation.</p>
+
+            <table class="capability-table">
+                <thead>
+                    <tr>
+                        <th>Capability</th>
+                        <th>Maturity</th>
+                        <th>Trigger</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>insight.emit</code></td>
+                        <td><span class="maturity-badge stable">stable</span></td>
+                        <td>After making decisions, learning patterns</td>
+                    </tr>
+                    <tr>
+                        <td><code>insight.query</code></td>
+                        <td><span class="maturity-badge stable">stable</span></td>
+                        <td>Start of session, before decisions</td>
+                    </tr>
+                    <tr>
+                        <td><code>handoff.initiate</code></td>
+                        <td><span class="maturity-badge beta">beta</span></td>
+                        <td>Task exceeds scope, needs specialist</td>
+                    </tr>
+                    <tr>
+                        <td><code>handoff.receive</code></td>
+                        <td><span class="maturity-badge beta">beta</span></td>
+                        <td>Accepting work from another agent</td>
+                    </tr>
+                    <tr>
+                        <td><code>guidance.read</code></td>
+                        <td><span class="maturity-badge beta">beta</span></td>
+                        <td>Checking human constraints/preferences</td>
+                    </tr>
+                    <tr>
+                        <td><code>code_generation.contract</code></td>
+                        <td><span class="maturity-badge beta">beta</span></td>
+                        <td>Before generating code, agree on constraints</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Agent Handoffs -->
+        <section>
+            <h2>Agent-to-Agent Handoffs</h2>
+            <p>Structured handoffs with context preservation. The receiving agent knows what was tried, what worked, and what the user expects.</p>
+
+            <div class="flow-box">
+<pre>
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Multi-Agent Workflow                             │
+└─────────────────────────────────────────────────────────────────────┘
+
+<span class="claude">Investigator Agent (Claude)</span>
+    │ Analyzes error logs, identifies root cause
+    │ Emits: insight.decision ("Found race condition in cart.py:142")
+    │
+    ▼
+<span class="highlight">Handoff Span</span> ──────────────────────────────────────────────────────
+    │ handoff.from_agent: "investigator"
+    │ handoff.to_agent: "designer"
+    │ handoff.context: { root_cause, affected_files, severity }
+    │ handoff.expected_output: "Fix approach with test strategy"
+    │
+    ▼
+<span class="gpt">Designer Agent (GPT-4)</span>
+    │ Proposes fix approach, identifies test cases
+    │ Emits: insight.decision ("Use optimistic locking pattern")
+    │
+    ▼
+<span class="highlight">Handoff Span</span> ──────────────────────────────────────────────────────
+    │
+    ▼
+<span class="gemini">Implementer Agent (Gemini)</span>
+    │ Writes code, runs tests
+    │ Emits: insight.lesson ("Optimistic locking needs retry logic")
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  All spans visible in Tempo │ Queryable via TraceQL                 │
+└─────────────────────────────────────────────────────────────────────┘
+</pre>
+            </div>
+
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<code><span class="keyword">from</span> contextcore.agent <span class="keyword">import</span> HandoffManager
+
+<span class="comment"># Initiate a handoff</span>
+handoff = <span class="class">HandoffManager</span>(project_id=<span class="string">"checkout"</span>, agent_id=<span class="string">"investigator"</span>)
+handoff.<span class="function">initiate</span>(
+    to_agent=<span class="string">"designer"</span>,
+    capability_id=<span class="string">"fix_design"</span>,
+    context={
+        <span class="string">"root_cause"</span>: <span class="string">"Race condition in cart update"</span>,
+        <span class="string">"affected_files"</span>: [<span class="string">"src/cart/service.py"</span>],
+        <span class="string">"severity"</span>: <span class="string">"high"</span>
+    },
+    expected_output=<span class="string">"Fix approach with test strategy"</span>
+)
+
+<span class="comment"># Receive and process handoff</span>
+pending = handoff.<span class="function">receive_pending</span>(agent_id=<span class="string">"designer"</span>)
+<span class="keyword">for</span> task <span class="keyword">in</span> pending:
+    <span class="function">print</span>(f<span class="string">"From: {task.from_agent}, Context: {task.context}"</span>)</code>
+            </div>
+        </section>
+
+        <!-- Code Generation Contracts -->
+        <section>
+            <h2>Code Generation Contracts</h2>
+            <p>Prevent truncation before it happens. Agree on output constraints before generation.</p>
+
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<code><span class="keyword">from</span> contextcore.agent.code_generation <span class="keyword">import</span> (
+    CodeGenerationHandoff,
+    CodeGenerationSpec,
+)
+
+<span class="comment"># Request code with size constraints</span>
+handoff = <span class="class">CodeGenerationHandoff</span>(project_id=<span class="string">"myproject"</span>, agent_id=<span class="string">"orchestrator"</span>)
+
+result = handoff.<span class="function">request_code</span>(
+    to_agent=<span class="string">"code-generator"</span>,
+    spec=<span class="class">CodeGenerationSpec</span>(
+        target_file=<span class="string">"src/mymodule.py"</span>,
+        description=<span class="string">"Implement CartService class"</span>,
+        max_lines=<span class="number">150</span>,              <span class="comment"># Size constraint</span>
+        required_exports=[<span class="string">"CartService"</span>],  <span class="comment"># Completeness markers</span>
+    )
+)
+
+<span class="comment"># If size exceeds limit, decomposition is negotiated via span events</span>
+<span class="comment"># Proactive prevention, not reactive validation</span></code>
+            </div>
+        </section>
+
+        <!-- OTel GenAI Alignment -->
+        <section>
+            <div class="otel-box">
+                <h4>OTel GenAI Semantic Conventions</h4>
+                <p>The ContextCore standard aligns with <a href="https://opentelemetry.io/docs/specs/semconv/gen-ai/" style="color: var(--accent);">OTel GenAI semantic conventions</a>. Wayfinder's dual-emit mode sends both legacy (<code>agent.*</code>) and standard (<code>gen_ai.*</code>) attributes during migration.</p>
+            </div>
+
+            <div class="semconv-section">
+                <h3>Agent Semantic Conventions</h3>
+                <div class="attr-list">
+                    <div class="attr-item">
+                        <code>gen_ai.agent.id</code>
+                        <div class="desc">Unique agent identifier</div>
+                    </div>
+                    <div class="attr-item">
+                        <code>gen_ai.conversation.id</code>
+                        <div class="desc">Session/conversation identifier</div>
+                    </div>
+                    <div class="attr-item">
+                        <code>gen_ai.tool.name</code>
+                        <div class="desc">Capability being invoked</div>
+                    </div>
+                    <div class="attr-item">
+                        <code>gen_ai.tool.call.id</code>
+                        <div class="desc">Unique handoff/call identifier</div>
+                    </div>
+                    <div class="attr-item">
+                        <code>agent.insight.type</code>
+                        <div class="desc">decision, lesson, question, handoff</div>
+                    </div>
+                    <div class="attr-item">
+                        <code>agent.insight.confidence</code>
+                        <div class="desc">Confidence score 0.0-1.0</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Use Cases -->
+        <section>
+            <h2>Use Cases</h2>
+            <div class="usecase-grid">
+                <div class="usecase-card">
+                    <h4 data-icon="">Persistent Context</h4>
+                    <ul>
+                        <li>Query decisions from past sessions</li>
+                        <li>Apply learned patterns automatically</li>
+                        <li>Avoid re-explaining project context</li>
+                        <li>Build on previous investigations</li>
+                    </ul>
+                </div>
+                <div class="usecase-card">
+                    <h4 data-icon="">Multi-Agent Orchestration</h4>
+                    <ul>
+                        <li>Structured handoffs with context</li>
+                        <li>Observable agent pipelines</li>
+                        <li>Cost tracking per agent</li>
+                        <li>TraceQL queries across agents</li>
+                    </ul>
+                </div>
+                <div class="usecase-card">
+                    <h4 data-icon="">Code Generation Safety</h4>
+                    <ul>
+                        <li>Size estimation before generation</li>
+                        <li>Truncation prevention contracts</li>
+                        <li>Completeness verification</li>
+                        <li>Syntax validation pre-integration</li>
+                    </ul>
+                </div>
+                <div class="usecase-card">
+                    <h4 data-icon="">Human-Agent Collaboration</h4>
+                    <ul>
+                        <li>Read human guidance/constraints</li>
+                        <li>Flag questions for human review</li>
+                        <li>Transparent decision visibility</li>
+                        <li>Audit trail in Grafana</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Start -->
+        <section>
+            <h2>Quick Start</h2>
+
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<code><span class="comment"># Install ContextCore</span>
+pip3 install contextcore
+
+<span class="comment"># Install with LLM provider support</span>
+pip3 install contextcore-beaver  <span class="comment"># Formerly startd8</span>
+
+<span class="comment"># Set up local storage for development</span>
+export CONTEXTCORE_LOCAL_STORAGE=~/.contextcore/insights
+
+<span class="comment"># Or point to Tempo for production</span>
+export OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317</code>
+            </div>
+
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<code><span class="comment"># Basic usage in your agent code</span>
+<span class="keyword">from</span> contextcore.agent <span class="keyword">import</span> InsightEmitter, InsightQuerier
+
+<span class="comment"># At session start: load prior context</span>
+querier = <span class="class">InsightQuerier</span>()
+prior_decisions = querier.<span class="function">query</span>(
+    project_id=<span class="string">"my-project"</span>,
+    insight_type=<span class="string">"decision"</span>,
+    time_range=<span class="string">"30d"</span>
+)
+
+<span class="comment"># During work: emit insights</span>
+emitter = <span class="class">InsightEmitter</span>(project_id=<span class="string">"my-project"</span>, agent_id=<span class="string">"claude"</span>)
+emitter.<span class="function">emit_decision</span>(
+    summary=<span class="string">"Chose approach X because Y"</span>,
+    confidence=<span class="number">0.9</span>
+)
+
+<span class="comment"># At session end: persist lessons</span>
+emitter.<span class="function">emit_lesson</span>(
+    summary=<span class="string">"Always validate inputs before processing"</span>,
+    category=<span class="string">"best-practice"</span>,
+    applies_to=[<span class="string">"src/api/"</span>]
+)</code>
+            </div>
+        </section>
+
+        <!-- CTA -->
+        <div class="cta-section">
+            <h2>Build Agents That Learn</h2>
+            <p>Stop losing context between sessions. ContextCore gives your agents memory, observability, and the ability to collaborate.</p>
+            <div class="cta-buttons">
+                <a href="agent-communication-protocol.html" class="cta-btn">Agent Protocol</a>
+                <a href="capability-index/contextcore.agent.html" class="cta-btn secondary">Capability Index</a>
+            </div>
+        </div>
+
+        <footer>
+            <p>Wayfinder for AI Developers — Agents That Remember</p>
+            <p>Built on the ContextCore Standard by Force Multiplier Labs</p>
+            <p><a href="harbor-tour.html">All Audiences</a> | <a href="agent-semantic-conventions.md">Agent Conventions</a> | <a href="OTEL_GENAI_MIGRATION_GUIDE.md">OTel GenAI Guide</a></p>
+        </footer>
+    </div>
+
+    <script>
+        function copyCode(btn) {
+            const code = btn.parentElement.querySelector('code').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                const original = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = original, 2000);
+            });
+        }
+    </script>
+</body>
+</html>

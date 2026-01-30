@@ -75,6 +75,15 @@ source_of_truth:
         datasources: ["Tempo"]
         note: "Moved from rabbit/workflow.json - this is core functionality, not Rabbit"
 
+      - file: "core/code-generation-health.json"
+        uid: "contextcore-code-gen-health"
+        title: "[CORE] Code Generation Health"
+        description: "Monitor code generation truncation prevention - size estimation accuracy, decomposition decisions, and verification results"
+        modified: "2026-01-26"
+        size_bytes: 17205
+        datasources: ["Tempo"]
+        tags: ["contextcore", "code-generation", "truncation-prevention", "prime-contractor"]
+
     beaver:
       - file: "beaver/beaver-lead-contractor-progress.json"
         uid: "beaver-lead-contractor"
@@ -185,6 +194,8 @@ k8s_dashboards:
       action: "Rename to project-tasks.json and update from source_of_truth/core/project-tasks.json"
 
   missing_from_k8s:
+    - source: "source_of_truth/core/code-generation-health.json"
+      action: "Copy to k8s/observability/dashboards/"
     - source: "source_of_truth/fox/fox-alert-automation.json"
       action: "Copy to k8s/observability/dashboards/"
     - source: "source_of_truth/squirrel/skills-browser.json"
@@ -243,6 +254,7 @@ deploy_dashboards:
       action: "Rename to project-tasks.json and update from source_of_truth/core/project-tasks.json"
 
   missing_from_deploy:
+    - source: "source_of_truth/core/code-generation-health.json"
     - source: "source_of_truth/fox/fox-alert-automation.json"
     - source: "source_of_truth/squirrel/skills-browser.json"
     - source: "source_of_truth/external/agent-trigger.json"
@@ -385,6 +397,19 @@ dashboard_data_mapping:
       attributes_used:
         - "skill.name"
         - "skill.version"
+
+    - dashboard: "core/code-generation-health.json"
+      uid: "contextcore-code-gen-health"
+      data_files: []
+      note: "Queries Tempo for gen_ai.code.* spans from code generation handoffs"
+      attributes_used:
+        - "gen_ai.code.estimated_lines"
+        - "gen_ai.code.actual_lines"
+        - "gen_ai.code.truncated"
+        - "gen_ai.code.verification_result"
+        - "gen_ai.code.estimated_complexity"
+        - "gen_ai.code.chunk_index"
+        - "gen_ai.code.chunk_total"
 
     - dashboard: "fox/fox-alert-automation.json"
       uid: "fox-alert-automation"
