@@ -3,17 +3,28 @@
 # Local development stack with persistent storage.
 # Data survives container restarts and is stored in ./data/
 #
-# Usage:
+# Usage (macOS/Linux):
 #   make up          Start the stack (runs doctor first)
 #   make down        Stop (preserve data)
 #   make destroy     Delete (auto-backup, confirm)
 #   make health      Check component health
 #   make smoke-test  Validate entire stack
 #
+# Usage (Windows PowerShell):
+#   .\setup.ps1 up          Start the stack
+#   .\setup.ps1 down        Stop (preserve data)
+#   .\setup.ps1 health      Check component health
+#   .\setup.ps1 smoke-test  Validate entire stack
+#
 # Or directly with docker compose:
 #   docker compose up -d
 #   docker compose down      # preserves data
 #   docker compose down -v   # destroys data (use make destroy instead)
+#
+# Windows notes:
+#   - Docker Desktop with WSL2 backend is required for bind mount performance.
+#   - Hyper-V backend works but bind mounts (./data/*) will be significantly slower.
+#   - To check your backend: Docker Desktop > Settings > General > "Use the WSL 2 based engine"
 
 services:
   # ==========================================================================

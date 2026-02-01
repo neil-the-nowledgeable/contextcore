@@ -142,10 +142,36 @@ ContextCore/
 
 ## System Requirements
 
-**Python Command**: This system only has `python3`, not `python`. Always use:
+**Python Command (macOS/Linux)**: This system only has `python3`, not `python`. Always use:
 - `python3` instead of `python`
 - `pip3` instead of `pip`
 - `python3 -m module` instead of `python -m module`
+
+**Python Command (Windows)**: Windows typically has `python` or `py`, not `python3`. The Python scripts use `sys.executable` for subprocess calls to work on all platforms. For manual commands:
+- `python` or `py` instead of `python3`
+- `pip` or `py -m pip` instead of `pip3`
+
+### Windows Setup
+
+Windows is supported via PowerShell scripts that mirror the Makefile targets:
+
+| macOS/Linux | Windows PowerShell |
+|-------------|-------------------|
+| `make full-setup` | `.\setup.ps1 full-setup` |
+| `make up` | `.\setup.ps1 up` |
+| `make down` | `.\setup.ps1 down` |
+| `make health` | `.\setup.ps1 health` |
+| `make smoke-test` | `.\setup.ps1 smoke-test` |
+| `make doctor` | `.\setup.ps1 doctor` |
+
+**Docker Desktop**: WSL2 backend is required for acceptable bind mount performance. Check: Docker Desktop > Settings > General > "Use the WSL 2 based engine".
+
+**Demo deployment**: Use `demo/setup/deploy.ps1` instead of `demo/setup/deploy.sh`.
+
+**Environment variable** for startd8 SDK path (if not in sibling directory):
+```powershell
+$env:STARTD8_SDK_PATH = "C:\path\to\startd8-sdk\src"
+```
 
 ## Code Generation Workflows
 

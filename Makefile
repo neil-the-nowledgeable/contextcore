@@ -326,7 +326,7 @@ logs-grafana: ## Follow Grafana logs
 # === Development ===
 
 install: ## Install ContextCore in development mode
-	pip install -e ".[dev]"
+	pip3 install -e ".[dev]"
 
 test: ## Run tests
 	PYTHONPATH=./src python3 -m pytest tests/ -v
@@ -338,7 +338,7 @@ typecheck: ## Run type checking
 	mypy src/contextcore
 
 build: ## Build package
-	python -m build
+	python3 -m build
 
 clean: ## Clean build artifacts
 	rm -rf build/ dist/ *.egg-info src/*.egg-info
