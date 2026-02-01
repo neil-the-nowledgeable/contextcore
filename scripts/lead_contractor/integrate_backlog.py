@@ -71,7 +71,8 @@ def scan_backlog() -> List[GeneratedFile]:
     
     for code_file in code_files:
         # Skip if already in source tree (likely integrated)
-        if "src/" in str(code_file) or "extensions/" in str(code_file):
+        code_file_posix = code_file.as_posix()
+        if "/src/" in code_file_posix or "/extensions/" in code_file_posix:
             continue
             
         # Find corresponding result file

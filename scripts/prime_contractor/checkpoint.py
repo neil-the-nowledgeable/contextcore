@@ -11,6 +11,7 @@ This prevents the accumulation of technical debt that happens when
 features are developed without integration validation.
 """
 
+import os
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -82,7 +83,7 @@ class IntegrationCheckpoint:
         before but fail after integration).
         """
         result = subprocess.run(
-            ["python3", "-m", "pytest", "--collect-only", "-q"],
+            [sys.executable, "-m", "pytest", "--collect-only", "-q"],
             capture_output=True,
             text=True,
             cwd=self.project_root
@@ -136,7 +137,7 @@ class IntegrationCheckpoint:
             
             checked += 1
             result = subprocess.run(
-                ["python3", "-m", "py_compile", str(file_path)],
+                [sys.executable, "-m", "py_compile", str(file_path)],
                 capture_output=True,
                 text=True,
                 cwd=self.project_root
@@ -175,17 +176,24 @@ class IntegrationCheckpoint:
             # Try to import the module
             try:
                 # Get module path relative to src/
-                if "src/contextcore" in str(file_path):
+                src_dir = self.project_root / "src" / "contextcore"
+                try:
+                    file_path.relative_to(src_dir)
+                    is_contextcore = True
+                except ValueError:
+                    is_contextcore = False
+
+                if is_contextcore:
                     rel_path = file_path.relative_to(self.project_root / "src")
-                    module_path = str(rel_path).replace("/", ".").replace(".py", "")
-                    
+                    module_path = ".".join(rel_path.with_suffix("").parts)
+
                     result = subprocess.run(
-                        ["python3", "-c", f"import {module_path}"],
+                        [sys.executable, "-c", f"import {module_path}"],
                         capture_output=True,
                         text=True,
                         cwd=self.project_root,
                         env={
-                            **subprocess.os.environ,
+                            **os.environ,
                             "PYTHONPATH": str(self.project_root / "src")
                         }
                     )
@@ -239,7 +247,7 @@ class IntegrationCheckpoint:
             
             # Try ruff if available
             result = subprocess.run(
-                ["python3", "-m", "ruff", "check", str(file_path), "--select=E,F"],
+                [sys.executable, "-m", "ruff", "check", str(file_path), "--select=E,F"],
                 capture_output=True,
                 text=True,
                 cwd=self.project_root
@@ -288,7 +296,7 @@ class IntegrationCheckpoint:
         """
         # Run pytest
         result = subprocess.run(
-            ["python3", "-m", "pytest", "-v", "--tb=short", "-q"],
+            [sys.executable, "-m", "pytest", "-v", "--tb=short", "-q"],
             capture_output=True,
             text=True,
             cwd=self.project_root

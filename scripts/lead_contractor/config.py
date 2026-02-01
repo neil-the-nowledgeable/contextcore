@@ -2,13 +2,16 @@
 Shared configuration for Lead Contractor workflows.
 """
 
+import os
 import sys
 from pathlib import Path
 
 # Project paths
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 OUTPUT_DIR = PROJECT_ROOT / "generated" / "phase3"
-STARTD8_SDK_PATH = Path("/Users/neilyashinsky/Documents/dev/startd8-sdk/src")
+STARTD8_SDK_PATH = Path(
+    os.environ.get("STARTD8_SDK_PATH", PROJECT_ROOT.parent / "startd8-sdk" / "src")
+)
 
 # Add startd8 SDK to path
 if STARTD8_SDK_PATH.exists():
