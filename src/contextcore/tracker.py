@@ -221,11 +221,11 @@ class TaskTracker:
         fallback_to_console = os.environ.get("CONTEXTCORE_FALLBACK_CONSOLE", "").lower() in ("1", "true", "yes")
 
         try:
-            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+            from contextcore.exporter_factory import create_span_exporter
 
             # Check if endpoint is reachable before configuring
             if self._check_endpoint_available(endpoint):
-                exporter = OTLPSpanExporter(endpoint=endpoint, insecure=True)
+                exporter = create_span_exporter(endpoint=endpoint)
                 self._provider.add_span_processor(BatchSpanProcessor(exporter))
                 self._export_mode = EXPORT_MODE_OTLP
                 logger.info(f"Configured OTLP exporter to {endpoint}")

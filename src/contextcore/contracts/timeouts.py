@@ -20,6 +20,9 @@ OTEL_ENDPOINT_CHECK_TIMEOUT_S = 2.0
 # Default OTLP gRPC port
 OTEL_DEFAULT_GRPC_PORT = 4317
 
+# Default OTLP HTTP/protobuf port
+OTEL_DEFAULT_HTTP_PORT = 4318
+
 # =============================================================================
 # HTTP Client Timeouts
 # =============================================================================

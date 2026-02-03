@@ -206,9 +206,10 @@ class InsightEmitter:
                 if len(parts) > 1 and parts[0] in ("claude", "gpt", "gemini"):
                     model = svc  # Use full service name as proxy for model
 
+        _span_kind = SpanKind.CLIENT if (provider or model) else SpanKind.INTERNAL
         with self.tracer.start_as_current_span(
             f"insight.{insight_type.value}",
-            kind=SpanKind.INTERNAL,
+            kind=_span_kind,
         ) as span:
             # Build attributes dict for mapping
             attributes = {

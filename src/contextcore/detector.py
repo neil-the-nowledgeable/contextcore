@@ -27,6 +27,7 @@ import logging
 import os
 import platform
 import socket
+import uuid
 from typing import Any, Dict, Optional, Union
 
 from opentelemetry.sdk.resources import Resource, ResourceDetector
@@ -50,6 +51,40 @@ def _get_contextcore_version() -> str:
         return getattr(contextcore, "__version__", "unknown")
     except ImportError:
         return "unknown"
+
+
+# Module-level cache so the instance ID is stable for the process lifetime
+_INSTANCE_ID: Optional[str] = None
+
+
+def _get_instance_id() -> str:
+    """
+    Get a stable service instance identifier.
+
+    Resolution order:
+    1. OTEL_SERVICE_INSTANCE_ID env var (explicit override)
+    2. HOSTNAME env var if it contains hyphens (likely a K8s pod name)
+    3. Generated UUID cached for process lifetime
+    """
+    global _INSTANCE_ID
+    if _INSTANCE_ID is not None:
+        return _INSTANCE_ID
+
+    # 1. Explicit override
+    explicit = os.environ.get("OTEL_SERVICE_INSTANCE_ID")
+    if explicit:
+        _INSTANCE_ID = explicit
+        return _INSTANCE_ID
+
+    # 2. K8s pod name (contains hyphens like "pod-name-abc12")
+    hostname = os.environ.get("HOSTNAME", "")
+    if "-" in hostname:
+        _INSTANCE_ID = hostname
+        return _INSTANCE_ID
+
+    # 3. Generated UUID, stable for process lifetime
+    _INSTANCE_ID = str(uuid.uuid4())
+    return _INSTANCE_ID
 
 
 def get_telemetry_sdk_attributes() -> Dict[str, str]:
@@ -83,6 +118,7 @@ def get_service_attributes(
         "service.name": service_name,
         "service.namespace": service_namespace,
         "service.version": _get_contextcore_version(),
+        "service.instance.id": _get_instance_id(),
     }
 
 

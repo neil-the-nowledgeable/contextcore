@@ -178,10 +178,10 @@ class TaskMetrics:
         fallback_to_console = os.environ.get("CONTEXTCORE_FALLBACK_CONSOLE", "").lower() in ("1", "true", "yes")
 
         try:
-            from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
+            from contextcore.exporter_factory import create_metric_exporter
 
             if self._check_endpoint_available(endpoint):
-                exporter = OTLPMetricExporter(endpoint=endpoint, insecure=True)
+                exporter = create_metric_exporter(endpoint=endpoint)
                 self._export_mode = METRICS_EXPORT_MODE_OTLP
                 logger.info(f"Configured OTLP metrics exporter to {endpoint}")
                 return PeriodicExportingMetricReader(
