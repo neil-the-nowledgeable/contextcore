@@ -1060,18 +1060,84 @@ Emitted when task progress changes. Contains:
 }
 ```
 
+### Recording Rule Naming Convention
+
+Recording rules and alerts follow the [kubernetes-mixin](https://github.com/kubernetes-monitoring/kubernetes-mixin) naming conventions to ensure consistency with the broader Kubernetes/Prometheus ecosystem.
+
+#### Recording Rule Names
+
+**Pattern:** `<aggregation_level>:<base_metric>:<aggregation_function>`
+
+- **`contextcore_`** prefix on base metric to avoid collisions with other systems
+- Colons separate the three components (valid in Prometheus metric names)
+
+**Aggregation levels:**
+
+| Level | Description | Example Labels |
+|-------|-------------|---------------|
+| `project` | Per-project aggregation | `project_id` |
+| `project_sprint` | Per-project and sprint | `project_id`, `sprint_id` |
+| `project_task` | Per-project and task | `project_id`, `task_id` |
+
+**Aggregation suffixes:**
+
+| Suffix | Description |
+|--------|-------------|
+| `max_over_time5m` | Maximum value over 5-minute window |
+| `avg` | Average across group |
+| `count` | Count of matching series |
+| `rate1h` | Per-second rate over 1-hour window |
+| `last` | Most recent value |
+| `count_by_status` | Count grouped by status |
+
+**Recording rule name mapping:**
+
+| Rule Name | Source | Description |
+|-----------|--------|-------------|
+| `project:contextcore_task_percent_complete:max_over_time5m` | Loki | Per-task progress, max over 5m |
+| `project_sprint:contextcore_task_percent_complete:avg` | Derived | Average progress per sprint |
+| `project_sprint:contextcore_task_completed:count` | Derived | Count of completed tasks per sprint |
+| `project_task:contextcore_task_progress:rate1h` | Loki | Progress rate per task over 1h |
+| `project:contextcore_task_count:count_by_status` | Loki | Task count grouped by status |
+| `project_sprint:contextcore_sprint_planned_points:last` | Mimir | Planned points per sprint |
+
+#### Alert Naming Convention
+
+**Pattern:** `ContextCore[Resource][Issue]`
+
+Parallels kubernetes-mixin's `Kube[Resource][Issue]` pattern.
+
+**Severity taxonomy** (matching kubernetes-mixin):
+
+| Severity | Meaning | Response |
+|----------|---------|----------|
+| `critical` | Service-affecting failure | Pages on-call immediately |
+| `warning` | Degraded but functional | Next-business-day work queue |
+| `info` | Informational | Troubleshooting enrichment |
+
+**Defined alerts:**
+
+| Alert | Severity | Description | Source Risk |
+|-------|----------|-------------|------------|
+| `ContextCoreExporterFailure` | critical | OTLP export errors detected | P1 — OTLP export blocks reporting |
+| `ContextCoreSpanStateLoss` | critical | Span state persistence failure | P1 — Controller restart loses spans |
+| `ContextCoreInsightLatencyHigh` | warning | Insight query P99 > 500ms | P2 — Insight queries exceed budget |
+| `ContextCoreTaskStalled` | warning | Task stuck > 24h with no status change | P2 — Stalled tasks |
+
+All alerts **must** include `annotations.runbook_url`.
+
 ### Loki Recording Rules
 
 Generate metrics from `percent_complete` logs using Loki Ruler:
 
 ```yaml
-# /etc/loki/rules/contextcore-rules.yaml
+# /etc/loki/rules/fake/contextcore-rules.yaml
 groups:
   - name: contextcore_task_progress
     interval: 1m
     rules:
       # Task progress gauge - last reported percent_complete per task
-      - record: task_percent_complete
+      - record: "project:contextcore_task_percent_complete:max_over_time5m"
         expr: |
           max by (project_id, task_id, task_type, sprint_id) (
             max_over_time(
@@ -1086,25 +1152,25 @@ groups:
           source: loki
 
       # Average progress by sprint
-      - record: sprint_average_progress
+      - record: "project_sprint:contextcore_task_percent_complete:avg"
         expr: |
           avg by (project_id, sprint_id) (
-            task_percent_complete{sprint_id!=""}
+            project:contextcore_task_percent_complete:max_over_time5m{sprint_id!=""}
           )
         labels:
           source: derived
 
       # Count of completed tasks (100%)
-      - record: task_completed_count
+      - record: "project_sprint:contextcore_task_completed:count"
         expr: |
           count by (project_id, sprint_id) (
-            task_percent_complete == 100
+            project:contextcore_task_percent_complete:max_over_time5m == 100
           )
         labels:
           source: derived
 
       # Task progress rate (change per hour)
-      - record: task_progress_rate
+      - record: "project_task:contextcore_task_progress:rate1h"
         expr: |
           sum by (project_id, task_id) (
             rate(
@@ -1113,6 +1179,23 @@ groups:
               | event = "task.progress_updated"
               | unwrap percent_complete
               [1h]
+            )
+          )
+        labels:
+          source: loki
+
+  - name: contextcore_task_status
+    interval: 1m
+    rules:
+      # Task count grouped by status
+      - record: "project:contextcore_task_count:count_by_status"
+        expr: |
+          count by (project_id, to_status) (
+            last_over_time(
+              {service="contextcore"}
+              | json
+              | event = "task.status_changed"
+              [5m]
             )
           )
         labels:
