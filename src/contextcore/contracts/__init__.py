@@ -40,8 +40,12 @@ from contextcore.contracts.metrics import (
     LabelName,
     EventType,
     ProjectSchema,
+    RecordingRuleName,
+    AlertRuleName,
     validate_labels,
     validate_metric_name,
+    GENAI_TOKEN_USAGE_BUCKETS,
+    GENAI_DURATION_BUCKETS,
 )
 from contextcore.contracts.queries import (
     PromQLBuilder,
@@ -165,4 +169,10 @@ __all__ = [
     "DEFAULT_RETRY_DELAY_S",
     "DEFAULT_RETRY_BACKOFF",
     "RETRYABLE_HTTP_STATUS_CODES",
+    # GenAI metric constants
+    "GENAI_TOKEN_USAGE_BUCKETS",
+    "GENAI_DURATION_BUCKETS",
+    # Recording and alert rule contracts
+    "RecordingRuleName",
+    "AlertRuleName",
 ]

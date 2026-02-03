@@ -66,6 +66,59 @@ class MetricName(str, Enum):
     # Sprint metrics (OTel semantic convention names, use as-is)
     SPRINT_VELOCITY = "sprint.velocity"  # Gauge: points per sprint
 
+    # GenAI metrics (OTel semantic convention names, use as-is)
+    # Contracts for metrics recorded by contextcore-beaver.
+    # See: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-metrics/
+    GENAI_CLIENT_TOKEN_USAGE = "gen_ai.client.token.usage"
+    GENAI_SERVER_REQUEST_DURATION = "gen_ai.server.request.duration"
+    GENAI_SERVER_TIME_TO_FIRST_TOKEN = "gen_ai.server.time_to_first_token"
+    GENAI_SERVER_TIME_PER_OUTPUT_TOKEN = "gen_ai.server.time_per_output_token"
+
+
+# OTel GenAI recommended histogram bucket boundaries for token counts
+GENAI_TOKEN_USAGE_BUCKETS = [
+    1, 4, 16, 64, 256, 1024, 4096, 16384,
+    65536, 262144, 1048576, 4194304, 16777216, 67108864,
+]
+
+# Duration histogram buckets (seconds) for LLM timing metrics
+GENAI_DURATION_BUCKETS = [
+    0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64,
+    1.28, 2.56, 5.12, 10.24, 20.48, 40.96, 81.92,
+]
+
+
+class RecordingRuleName(str, Enum):
+    """
+    Canonical recording rule names following kubernetes-mixin convention.
+
+    Pattern: <aggregation_level>:<base_metric>:<aggregation_function>
+    """
+
+    TASK_PERCENT_COMPLETE = "project:contextcore_task_percent_complete:max_over_time5m"
+    SPRINT_AVG_PROGRESS = "project_sprint:contextcore_task_percent_complete:avg"
+    TASK_COMPLETED_COUNT = "project_sprint:contextcore_task_completed:count"
+    TASK_PROGRESS_RATE = "project_task:contextcore_task_progress:rate1h"
+    TASK_COUNT_BY_STATUS = "project:contextcore_task_count:count_by_status"
+    SPRINT_PLANNED_POINTS = "project_sprint:contextcore_sprint_planned_points:last"
+
+
+class AlertRuleName(str, Enum):
+    """
+    Canonical alert rule names following kubernetes-mixin convention.
+
+    Pattern: ContextCore[Resource][Issue]
+
+    Severity taxonomy:
+    - critical: pages on-call immediately
+    - warning: next-business-day work queue
+    """
+
+    EXPORTER_FAILURE = "ContextCoreExporterFailure"
+    SPAN_STATE_LOSS = "ContextCoreSpanStateLoss"
+    INSIGHT_LATENCY_HIGH = "ContextCoreInsightLatencyHigh"
+    TASK_STALLED = "ContextCoreTaskStalled"
+
 
 class LabelName(str, Enum):
     """

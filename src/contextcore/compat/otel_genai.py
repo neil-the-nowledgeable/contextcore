@@ -890,28 +890,42 @@ def emit(insight_type: str, summary: str, confidence: float,
 
 def get_emit_mode() -> EmitMode:
     """
-    Get the current emission mode from CONTEXTCORE_EMIT_MODE environment variable.
-    
-    Returns:
-        EmitMode: The current emission mode, defaults to DUAL during migration.
-    
-    Examples:
-        >>> os.environ['CONTEXTCORE_EMIT_MODE'] = 'otel'
-        >>> get_emit_mode()
-        <EmitMode.OTEL: 'otel'>
+    Get the current emission mode.
+
+    Resolution order:
+    1. CONTEXTCORE_EMIT_MODE env var (explicit, project-specific)
+    2. OTEL_SEMCONV_STABILITY_OPT_IN env var (OTel standard)
+       - Contains 'gen_ai_latest_experimental' -> EmitMode.OTEL
+    3. Default: EmitMode.DUAL
     """
     global _cached_mode
-    if _cached_mode is None:
-        mode_str = os.getenv("CONTEXTCORE_EMIT_MODE", "dual").lower()
+    if _cached_mode is not None:
+        return _cached_mode
+
+    # 1. ContextCore-specific env var takes precedence
+    cc_mode = os.getenv("CONTEXTCORE_EMIT_MODE", "").strip().lower()
+    if cc_mode:
         try:
-            _cached_mode = EmitMode(mode_str)
+            _cached_mode = EmitMode(cc_mode)
+            return _cached_mode
         except ValueError:
             warnings.warn(
-                f"Invalid CONTEXTCORE_EMIT_MODE '{mode_str}'. Using 'dual' mode.",
+                f"Invalid CONTEXTCORE_EMIT_MODE '{cc_mode}'. "
+                f"Checking OTEL_SEMCONV_STABILITY_OPT_IN.",
                 UserWarning,
-                stacklevel=2
+                stacklevel=2,
             )
-            _cached_mode = EmitMode.DUAL
+
+    # 2. OTel standard env var (comma-separated token list)
+    otel_opt_in = os.getenv("OTEL_SEMCONV_STABILITY_OPT_IN", "").strip().lower()
+    if otel_opt_in:
+        tokens = {t.strip() for t in otel_opt_in.split(",")}
+        if "gen_ai_latest_experimental" in tokens:
+            _cached_mode = EmitMode.OTEL
+            return _cached_mode
+
+    # 3. Default
+    _cached_mode = EmitMode.DUAL
     return _cached_mode
 
 
