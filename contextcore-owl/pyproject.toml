@@ -3,7 +3,7 @@ name = "contextcore-owl"
 version = "0.1.0"
 description = "Owl (Gookooko'oo) - Unified Grafana Plugin Package for ContextCore"
 readme = "README.md"
-license = {text = "Equitable Use License v1.0"}
+license = {text = "FSL-1.1-ALv2"}
 requires-python = ">=3.9"
 authors = [
     {name = "ContextCore Team"}

@@ -7,9 +7,10 @@ name = "contextcore"
 version = "0.1.0"
 description = "Project management observability framework - eliminate manual status reporting through artifact metadata extrapolation, vendor-agnostic OTLP export"
 readme = "README.md"
-license = "MIT"
+license = {text = "FSL-1.1-ALv2"}
 requires-python = ">=3.9"
 authors = [
+    { name = "Force Multiplier Labs" },
     { name = "ContextCore Contributors" }
 ]
 keywords = [
@@ -33,7 +34,7 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: MIT License",
+    "License :: Other/Proprietary License",
     "Operating System :: OS Independent",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
