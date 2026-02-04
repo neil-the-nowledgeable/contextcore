@@ -1,0 +1,458 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "uid": "contextcore-agent-insights",
+  "title": "[CORE] Agent Insights",
+  "description": "Agent decisions, lessons, handoffs, and activity using gen_ai.* OTel semantic conventions",
+  "tags": [
+    "contextcore",
+    "agent-insights",
+    "gen-ai",
+    "otel-genai"
+  ],
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "version": 1,
+  "weekStart": "",
+  "templating": {
+    "list": [
+      {
+        "name": "project",
+        "label": "Project",
+        "type": "custom",
+        "current": {
+          "text": "contextcore",
+          "value": "contextcore"
+        },
+        "options": [
+          {
+            "text": "contextcore",
+            "value": "contextcore",
+            "selected": true
+          },
+          {
+            "text": "all",
+            "value": ".*"
+          }
+        ],
+        "query": "contextcore,all"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Agent Activity Overview",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "collapsed": false
+    },
+    {
+      "id": 1,
+      "title": "Total Insights (7d)",
+      "description": "Count of all agent insight spans in the last 7 days",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "tempo" },
+          "queryType": "traceql",
+          "query": "{ span.insight.type =~ \"decision|lesson|question|blocker\" && span.project.id =~ \"$project\" } | count()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 10 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 2,
+      "title": "Decisions",
+      "description": "Agent decisions emitted",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "tempo" },
+          "queryType": "traceql",
+          "query": "{ span.insight.type = \"decision\" && span.project.id =~ \"$project\" } | count()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 5 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 3,
+      "title": "Lessons Learned",
+      "description": "Agent lessons emitted",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "tempo" },
+          "queryType": "traceql",
+          "query": "{ span.insight.type = \"lesson\" && span.project.id =~ \"$project\" } | count()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "orange", "value": null },
+              { "color": "green", "value": 3 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 4,
+      "title": "Handoffs",
+      "description": "Agent-to-agent handoffs",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "tempo" },
+          "queryType": "traceql",
+          "query": "{ span.handoff.status != nil && span.project.id =~ \"$project\" } | count()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "purple", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "type": "row",
+      "title": "GenAI Attributes (OTel Semantic Conventions)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 101,
+      "collapsed": false
+    },
+    {
+      "id": 5,
+      "title": "Agent Generations by System",
+      "description": "Agent generation spans grouped by gen_ai.system (anthropic, openai, google)",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 6 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "tempo" },
+          "queryType": "traceql",
+          "query": "{ span.gen_ai.system != nil && span.project.id =~ \"$project\" } | count() by (span.gen_ai.system)"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "pieType": "pie",
+        "tooltip": { "mode": "single" },
+        "legend": { "displayMode": "list", "placement": "right" }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Generations by Model",
+      "description": "Agent generation spans grouped by gen_ai.request.model",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 6 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "tempo" },
+          "queryType": "traceql",
+          "query": "{ span.gen_ai.request.model != nil && span.project.id =~ \"$project\" } | count() by (span.gen_ai.request.model)"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "pieType": "pie",
+        "tooltip": { "mode": "single" },
+        "legend": { "displayMode": "list", "placement": "right" }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Generations by Operation",
+      "description": "Agent generation spans grouped by gen_ai.operation.name",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 6 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "tempo" },
+          "queryType": "traceql",
+          "query": "{ span.gen_ai.operation.name != nil && span.project.id =~ \"$project\" } | count() by (span.gen_ai.operation.name)"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "pieType": "pie",
+        "tooltip": { "mode": "single" },
+        "legend": { "displayMode": "list", "placement": "right" }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Token Usage — Input vs Output",
+      "description": "Total gen_ai.usage.input_tokens and gen_ai.usage.output_tokens over time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "tempo" },
+          "queryType": "traceql",
+          "query": "{ span.gen_ai.usage.input_tokens > 0 && span.project.id =~ \"$project\" } | avg(span.gen_ai.usage.input_tokens) by (span.gen_ai.request.model)",
+          "refId": "Input Tokens"
+        },
+        {
+          "datasource": { "type": "tempo", "uid": "tempo" },
+          "queryType": "traceql",
+          "query": "{ span.gen_ai.usage.output_tokens > 0 && span.project.id =~ \"$project\" } | avg(span.gen_ai.usage.output_tokens) by (span.gen_ai.request.model)",
+          "refId": "Output Tokens"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 20,
+            "pointSize": 5,
+            "showPoints": "auto"
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Finish Reasons",
+      "description": "Distribution of gen_ai.response.finish_reasons values",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 14 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "tempo" },
+          "queryType": "traceql",
+          "query": "{ span.gen_ai.response.finish_reasons != nil && span.project.id =~ \"$project\" } | count() by (span.gen_ai.response.finish_reasons)"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "pieType": "donut",
+        "tooltip": { "mode": "single" },
+        "legend": { "displayMode": "list", "placement": "right" }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Truncated Generations",
+      "description": "Generations where agent.truncated = true",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 14 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "tempo" },
+          "queryType": "traceql",
+          "query": "{ span.agent.truncated = true && span.project.id =~ \"$project\" } | count()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "type": "row",
+      "title": "Agent Decisions & Lessons",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 },
+      "id": 102,
+      "collapsed": false
+    },
+    {
+      "id": 11,
+      "title": "Recent Decisions",
+      "description": "Latest agent decisions with confidence scores",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 23 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "tempo" },
+          "queryType": "traceql",
+          "query": "{ span.insight.type = \"decision\" && span.project.id =~ \"$project\" } | select(span.gen_ai.agent.id, span.insight.summary, span.insight.confidence, span.gen_ai.request.model)"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [],
+        "footer": { "show": false }
+      }
+    },
+    {
+      "id": 12,
+      "title": "Recent Lessons Learned",
+      "description": "Latest lessons learned by agents",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 33 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "tempo" },
+          "queryType": "traceql",
+          "query": "{ span.insight.type = \"lesson\" && span.project.id =~ \"$project\" } | select(span.gen_ai.agent.id, span.insight.summary, span.insight.category, span.insight.applies_to)"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [],
+        "footer": { "show": false }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Agent Handoffs",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 43 },
+      "id": 103,
+      "collapsed": false
+    },
+    {
+      "id": 13,
+      "title": "Recent Handoffs",
+      "description": "Agent-to-agent handoffs with tool call details (gen_ai.tool.*)",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 44 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "tempo" },
+          "queryType": "traceql",
+          "query": "{ span.handoff.status != nil && span.project.id =~ \"$project\" } | select(span.gen_ai.agent.id, span.handoff.to_agent, span.gen_ai.tool.name, span.handoff.status, span.gen_ai.tool.call.id)"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [],
+        "footer": { "show": false }
+      }
+    },
+    {
+      "id": 14,
+      "title": "High-Confidence Decisions",
+      "description": "Decisions with confidence >= 0.9",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 54 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "tempo" },
+          "queryType": "traceql",
+          "query": "{ span.insight.type = \"decision\" && span.insight.confidence >= 0.9 && span.project.id =~ \"$project\" } | select(span.gen_ai.agent.id, span.insight.summary, span.insight.confidence)"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [],
+        "footer": { "show": false }
+      }
+    }
+  ]
+}

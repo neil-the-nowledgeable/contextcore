@@ -1,0 +1,80 @@
+# ContextCore Loki Recording Rules
+# Derives Prometheus metrics from structured log events via Loki Ruler.
+# Tenant: "fake" (required when auth_enabled: false)
+#
+# These rules produce metrics queryable in Mimir/Prometheus:
+#   - Task progress gauges per task and sprint
+#   - Completed task counts
+#   - Progress rate per task
+#   - Task counts by status
+#
+# Source spec: docs/semantic-conventions.md (Loki Recording Rules section)
+
+groups:
+  - name: contextcore_task_progress
+    interval: 1m
+    rules:
+      # Task progress gauge - last reported percent_complete per task
+      - record: "project:contextcore_task_percent_complete:max_over_time5m"
+        expr: |
+          max by (project_id, task_id, task_type, sprint_id) (
+            max_over_time(
+              {service="contextcore"}
+              | json
+              | event = "task.progress_updated"
+              | unwrap percent_complete
+              [5m]
+            )
+          )
+        labels:
+          source: loki
+
+      # Average progress by sprint
+      - record: "project_sprint:contextcore_task_percent_complete:avg"
+        expr: |
+          avg by (project_id, sprint_id) (
+            project:contextcore_task_percent_complete:max_over_time5m{sprint_id!=""}
+          )
+        labels:
+          source: derived
+
+      # Count of completed tasks (100%)
+      - record: "project_sprint:contextcore_task_completed:count"
+        expr: |
+          count by (project_id, sprint_id) (
+            project:contextcore_task_percent_complete:max_over_time5m == 100
+          )
+        labels:
+          source: derived
+
+      # Task progress rate (change per hour)
+      - record: "project_task:contextcore_task_progress:rate1h"
+        expr: |
+          sum by (project_id, task_id) (
+            rate(
+              {service="contextcore"}
+              | json
+              | event = "task.progress_updated"
+              | unwrap percent_complete
+              [1h]
+            )
+          )
+        labels:
+          source: loki
+
+  - name: contextcore_task_status
+    interval: 1m
+    rules:
+      # Task count grouped by status
+      - record: "project:contextcore_task_count:count_by_status"
+        expr: |
+          count by (project_id, to_status) (
+            last_over_time(
+              {service="contextcore"}
+              | json
+              | event = "task.status_changed"
+              [5m]
+            )
+          )
+        labels:
+          source: loki

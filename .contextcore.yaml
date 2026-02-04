@@ -45,14 +45,12 @@ status:
     - "Added Fox (Waagosh) alert automation dashboard"
     - "Added Beaver (Amik) lead contractor progress dashboard"
     - "Established Dependency Manifest Pattern for tracking external dependencies"
+    - "Created Agent Insights dashboard for gen_ai.* attributes (12 dashboards total)"
+    - "Deployed Loki recording rules for task_percent_complete metrics"
+    - "Added OTel GenAI dual-emit to startd8-sdk TrackedAgentMixin"
   nextSteps:
-    - "Rewrite merge_files_intelligently() using Python AST for proper structure preservation"
-    - "Add pre-integration syntax validation to Prime Contractor"
-    - "Implement span-based generation contracts in CodeGenerationHandoff class"
-    - "Create Code Generation Health dashboard for truncation monitoring"
+    - "Implement decomposition logic in CodeGenerationCapability (TODO stub)"
     - "Verify demo data appears in both Tempo and Loki"
-    - "Create agent insights dashboard for gen_ai.* attributes"
-    - "Implement Loki recording rules for task_percent_complete metrics"
     - "Add deliverable validation to task completion criteria"
     - "Add CI validation for dependency manifests"
     - "Create pre-commit hook for dependency scanning"
@@ -447,8 +445,11 @@ dashboards:
       name: "Agent Trigger"
       file: "grafana/provisioning/dashboards/json/agent-trigger.json"
       datasources: ["Loki"]
+    - id: "contextcore-agent-insights"
+      name: "Agent Insights"
+      file: "grafana/provisioning/dashboards/core/agent-insights.json"
+      datasources: ["Tempo"]
   needed:
-    - "Agent Insights Dashboard (gen_ai.* attributes)"
     - "Agent Handoffs Dashboard (handoff.* + gen_ai.tool.*)"
 
 targets:
