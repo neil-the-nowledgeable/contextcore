@@ -1,0 +1,31 @@
+name: Validate Dependencies
+
+on:
+  push:
+    paths:
+      - 'grafana/provisioning/dashboards/**'
+      - 'scripts/validate_dependencies.py'
+  pull_request:
+    paths:
+      - 'grafana/provisioning/dashboards/**'
+      - 'scripts/validate_dependencies.py'
+
+jobs:
+  validate-dependencies:
+    name: Validate dependency manifests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Validate dashboard dependencies
+        run: python3 scripts/validate_dependencies.py --verbose

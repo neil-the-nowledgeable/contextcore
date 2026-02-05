@@ -14,7 +14,8 @@
 .PHONY: help doctor up down destroy status health smoke-test verify backup restore \
         storage-status storage-clean logs-tempo logs-mimir logs-loki logs-grafana \
         test lint typecheck build install clean dashboards-provision dashboards-list \
-        seed-metrics full-setup wait-ready install-verify
+        seed-metrics full-setup wait-ready install-verify \
+        pre-commit-install pre-commit-run deps-validate
 
 # Configuration
 COMPOSE_FILE := docker-compose.yaml
@@ -353,6 +354,23 @@ dashboards-provision: ## Provision ContextCore dashboards to Grafana
 dashboards-list: ## List provisioned dashboards in Grafana
 	@PYTHONPATH=./src python3 -m contextcore.cli dashboards list
 
+# === Validation ===
+
+pre-commit-install: ## Install pre-commit hooks into local .git/hooks
+	@echo "$(CYAN)=== Installing Pre-commit Hooks ===$(NC)"
+	@which pre-commit >/dev/null 2>&1 || { echo "$(YELLOW)Installing pre-commit...$(NC)"; pip3 install pre-commit; }
+	@pre-commit install
+	@echo "$(GREEN)Pre-commit hooks installed. They will run automatically on git commit.$(NC)"
+
+pre-commit-run: ## Run all pre-commit hooks against all files
+	@echo "$(CYAN)=== Running Pre-commit Hooks ===$(NC)"
+	@pre-commit run --all-files
+
+deps-validate: ## Validate dashboard dependencies are declared in manifest
+	@echo "$(CYAN)=== Validating Dependencies ===$(NC)"
+	@python3 scripts/validate_dependencies.py
+	@echo "$(GREEN)All dependencies declared$(NC)"
+
 # === Help ===
 
 help: ## Show this help
@@ -384,6 +402,9 @@ help: ## Show this help
 	@echo ""
 	@echo "$(YELLOW)Dashboards:$(NC)"
 	@grep -E '^dashboards-' $(MAKEFILE_LIST) | sed 's/:.*##/  →/' | sed 's/^/  make /'
+	@echo ""
+	@echo "$(YELLOW)Validation:$(NC)"
+	@grep -E '^(pre-commit-|deps-)' $(MAKEFILE_LIST) | sed 's/:.*##/  →/' | sed 's/^/  make /'
 	@echo ""
 	@echo "$(YELLOW)Environment Variables:$(NC)"
 	@echo "  GRAFANA_URL       Grafana URL (default: http://localhost:3000)"

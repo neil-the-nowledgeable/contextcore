@@ -1,0 +1,20 @@
+# Pre-commit hooks for ContextCore
+# Install: make pre-commit-install (or: pre-commit install)
+# Run manually: make pre-commit-run (or: pre-commit run --all-files)
+#
+# See docs/DEPENDENCY_MANIFEST_PATTERN.md for the full dependency validation pattern.
+
+repos:
+  - repo: local
+    hooks:
+      - id: check-dashboard-dependencies
+        name: Check dashboard dependencies are declared
+        description: >
+          Validates that all datasource and plugin references in Grafana dashboard
+          JSON files are declared in grafana/provisioning/dashboards/dependencies.yaml.
+          Prevents undeclared dependencies from reaching deployment where they cause
+          silent failures. See docs/DEPENDENCY_MANIFEST_PATTERN.md for details.
+        entry: python3 scripts/validate_dependencies.py
+        language: system
+        files: '(grafana/.*\.json|k8s/observability/dashboards/.*\.json|dependencies\.yaml)$'
+        pass_filenames: false
