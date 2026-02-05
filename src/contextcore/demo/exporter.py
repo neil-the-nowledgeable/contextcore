@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from opentelemetry.sdk.trace import ReadableSpan
@@ -188,6 +188,8 @@ def load_to_loki(
 
     # Group logs by service label for efficient Loki push
     streams: Dict[str, List[List]] = {}
+    now_ns = int(datetime.now(timezone.utc).timestamp() * 1e9)
+    future_clamped = 0
 
     for log_entry in log_entries:
         # Build label set
@@ -200,17 +202,29 @@ def load_to_loki(
             streams[label_key] = []
 
         # Convert timestamp to nanoseconds
-        ts = log_entry.get("timestamp", datetime.utcnow().isoformat())
+        ts = log_entry.get("timestamp", datetime.now(timezone.utc).isoformat())
         if isinstance(ts, str):
             dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-            ts_ns = str(int(dt.timestamp() * 1e9))
+            ts_ns_int = int(dt.timestamp() * 1e9)
         else:
-            ts_ns = str(int(ts * 1e9))
+            ts_ns_int = int(ts * 1e9)
+
+        # Safety net: clamp to never exceed now (Loki rejects future timestamps)
+        if ts_ns_int > now_ns:
+            ts_ns_int = now_ns
+            future_clamped += 1
+
+        ts_ns = str(ts_ns_int)
 
         # Log line is the full JSON entry
         log_line = json.dumps(log_entry, default=str)
 
         streams[label_key].append([ts_ns, log_line])
+
+    if future_clamped > 0:
+        logger.warning(
+            f"Clamped {future_clamped} future timestamp(s) to now in Loki push"
+        )
 
     # Build Loki push payload
     loki_streams = []

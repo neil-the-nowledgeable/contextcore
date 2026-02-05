@@ -240,6 +240,11 @@ BLOCKER_SCENARIOS = [
 ASSIGNEES = ["alice", "bob", "carol", "david", "eve", "frank"]
 
 
+def _clamp_timestamp(ts: datetime, ceiling: datetime) -> datetime:
+    """Clamp a timestamp so it never exceeds the ceiling (typically 'now')."""
+    return min(ts, ceiling)
+
+
 def generate_project_structure(
     tracker: "HistoricalTaskTracker",
     duration_months: int = 3,
@@ -256,8 +261,14 @@ def generate_project_structure(
     Returns:
         Statistics about generated data
     """
+    now = datetime.now(timezone.utc)
+
     if start_date is None:
-        start_date = datetime.now(timezone.utc) - timedelta(days=duration_months * 30)
+        if duration_months <= 0:
+            # For --months 0: spread tasks over the last 24 hours
+            start_date = now - timedelta(days=1)
+        else:
+            start_date = now - timedelta(days=duration_months * 30)
 
     stats = {
         "epics": 0,
@@ -269,15 +280,21 @@ def generate_project_structure(
         "services": len(SERVICE_CONFIGS),
     }
 
+    # Calculate the total time window in days, clamped to end at now
+    if duration_months <= 0:
+        total_days = 1  # 24-hour window for --months 0
+    else:
+        total_days = duration_months * 30
+
     # Generate sprints (2-week sprints)
-    num_sprints = (duration_months * 30) // 14
-    sprints = _generate_sprints(tracker, start_date, num_sprints)
+    num_sprints = max(1, total_days // 14)
+    sprints = _generate_sprints(tracker, start_date, num_sprints, now)
     stats["sprints"] = len(sprints)
 
     # Create main epic
     epic_id = "EPIC-001"
     epic_start = start_date
-    epic_end = start_date + timedelta(days=duration_months * 30)
+    epic_end = _clamp_timestamp(start_date + timedelta(days=total_days), now)
 
     tracker.start_task_at(
         task_id=epic_id,
@@ -289,6 +306,26 @@ def generate_project_structure(
     )
     stats["epics"] += 1
 
+    # Scale factor: compress durations when the window is short.
+    # The unscaled generation assumes ~90 days (3 months). Scale all
+    # random durations so they fit within total_days.
+    baseline_days = 90.0
+    scale = total_days / baseline_days if baseline_days > 0 else 1.0
+
+    def _scaled_days(min_d: int, max_d: int) -> timedelta:
+        """Return a random duration in days, scaled to fit the window."""
+        raw = random.randint(min_d, max_d)
+        return timedelta(days=max(raw * scale, 0.001))
+
+    def _scaled_hours(min_h: int, max_h: int) -> timedelta:
+        """Return a random duration in hours, scaled to fit the window."""
+        raw = random.randint(min_h, max_h)
+        return timedelta(hours=max(raw * scale, 0.001))
+
+    def _clamp(ts: datetime) -> datetime:
+        """Shorthand: clamp timestamp to never exceed now."""
+        return _clamp_timestamp(ts, now)
+
     # Generate tasks for each service
     task_counter = 1
     current_date = start_date
@@ -296,8 +333,8 @@ def generate_project_structure(
     for service_name, config in SERVICE_CONFIGS.items():
         # Create service story
         story_id = f"STORY-{service_name.upper()[:4]}-001"
-        story_start = current_date
-        story_duration = timedelta(days=random.randint(7, 21))
+        story_start = _clamp(current_date)
+        story_duration = _scaled_days(7, 21)
 
         tracker.start_task_at(
             task_id=story_id,
@@ -324,9 +361,9 @@ def generate_project_structure(
                 points = base_points + random.randint(-1, 1)
                 points = max(1, points)
 
-                task_start = task_date
-                task_duration = timedelta(days=random.randint(1, 3))
-                task_end = task_start + task_duration
+                task_start = _clamp(task_date)
+                task_duration = _scaled_days(1, 3)
+                task_end = _clamp(task_start + task_duration)
 
                 assignee = random.choice(ASSIGNEES)
 
@@ -345,23 +382,25 @@ def generate_project_structure(
                 )
 
                 # Simulate status transitions
-                in_progress_time = task_start + timedelta(hours=random.randint(1, 8))
+                in_progress_time = _clamp(task_start + _scaled_hours(1, 8))
                 tracker.update_status_at(task_id, "in_progress", in_progress_time)
 
                 # Maybe add a blocker
                 if _should_add_blocker():
                     blocker = random.choice(BLOCKER_SCENARIOS)
-                    block_time = in_progress_time + timedelta(hours=random.randint(2, 16))
-                    unblock_time = block_time + timedelta(
-                        days=random.randint(*blocker["duration_days"])
+                    block_time = _clamp(in_progress_time + _scaled_hours(2, 16))
+                    unblock_time = _clamp(
+                        block_time + _scaled_days(*blocker["duration_days"])
                     )
 
                     tracker.block_task_at(task_id, blocker["reason"], block_time)
                     tracker.unblock_task_at(task_id, unblock_time)
-                    task_end = unblock_time + timedelta(hours=random.randint(2, 8))
+                    task_end = _clamp(unblock_time + _scaled_hours(2, 8))
                     stats["blockers"] += 1
 
-                # Complete task
+                # Complete task (ensure end > start for valid spans)
+                if task_end <= task_start:
+                    task_end = _clamp(task_start + timedelta(milliseconds=1))
                 tracker.complete_task_at(task_id, task_end)
 
                 if task_type == "task":
@@ -369,14 +408,16 @@ def generate_project_structure(
                 elif task_type == "story":
                     stats["stories"] += 1
 
-                task_date = task_end + timedelta(hours=random.randint(1, 4))
+                task_date = _clamp(task_end + _scaled_hours(1, 4))
 
         # Complete the story
-        story_end = task_date + timedelta(hours=random.randint(1, 4))
+        story_end = _clamp(task_date + _scaled_hours(1, 4))
+        if story_end <= story_start:
+            story_end = _clamp(story_start + timedelta(milliseconds=1))
         tracker.complete_task_at(story_id, story_end)
 
         # Move to next service with some overlap
-        current_date += timedelta(days=random.randint(3, 7))
+        current_date = _clamp(current_date + _scaled_days(3, 7))
 
     # Complete the epic
     tracker.complete_task_at(epic_id, epic_end)
@@ -388,20 +429,30 @@ def _generate_sprints(
     tracker: "HistoricalTaskTracker",
     start_date: datetime,
     num_sprints: int,
+    now: Optional[datetime] = None,
 ) -> List[Dict[str, Any]]:
-    """Generate sprint spans."""
+    """Generate sprint spans, clamping all timestamps to not exceed now."""
+    if now is None:
+        now = datetime.now(timezone.utc)
+
     sprints = []
     sprint_start = start_date
 
+    # Calculate sprint duration to fit within the window
+    total_window = (now - start_date).total_seconds()
+    sprint_duration_secs = total_window / max(num_sprints, 1)
+    sprint_duration = timedelta(seconds=max(sprint_duration_secs, 0.001))
+
     for i in range(num_sprints):
         sprint_id = f"sprint-{i + 1}"
-        sprint_end = sprint_start + timedelta(days=14)
+        sprint_end = _clamp_timestamp(sprint_start + sprint_duration, now)
         planned_points = random.randint(20, 40)
 
+        clamped_start = _clamp_timestamp(sprint_start, now)
         tracker.start_task_at(
             task_id=sprint_id,
             title=f"Sprint {i + 1}",
-            start_time=sprint_start,
+            start_time=clamped_start,
             task_type="epic",  # Sprints are parent spans
             status="in_progress",
             story_points=planned_points,
@@ -410,13 +461,15 @@ def _generate_sprints(
 
         sprints.append({
             "id": sprint_id,
-            "start": sprint_start,
+            "start": clamped_start,
             "end": sprint_end,
             "planned_points": planned_points,
         })
 
         # Complete sprint
         completed_points = int(planned_points * random.uniform(0.8, 1.1))
+        if sprint_end <= clamped_start:
+            sprint_end = _clamp_timestamp(clamped_start + timedelta(milliseconds=1), now)
         tracker.complete_task_at(sprint_id, sprint_end)
 
         sprint_start = sprint_end
