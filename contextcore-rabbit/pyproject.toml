@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Rabbit (Waabooz) - Alert-triggered automation framework for ContextCore"
 readme = "README.md"
 license = {text = "FSL-1.1-ALv2"}
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dependencies = [
     "flask>=2.0",
     "flask-cors>=4.0",
