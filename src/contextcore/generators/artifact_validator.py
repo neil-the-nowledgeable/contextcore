@@ -30,6 +30,8 @@ from contextcore.utils.artifact_conventions import ARTIFACT_OUTPUT_CONVENTIONS
 # Fallback for unknown artifact types (assumed YAML-like)
 DEFAULT_OUTPUT_EXT = ".yaml"
 
+ERR_EMPTY_CONTENT = "Artifact content is empty"
+
 
 @dataclass
 class ValidationResult:
@@ -67,7 +69,7 @@ def validate_artifact(
 
     if not content or not content.strip():
         result.valid = False
-        result.errors.append("Artifact content is empty")
+        result.errors.append(ERR_EMPTY_CONTENT)
         return result
 
     conventions = ARTIFACT_OUTPUT_CONVENTIONS.get(artifact_type, {})
@@ -87,6 +89,8 @@ def validate_artifact(
             result.valid = False
             result.errors.append(f"JSON parse error: {e}")
     elif output_ext == ".md":
+        # Heuristic: runbooks typically start with a top-level heading (# Title).
+        # Content without leading # may indicate missing structure.
         if not content.strip().startswith("#"):
             result.warnings.append("Markdown runbook may not have expected header structure")
 
