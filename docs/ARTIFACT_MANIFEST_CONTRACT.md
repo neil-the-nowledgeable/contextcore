@@ -150,7 +150,7 @@ contextcore manifest export -p .contextcore.yaml -o ./output \
 | `outdated` | Artifact exists but needs update |
 | `skipped` | Explicitly skipped (with reason) |
 
-### Outdated Detection Rules
+### Outdated Detection Rules (per R1-F2)
 
 An artifact is **outdated** when it exists but the source contract has changed. Implementers should use one or more of these mechanisms:
 
