@@ -273,6 +273,9 @@ def build_onboarding_metadata(
         result["artifact_task_mapping"] = artifact_task_mapping
 
     # Relative source path for portability (avoid absolute paths in seeds/handoffs)
+    # Assumption: output_dir is a subdirectory of project root (e.g. out/ or ./output).
+    # When output_dir is outside project (e.g. /tmp/export), relative_to may raise
+    # ValueError; we fall back to source_path.
     if output_dir and source_path:
         try:
             from pathlib import Path

@@ -778,3 +778,23 @@ def test_export_runbook_has_enriched_params() -> None:
     assert len(risks) >= 1
     assert "mitigation" in risks[0]
     assert risks[0]["mitigation"] == "Fallback to file-based persistence"
+
+
+def test_build_onboarding_metadata_is_json_serializable() -> None:
+    """Onboarding metadata must be JSON-serializable for plan ingestion."""
+    import json
+
+    from contextcore.utils.onboarding import build_onboarding_metadata
+
+    manifest = _make_enriched_manifest()
+    am = manifest.generate_artifact_manifest()
+
+    meta = build_onboarding_metadata(
+        artifact_manifest=am,
+        artifact_manifest_path="out/project-artifact-manifest.yaml",
+        project_context_path="out/project-context.yaml",
+    )
+    # Should not raise; output_path_conventions uses string keys/values
+    json_str = json.dumps(meta)
+    assert isinstance(json_str, str)
+    assert "artifact_manifest_path" in json_str

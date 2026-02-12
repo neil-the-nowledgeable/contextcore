@@ -27,6 +27,9 @@ import yaml
 from contextcore.models.artifact_manifest import ArtifactType
 from contextcore.utils.artifact_conventions import ARTIFACT_OUTPUT_CONVENTIONS
 
+# Fallback for unknown artifact types (assumed YAML-like)
+DEFAULT_OUTPUT_EXT = ".yaml"
+
 
 @dataclass
 class ValidationResult:
@@ -68,7 +71,7 @@ def validate_artifact(
         return result
 
     conventions = ARTIFACT_OUTPUT_CONVENTIONS.get(artifact_type, {})
-    output_ext = conventions.get("output_ext", ".yaml")
+    output_ext = conventions.get("output_ext", DEFAULT_OUTPUT_EXT)
     schema_url = conventions.get("schema_url")
 
     if output_ext in (".yaml", ".yml"):
