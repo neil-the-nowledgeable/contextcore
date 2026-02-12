@@ -23,7 +23,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from contextcore.contracts.types import (
     AgentType,
@@ -51,7 +51,7 @@ class FocusSpec(BaseModel):
     reason: Optional[str] = Field(None, description="Why these areas are prioritized")
     until: Optional[datetime] = Field(None, description="When this focus expires")
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ConstraintSpec(BaseModel):
@@ -66,7 +66,7 @@ class ConstraintSpec(BaseModel):
     )
     reason: Optional[str] = Field(None, description="Why this constraint exists")
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class PreferenceSpec(BaseModel):
@@ -76,7 +76,7 @@ class PreferenceSpec(BaseModel):
     preference: Optional[str] = Field(None, description="The preferred approach")
     reason: Optional[str] = Field(None, description="Why this is preferred")
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class QuestionSpec(BaseModel):
@@ -94,7 +94,7 @@ class QuestionSpec(BaseModel):
         description="Question status",
     )
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ContextItemSpec(BaseModel):
@@ -104,7 +104,7 @@ class ContextItemSpec(BaseModel):
     content: Optional[str] = Field(None, description="Context content")
     source: Optional[str] = Field(None, description="Source URL")
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class AgentGuidanceSpec(BaseModel):
@@ -135,7 +135,7 @@ class AgentGuidanceSpec(BaseModel):
         description="Background information for agents",
     )
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
 
     def get_blocking_constraints(self) -> List[ConstraintSpec]:
         """Return only blocking constraints."""
@@ -191,7 +191,7 @@ class AgentSessionSpec(BaseModel):
         description="Task IDs completed in this session",
     )
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
 
     def is_active(self) -> bool:
         """Check if session is currently active."""
@@ -217,7 +217,7 @@ class InsightSummarySpec(BaseModel):
         description="Tempo trace ID for full insight",
     )
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class UnresolvedBlockerSpec(BaseModel):
@@ -232,7 +232,7 @@ class UnresolvedBlockerSpec(BaseModel):
         description="Tempo trace ID",
     )
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class InsightsByTypeSpec(BaseModel):
@@ -243,7 +243,7 @@ class InsightsByTypeSpec(BaseModel):
     blockers: int = Field(default=0)
     discoveries: int = Field(default=0)
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
 
     def total(self) -> int:
         """Return total insight count."""
@@ -283,7 +283,7 @@ class AgentInsightsSpec(BaseModel):
         description="Blockers needing human attention",
     )
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
 
     def has_unresolved_blockers(self) -> bool:
         """Check if there are unresolved blockers."""
@@ -331,7 +331,7 @@ class HandoffSpec(BaseModel):
         description="Trace ID containing handoff result",
     )
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
 
     def is_pending(self) -> bool:
         """Check if handoff is still pending."""
@@ -378,7 +378,7 @@ class ExecutivePersonalizationSpec(BaseModel):
     summary_fields: List[str] = Field(default_factory=list, alias="summaryFields")
     alert_threshold: Optional[str] = Field(None, alias="alertThreshold")
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ManagerPersonalizationSpec(BaseModel):
@@ -387,7 +387,7 @@ class ManagerPersonalizationSpec(BaseModel):
     dashboard_id: Optional[str] = Field(None, alias="dashboardId")
     reporting_cadence: Optional[str] = Field(None, alias="reportingCadence")
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class DeveloperPersonalizationSpec(BaseModel):
@@ -396,7 +396,7 @@ class DeveloperPersonalizationSpec(BaseModel):
     dashboard_id: Optional[str] = Field(None, alias="dashboardId")
     preferred_format: Optional[str] = Field(None, alias="preferredFormat")
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class AgentPersonalizationSpec(BaseModel):
@@ -409,7 +409,7 @@ class AgentPersonalizationSpec(BaseModel):
         description="Token budget hint for agents",
     )
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class PersonalizationSpec(BaseModel):
@@ -424,7 +424,7 @@ class PersonalizationSpec(BaseModel):
     developer: Optional[DeveloperPersonalizationSpec] = None
     agent: Optional[AgentPersonalizationSpec] = None
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
 
 
 # =============================================================================
@@ -441,4 +441,4 @@ class AgentStatusSpec(BaseModel):
     unresolved_blockers: int = Field(default=0, alias="unresolvedBlockers")
     insights_last_24h: int = Field(default=0, alias="insightsLast24h")
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)

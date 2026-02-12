@@ -13,7 +13,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
 # Import core types from central location
 from contextcore.contracts.types import (
@@ -78,7 +78,7 @@ class RequirementsSpec(BaseModel):
     throughput: Optional[str] = Field(None, description="Target throughput (e.g., '1000rps')")
     source: Optional[str] = Field(None, description="Requirements source")
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
 
     # Validators for field formats
     _validate_availability = field_validator("availability", mode="before")(percentage_validator)
@@ -121,7 +121,7 @@ class ObservabilitySpec(BaseModel):
     )
     runbook: Optional[HttpUrl] = Field(None, description="Runbook URL")
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
 
     # Validators for field formats
     _validate_metrics_interval = field_validator("metrics_interval", mode="before")(duration_validator)
@@ -137,7 +137,7 @@ class ProjectContextSpec(BaseModel):
     targets: List[TargetSpec] = Field(..., min_length=1)
     observability: Optional[ObservabilitySpec] = None
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class GeneratedArtifacts(BaseModel):

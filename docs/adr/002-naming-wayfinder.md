@@ -73,6 +73,42 @@ This separation:
 - Clarifies that the metadata model has value independent of specific tooling
 - Positions ContextCore as a potential industry standard
 
+### ContextCore Ships Code (Model C)
+
+ContextCore is both a **specification** and a **reference library**. The `contextcore` Python package ships reusable code that any implementation can import. This is not a contradiction with the standard/implementation separation — it follows the same pattern as OpenTelemetry (specification + SDK).
+
+**Litmus test**: "Would a third-party developer building their own implementation need this?" If yes, it belongs in ContextCore.
+
+| Belongs in ContextCore (library) | Belongs in Wayfinder (deployment) |
+|----------------------------------|-----------------------------------|
+| Pydantic models (`models/`) | Sampler factory wiring |
+| Type enums (`contracts/types.py`) | W3C baggage propagator setup |
+| Validators (`contracts/validators.py`) | A2A trace middleware |
+| Semantic convention contracts | Kubernetes-mixin recording rules |
+| Metric name enums | Alertmanager routing config |
+| Manifest schema and export logic | Dashboard provisioning to Grafana |
+| Agent communication protocol types | Helm chart and operator deployment |
+| OTel GenAI emit mode utilities | Fox/Rabbit/Coyote runtime wiring |
+
+This means the ContextCore repository (`~/Documents/dev/ContextCore`) is **actively developed** — it is not frozen or archived. The `archived-post-separation` git tag marks the completion of the monorepo split (2026-02-01), not a code freeze. Development of library code continues on `main`.
+
+#### Repository Roles
+
+| Repository | Ships | Active Development |
+|------------|-------|--------------------|
+| `ContextCore` | `contextcore` Python package (library) | Yes — contracts, models, types, manifest logic |
+| `wayfinder` | Wayfinder deployment suite | Yes — runtime wiring, dashboards, K8s manifests |
+| `startd8-sdk` | `contextcore-beaver` package (library) | Yes — LLM abstraction, cost tracking |
+
+#### Why This Matters for Agents
+
+AI agents reading this codebase should understand:
+
+1. **ContextCore is not spec-only.** It contains production Python code that is `pip install`-able.
+2. **The `archived-post-separation` tag is a milestone, not a freeze.** 17+ commits have landed since that tag.
+3. **New contracts, types, and models belong here**, not in Wayfinder. Wayfinder *consumes* ContextCore; it should not duplicate or redefine types that originate here.
+4. **Implementation-specific code does not belong here.** Metrics from expansion packs (e.g., `startd8_*` from Beaver) should be injected at the CLI/deployment layer, not hardcoded in library code.
+
 ---
 
 ## Naming Principles
@@ -153,3 +189,4 @@ Core ideas under consideration:
 | Date | Change |
 |------|--------|
 | 2026-01-28 | Initial decision documented |
+| 2026-02-12 | Added "Model C" section clarifying ContextCore ships code (library vs deployment boundary) |
