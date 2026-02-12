@@ -725,6 +725,8 @@ def export(
                 "emit_provenance": emit_provenance,
                 "embed_provenance": embed_provenance,
                 "emit_onboarding": emit_onboarding,
+                "min_coverage": min_coverage,
+                "task_mapping": task_mapping,
             }
 
             provenance = capture_provenance(

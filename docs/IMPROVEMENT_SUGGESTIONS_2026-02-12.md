@@ -2,6 +2,8 @@
 
 Suggestions to improve output quality and programmatic onboarding across the manifest export pipeline. See [ARTISAN_CONTEXT_SEED_QUALITY_REPORT.md](./ARTISAN_CONTEXT_SEED_QUALITY_REPORT.md) for the quality assessment that motivated these.
 
+**Implementation status (2026-02-12):** All 17 suggestions implemented. See commit history and [MANIFEST_EXPORT_TROUBLESHOOTING.md](./MANIFEST_EXPORT_TROUBLESHOOTING.md), [ONBOARDING_METADATA_SCHEMA.md](./ONBOARDING_METADATA_SCHEMA.md).
+
 ## Export Step (`contextcore manifest export`)
 
 | # | Suggestion | Rationale |
