@@ -78,3 +78,30 @@ DEFAULT_RETRY_BACKOFF = 2.0
 
 # HTTP status codes that should trigger a retry
 RETRYABLE_HTTP_STATUS_CODES = frozenset({502, 503, 504, 429})
+
+# =============================================================================
+# Export Retry Configuration
+# =============================================================================
+
+# Maximum retry attempts before moving to dead-letter
+EXPORT_RETRY_MAX_ATTEMPTS = 3
+
+# Maximum pending retry files before dropping new failures (prevents disk exhaustion)
+EXPORT_RETRY_MAX_FILES = 100
+
+# Number of pending retry files to drain per successful export
+EXPORT_RETRY_DRAIN_BATCH = 3
+
+# =============================================================================
+# OTel Shutdown Configuration
+# =============================================================================
+
+# Timeout for TracerProvider shutdown (atexit handler)
+OTEL_SHUTDOWN_TIMEOUT_MS = 10000
+
+# =============================================================================
+# Insight Cache Configuration
+# =============================================================================
+
+# Time-to-live for cached insight query results (seconds)
+INSIGHT_CACHE_TTL_S = 300.0

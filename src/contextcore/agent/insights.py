@@ -7,6 +7,8 @@ enabling cross-agent collaboration and human visibility.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import time as time_module
 import uuid
@@ -24,6 +26,7 @@ from contextcore.contracts.timeouts import (
     DEFAULT_RETRY_BACKOFF,
     RETRYABLE_HTTP_STATUS_CODES,
     HTTP_CLIENT_TIMEOUT_S,
+    INSIGHT_CACHE_TTL_S,
 )
 from contextcore.compat.otel_genai import mapper
 
@@ -525,6 +528,7 @@ class InsightQuerier:
         local_storage_path: str | None = None,
         max_retries: int = DEFAULT_MAX_RETRIES,
         retry_delay: float = DEFAULT_RETRY_DELAY_S,
+        cache_ttl_s: float = INSIGHT_CACHE_TTL_S,
     ):
         """
         Initialize the querier.
@@ -534,12 +538,15 @@ class InsightQuerier:
             local_storage_path: Path for local JSON storage fallback
             max_retries: Maximum number of retry attempts for transient failures
             retry_delay: Initial delay between retries (uses exponential backoff)
+            cache_ttl_s: Time-to-live for cached query results in seconds
         """
         self.tempo_url = tempo_url
         self.local_storage_path = local_storage_path
         self.max_retries = max_retries
         self.retry_delay = retry_delay
         self._http_client = None
+        self._cache: dict[str, tuple[list[Insight], float]] = {}
+        self._cache_ttl_s = cache_ttl_s
 
     def __enter__(self):
         """Context manager entry."""
@@ -566,6 +573,23 @@ class InsightQuerier:
             import httpx
             self._http_client = httpx.Client(timeout=HTTP_CLIENT_TIMEOUT_S)
         return self._http_client
+
+    def _build_cache_key(self, **kwargs) -> str:
+        """Build a deterministic cache key from query parameters."""
+        # Normalize enum values to strings
+        parts = {}
+        for k, v in sorted(kwargs.items()):
+            if isinstance(v, Enum):
+                parts[k] = v.value
+            elif v is not None:
+                parts[k] = str(v)
+        raw = json.dumps(parts, sort_keys=True)
+        return hashlib.md5(raw.encode()).hexdigest()
+
+    def invalidate_cache(self) -> None:
+        """Clear all cached query results."""
+        self._cache.clear()
+        logger.debug("Insight query cache invalidated")
 
     def _request_with_retry(
         self,
@@ -678,10 +702,33 @@ class InsightQuerier:
         Returns:
             List of matching Insights
         """
+        # Check cache first
+        cache_key = self._build_cache_key(
+            project_id=project_id,
+            insight_type=insight_type,
+            agent_id=agent_id,
+            audience=audience,
+            min_confidence=min_confidence,
+            time_range=time_range,
+            limit=limit,
+            applies_to=applies_to,
+            category=category,
+        )
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            results, cached_at = cached
+            if (time_module.time() - cached_at) < self._cache_ttl_s:
+                logger.debug(f"Insight query cache hit: {cache_key[:8]}")
+                return results
+            else:
+                del self._cache[cache_key]
+
         # Try Tempo first, fall back to local storage
+        results: list[Insight] | None = None
+
         if self.tempo_url:
             try:
-                return self._query_tempo(
+                results = self._query_tempo(
                     project_id=project_id,
                     insight_type=insight_type,
                     agent_id=agent_id,
@@ -696,8 +743,8 @@ class InsightQuerier:
                 import warnings
                 warnings.warn(f"Tempo query failed: {e}. Falling back to local storage.")
 
-        if self.local_storage_path:
-            return self._query_local(
+        if results is None and self.local_storage_path:
+            results = self._query_local(
                 project_id=project_id,
                 insight_type=insight_type,
                 agent_id=agent_id,
@@ -709,7 +756,12 @@ class InsightQuerier:
                 category=category,
             )
 
-        return []
+        if results is None:
+            results = []
+
+        # Store in cache
+        self._cache[cache_key] = (results, time_module.time())
+        return results
 
     def _query_tempo(
         self,

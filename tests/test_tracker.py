@@ -347,3 +347,78 @@ class TestEdgeCases:
         """Empty title should be allowed."""
         tracker.start_task(task_id="EMPTY-TITLE", title="")
         assert "EMPTY-TITLE" in tracker.get_active_tasks()
+
+
+class TestSpanRecovery:
+    """Tests for orphaned span recovery on startup."""
+
+    def test_orphaned_spans_recovered_on_startup(self, temp_state_dir, exporter):
+        """Orphaned span state files should be recovered by new tracker."""
+        # Create a tracker and start a task
+        tracker1 = TaskTracker(
+            project="recovery-test",
+            state_dir=temp_state_dir,
+            exporter=exporter)
+        tracker1.start_task(task_id="ORPHAN-1", title="Orphaned task", task_type="task")
+
+        # Verify state file exists
+        state_file = os.path.join(temp_state_dir, "recovery-test", "ORPHAN-1.json")
+        assert os.path.exists(state_file)
+
+        # Simulate crash: don't call complete_task or shutdown
+        # Create a NEW tracker (simulating process restart)
+        tracker2 = TaskTracker(
+            project="recovery-test",
+            state_dir=temp_state_dir,
+            exporter=exporter)
+
+        # The orphaned span should have been recovered and completed
+        # State file should be archived (moved to completed/)
+        assert not os.path.exists(state_file)
+        completed_file = os.path.join(
+            temp_state_dir, "recovery-test", "completed", "ORPHAN-1.json"
+        )
+        assert os.path.exists(completed_file)
+
+    def test_recovery_adds_event(self, temp_state_dir, exporter):
+        """Recovered spans should have a task.recovered event."""
+        # Create and orphan a task
+        tracker1 = TaskTracker(
+            project="recovery-event",
+            state_dir=temp_state_dir,
+            exporter=exporter)
+        tracker1.start_task(task_id="ORPHAN-2", title="Event check")
+
+        # Recover with new tracker
+        tracker2 = TaskTracker(
+            project="recovery-event",
+            state_dir=temp_state_dir,
+            exporter=exporter)
+
+        # Flush to ensure spans are exported
+        tracker2.shutdown()
+
+        # Find the recovered span
+        recovered = [
+            s for s in exporter.spans
+            if s.attributes.get("task.recovered") is True
+        ]
+        assert len(recovered) >= 1
+
+        # Check for recovery event
+        events = [e.name for e in recovered[0].events]
+        assert "task.recovered" in events
+
+    def test_active_spans_not_double_recovered(self, temp_state_dir, exporter):
+        """Tasks started in current process should NOT be recovered."""
+        tracker = TaskTracker(
+            project="no-double",
+            state_dir=temp_state_dir,
+            exporter=exporter)
+
+        tracker.start_task(task_id="LIVE-1", title="Live task")
+
+        # LIVE-1 should still be active, not recovered
+        assert "LIVE-1" in tracker.get_active_tasks()
+        state_file = os.path.join(temp_state_dir, "no-double", "LIVE-1.json")
+        assert os.path.exists(state_file)

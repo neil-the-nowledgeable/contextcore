@@ -11,11 +11,19 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time as time_module
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 import httpx
+
+from contextcore.contracts.timeouts import (
+    DEFAULT_MAX_RETRIES,
+    DEFAULT_RETRY_BACKOFF,
+    DEFAULT_RETRY_DELAY_S,
+    RETRYABLE_HTTP_STATUS_CODES,
+)
 
 from contextcore.dashboards.discovery import (
     EXTENSION_REGISTRY,
@@ -106,6 +114,88 @@ class DashboardProvisioner:
             return None
         return (self.username, self.password)
 
+    def _request_with_retry(
+        self,
+        client: httpx.Client,
+        method: str,
+        url: str,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        **kwargs,
+    ) -> httpx.Response:
+        """
+        Execute HTTP request with retry logic for transient Grafana failures.
+
+        Retries on 502, 503, 504, 429 and connection/timeout errors
+        with exponential backoff.
+
+        Args:
+            client: httpx.Client instance
+            method: HTTP method (get, post, delete)
+            url: Request URL
+            max_retries: Max retry attempts
+            **kwargs: Additional httpx request kwargs
+
+        Returns:
+            httpx.Response
+
+        Raises:
+            httpx.ConnectError: If all retries exhausted on connection failure
+            httpx.TimeoutException: If all retries exhausted on timeout
+        """
+        delay = DEFAULT_RETRY_DELAY_S
+        last_error: Exception | None = None
+
+        for attempt in range(max_retries + 1):
+            try:
+                response = getattr(client, method)(url, **kwargs)
+
+                if response.status_code in RETRYABLE_HTTP_STATUS_CODES:
+                    if attempt < max_retries:
+                        logger.warning(
+                            f"Grafana returned {response.status_code} for {url}, "
+                            f"retrying in {delay:.1f}s ({attempt + 1}/{max_retries + 1})"
+                        )
+                        time_module.sleep(delay)
+                        delay *= DEFAULT_RETRY_BACKOFF
+                        continue
+                    else:
+                        logger.error(
+                            f"Grafana returned {response.status_code} for {url} "
+                            f"after {max_retries + 1} attempts"
+                        )
+
+                return response
+
+            except (httpx.TimeoutException, httpx.ConnectError) as e:
+                last_error = e
+                if attempt < max_retries:
+                    logger.warning(
+                        f"Grafana request to {url} failed: {e}, "
+                        f"retrying in {delay:.1f}s ({attempt + 1}/{max_retries + 1})"
+                    )
+                    time_module.sleep(delay)
+                    delay *= DEFAULT_RETRY_BACKOFF
+                else:
+                    logger.error(
+                        f"Grafana request to {url} failed after "
+                        f"{max_retries + 1} attempts: {e}"
+                    )
+                    raise
+
+        if last_error:
+            raise last_error
+        raise RuntimeError("Unexpected retry loop exit")
+
+    @staticmethod
+    def _format_grafana_error(response: httpx.Response) -> str:
+        """Format a Grafana API error response for human readability."""
+        try:
+            data = response.json()
+            message = data.get("message", response.text)
+        except (json.JSONDecodeError, ValueError):
+            message = response.text
+        return f"HTTP {response.status_code}: {message}"
+
     def _ensure_folder(
         self, client: httpx.Client, folder_name: str, folder_uid: str
     ) -> int:
@@ -126,7 +216,9 @@ class DashboardProvisioner:
 
         # Check if folder exists by UID
         try:
-            response = client.get(
+            response = self._request_with_retry(
+                client,
+                "get",
                 f"{self.grafana_url}/api/folders/{folder_uid}",
                 headers=self._get_headers(),
                 auth=self._get_auth(),
@@ -139,7 +231,9 @@ class DashboardProvisioner:
             pass
 
         # Check if folder exists by name (fallback)
-        response = client.get(
+        response = self._request_with_retry(
+            client,
+            "get",
             f"{self.grafana_url}/api/folders",
             headers=self._get_headers(),
             auth=self._get_auth(),
@@ -153,7 +247,9 @@ class DashboardProvisioner:
                 return folder["id"]
 
         # Create folder
-        response = client.post(
+        response = self._request_with_retry(
+            client,
+            "post",
             f"{self.grafana_url}/api/folders",
             headers=self._get_headers(),
             auth=self._get_auth(),
@@ -235,7 +331,9 @@ class DashboardProvisioner:
                 }
 
                 # Create/update dashboard
-                response = client.post(
+                response = self._request_with_retry(
+                    client,
+                    "post",
                     f"{self.grafana_url}/api/dashboards/db",
                     headers=self._get_headers(),
                     auth=self._get_auth(),
@@ -253,7 +351,7 @@ class DashboardProvisioner:
                     return (
                         config.title or config.uid,
                         False,
-                        f"HTTP {response.status_code}: {response.text}",
+                        self._format_grafana_error(response),
                     )
 
         except httpx.ConnectError:
@@ -310,6 +408,16 @@ class DashboardProvisioner:
             results.append(result)
             status = "OK" if result[1] else "FAILED"
             logger.debug(f"  {result[0]}: {status}")
+
+        # Summary logging
+        success_count = sum(1 for _, ok, _ in results if ok)
+        fail_count = len(results) - success_count
+        if fail_count > 0:
+            logger.warning(
+                f"Dashboard provisioning: {success_count} succeeded, {fail_count} failed"
+            )
+        else:
+            logger.info(f"Dashboard provisioning: all {success_count} succeeded")
 
         return results
 

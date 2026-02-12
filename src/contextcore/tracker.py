@@ -45,6 +45,7 @@ from opentelemetry.sdk.trace import TracerProvider, Span
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.trace import Link, SpanKind, Status, StatusCode
 
+from contextcore.contracts.timeouts import OTEL_SHUTDOWN_TIMEOUT_MS
 from contextcore.contracts.types import TaskStatus, TaskType, Priority
 from contextcore.detector import (
     get_telemetry_sdk_attributes,
@@ -204,8 +205,9 @@ class TaskTracker:
         # Use tracer from our own provider (don't set global to avoid test conflicts)
         self._tracer = self._provider.get_tracer("contextcore.tracker")
 
-        # Load persisted state
+        # Load persisted state and recover orphaned spans
         self._load_state()
+        self._recover_orphaned_spans()
 
         # Register shutdown handler to ensure spans are flushed
         atexit.register(self._atexit_shutdown)
@@ -213,7 +215,7 @@ class TaskTracker:
     def _atexit_shutdown(self) -> None:
         """Shutdown handler called at process exit."""
         try:
-            self._provider.force_flush(timeout_millis=5000)
+            self._provider.force_flush(timeout_millis=OTEL_SHUTDOWN_TIMEOUT_MS)
             self._provider.shutdown()
         except Exception as e:
             logger.debug(f"Error during atexit shutdown: {e}")
@@ -262,35 +264,50 @@ class TaskTracker:
 
     def _setup_default_exporter(self) -> None:
         """
-        Set up OTLP exporter to Alloy with fallback handling.
+        Set up OTLP exporter with failsafe wrapper.
 
-        Checks endpoint availability first to avoid silent failures.
-        Falls back to console exporter in debug mode if OTLP unavailable.
+        Always creates a FailsafeSpanExporter so that spans are persisted
+        to disk when the OTLP endpoint is unreachable. On recovery, pending
+        spans are drained automatically.
         """
         endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
         fallback_to_console = os.environ.get("CONTEXTCORE_FALLBACK_CONSOLE", "").lower() in ("1", "true", "yes")
 
         try:
             from contextcore.exporter_factory import create_span_exporter
+            from contextcore.export_retry import FailsafeSpanExporter
 
-            # Check if endpoint is reachable before configuring
+            retry_dir = os.path.join(self.state_dir, self.project, "retry")
+
             if self._check_endpoint_available(endpoint):
                 exporter = create_span_exporter(endpoint=endpoint)
-                self._provider.add_span_processor(BatchSpanProcessor(exporter))
+                failsafe = FailsafeSpanExporter(exporter, retry_dir=retry_dir)
+                self._provider.add_span_processor(BatchSpanProcessor(failsafe))
                 self._export_mode = EXPORT_MODE_OTLP
-                logger.info(f"Configured OTLP exporter to {endpoint}")
+                logger.info(f"Configured failsafe OTLP exporter to {endpoint}")
             else:
                 logger.warning(
                     f"OTLP endpoint {endpoint} not reachable. "
-                    f"Spans will be persisted locally but not exported. "
-                    f"Set CONTEXTCORE_FALLBACK_CONSOLE=1 to enable console export."
+                    f"Spans will be persisted to {retry_dir} for retry."
                 )
                 if fallback_to_console:
-                    self._provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
+                    console = ConsoleSpanExporter()
+                    failsafe = FailsafeSpanExporter(console, retry_dir=retry_dir)
+                    self._provider.add_span_processor(BatchSpanProcessor(failsafe))
                     self._export_mode = EXPORT_MODE_CONSOLE
-                    logger.info("Enabled console span exporter as fallback")
+                    logger.info("Enabled failsafe console span exporter as fallback")
                 else:
-                    self._export_mode = EXPORT_MODE_NONE
+                    # Create a failsafe exporter with a no-op delegate that always fails.
+                    # This ensures spans are persisted to disk even when no endpoint is available.
+                    # When the endpoint comes up, force_flush will drain the pending files.
+                    exporter = create_span_exporter(endpoint=endpoint)
+                    failsafe = FailsafeSpanExporter(exporter, retry_dir=retry_dir)
+                    self._provider.add_span_processor(BatchSpanProcessor(failsafe))
+                    self._export_mode = EXPORT_MODE_OTLP
+                    logger.info(
+                        f"Configured failsafe exporter (endpoint down, "
+                        f"spans will persist to {retry_dir})"
+                    )
 
         except ImportError:
             logger.warning("OTLP exporter not available, spans will not be exported")
@@ -1095,6 +1112,69 @@ class TaskTracker:
             except Exception as e:
                 logger.warning(f"Failed to restore state for {task_id}: {e}")
 
+    def _recover_orphaned_spans(self) -> None:
+        """
+        Recover orphaned spans from a previous process that exited uncleanly.
+
+        Iterates persisted span states that have no corresponding live span
+        (i.e., not in _active_spans). For each orphan, creates a new span
+        from saved attributes, adds a task.recovered event, and ends it
+        immediately to trigger export via the FailsafeSpanExporter pipeline.
+
+        Called once in __init__ after _load_state().
+        """
+        saved_states = self._state_manager.get_active_spans()
+        recovered_count = 0
+
+        for task_id, state in saved_states.items():
+            # Skip any task that is already live (started in this process)
+            if task_id in self._active_spans:
+                continue
+
+            try:
+                # Reconstruct attributes from saved state
+                attributes = dict(state.attributes)
+                attributes["task.recovered"] = True
+
+                # Create a new span representing the recovered task
+                span = self._tracer.start_span(
+                    name=state.span_name,
+                    kind=SpanKind.INTERNAL,
+                    attributes=attributes,
+                )
+
+                # Replay saved events
+                for event in state.events:
+                    event_attrs = event.get("attributes", {})
+                    span.add_event(event.get("name", "unknown"), attributes=event_attrs)
+
+                # Add recovery event
+                span.add_event(
+                    "task.recovered",
+                    attributes={
+                        "recovery.reason": "process_restart",
+                        "recovery.original_trace_id": state.trace_id,
+                        "recovery.original_span_id": state.span_id,
+                    },
+                )
+
+                # End the span immediately (triggers export)
+                if state.status == "ERROR":
+                    span.set_status(Status(StatusCode.ERROR, state.status_description))
+                else:
+                    span.set_status(Status(StatusCode.OK, "Recovered after restart"))
+                span.end()
+
+                # Archive the old state file
+                self._state_manager.remove_span(task_id)
+                recovered_count += 1
+
+            except Exception as e:
+                logger.warning(f"Failed to recover orphaned span {task_id}: {e}")
+
+        if recovered_count > 0:
+            logger.info(f"Recovered {recovered_count} orphaned span(s) from previous session")
+
     def _save_state(self) -> None:
         """
         Persist active span state to disk.
@@ -1174,7 +1254,7 @@ class TaskTracker:
             pass  # atexit.unregister may fail if not registered
 
         try:
-            self._provider.force_flush(timeout_millis=5000)
+            self._provider.force_flush(timeout_millis=OTEL_SHUTDOWN_TIMEOUT_MS)
             self._provider.shutdown()
             logger.debug("TaskTracker shutdown complete")
         except Exception as e:

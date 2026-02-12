@@ -132,7 +132,7 @@ class TestBlockedLogs:
         log = parse_log_line(captured_logs)
         assert log["event"] == "task.blocked"
         assert log["reason"] == "Waiting on API"
-        assert log["level"] == "warn"
+        assert log["severity_text"] == "WARN"
 
     def test_log_blocked_with_blocker(self, logger, captured_logs):
         """Blocked by another task should include blocker ID."""
