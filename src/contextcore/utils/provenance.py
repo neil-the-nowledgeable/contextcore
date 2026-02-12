@@ -23,23 +23,41 @@ from contextcore.models.artifact_manifest import ExportProvenance, GitContext
 def get_file_checksum(file_path: str, algorithm: str = "sha256") -> Optional[str]:
     """
     Compute checksum of a file.
-    
+
     Args:
         file_path: Path to the file
         algorithm: Hash algorithm (default: sha256)
-    
+
     Returns:
         Hex digest of the file contents, or None if file doesn't exist
     """
     path = Path(file_path)
     if not path.exists():
         return None
-    
+
     hasher = hashlib.new(algorithm)
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
             hasher.update(chunk)
     return hasher.hexdigest()
+
+
+def get_content_checksum(
+    content: str | bytes, algorithm: str = "sha256"
+) -> str:
+    """
+    Compute checksum of string or bytes content.
+
+    Args:
+        content: String or bytes to hash
+        algorithm: Hash algorithm (default: sha256)
+
+    Returns:
+        Hex digest of the content
+    """
+    if isinstance(content, str):
+        content = content.encode("utf-8")
+    return hashlib.new(algorithm, content).hexdigest()
 
 
 def get_git_context(file_path: str) -> Optional[GitContext]:

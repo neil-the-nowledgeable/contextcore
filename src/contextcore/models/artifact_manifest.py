@@ -420,9 +420,18 @@ class ExportProvenance(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
+# Shared schema version for artifact manifest, onboarding metadata, and seed
+SCHEMA_VERSION = "1.0.0"
+
+
 class ArtifactManifestMetadata(BaseModel):
     """Metadata for the artifact manifest."""
 
+    schema_version: str = Field(
+        default=SCHEMA_VERSION,
+        alias="schemaVersion",
+        description="Schema version for compatibility checks (aligns with onboarding-metadata)",
+    )
     generated_at: datetime = Field(
         default_factory=lambda: datetime.now(),
         alias="generatedAt",

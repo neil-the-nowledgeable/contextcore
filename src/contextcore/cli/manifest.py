@@ -29,6 +29,51 @@ def manifest():
     pass
 
 
+def _validate_manifest(path: str, strict: bool = False) -> tuple[list[str], list[str], str]:
+    """
+    Validate a context manifest. Returns (errors, warnings, manifest_version).
+    """
+    from contextcore.models.manifest_loader import load_manifest, detect_manifest_version
+
+    path_obj = Path(path)
+    errors: list[str] = []
+    warnings: list[str] = []
+    manifest_version = "unknown"
+
+    try:
+        raw_data = yaml.safe_load(path_obj.read_text(encoding="utf-8"))
+        manifest_version = detect_manifest_version(raw_data)
+
+        manifest = load_manifest(path)
+
+        if manifest_version == "v2":
+            from contextcore.models.manifest_v2 import ContextManifestV2
+
+            if isinstance(manifest, ContextManifestV2):
+                for tactic in manifest.strategy.tactics:
+                    if tactic.status.value == "blocked" and not tactic.blocked_reason:
+                        errors.append(
+                            f"Tactic {tactic.id} is blocked but missing blocked_reason"
+                        )
+
+                open_questions = manifest.get_open_questions()
+                if open_questions:
+                    warnings.append(
+                        f"Manifest has {len(open_questions)} open question(s)"
+                    )
+
+    except FileNotFoundError:
+        errors.append(f"File not found: {path}")
+    except yaml.YAMLError as e:
+        errors.append(f"YAML parse error: {e}")
+    except ValueError as e:
+        errors.append(f"Validation error: {e}")
+    except Exception as e:
+        errors.append(f"Unexpected error: {e}")
+
+    return errors, warnings, manifest_version
+
+
 @manifest.command()
 @click.option(
     "--path",
@@ -56,54 +101,9 @@ def validate(path: str, strict: bool, output_format: str):
 
     Returns exit code 0 if valid, 1 if invalid.
     """
-    from contextcore.models.manifest_loader import load_manifest, detect_manifest_version
-
-    path_obj = Path(path)
-    errors = []
-    warnings = []
-    manifest_version = "unknown"
-
-    try:
-        # First detect version
-        raw_data = yaml.safe_load(path_obj.read_text(encoding="utf-8"))
-        manifest_version = detect_manifest_version(raw_data)
-
-        # Try to load (validation happens automatically)
-        manifest = load_manifest(path)
-
-        # Additional semantic validation
-        if manifest_version == "v2":
-            # v2-specific validations
-            from contextcore.models.manifest_v2 import ContextManifestV2
-
-            if isinstance(manifest, ContextManifestV2):
-                # Check for blocked tactics without reason
-                for tactic in manifest.strategy.tactics:
-                    if tactic.status.value == "blocked" and not tactic.blocked_reason:
-                        errors.append(
-                            f"Tactic {tactic.id} is blocked but missing blocked_reason"
-                        )
-
-                # Warn about open questions
-                open_questions = manifest.get_open_questions()
-                if open_questions:
-                    warnings.append(
-                        f"Manifest has {len(open_questions)} open question(s)"
-                    )
-
-    except FileNotFoundError:
-        errors.append(f"File not found: {path}")
-    except yaml.YAMLError as e:
-        errors.append(f"YAML parse error: {e}")
-    except ValueError as e:
-        errors.append(f"Validation error: {e}")
-    except Exception as e:
-        errors.append(f"Unexpected error: {e}")
-
-    # Determine result
+    errors, warnings, manifest_version = _validate_manifest(path, strict=strict)
     is_valid = len(errors) == 0 and (not strict or len(warnings) == 0)
 
-    # Output
     if output_format == "json":
         result = {
             "valid": is_valid,
@@ -548,6 +548,18 @@ def init(path: str, name: str, manifest_version: str, force: bool):
     is_flag=True,
     help="Embed provenance metadata in the artifact manifest",
 )
+@click.option(
+    "--emit-onboarding/--no-onboarding",
+    "emit_onboarding",
+    default=True,
+    help="Write onboarding-metadata.json for plan ingestion (default: enabled). Use --no-onboarding to opt out.",
+)
+@click.option(
+    "--min-coverage",
+    type=float,
+    default=None,
+    help="Fail if overall coverage is below this percentage (e.g., 80). Omit to allow any coverage.",
+)
 @click.pass_context
 def export(
     ctx,
@@ -560,6 +572,8 @@ def export(
     dry_run: bool,
     emit_provenance: bool,
     embed_provenance: bool,
+    emit_onboarding: bool,
+    min_coverage: Optional[float],
 ):
     """
     Export CRD and Artifact Manifest for Wayfinder implementations.
@@ -576,14 +590,22 @@ def export(
     - Use --embed-provenance to include provenance in the artifact manifest
     - Provenance includes: git context, timestamps, checksums, CLI args
 
+    Programmatic onboarding:
+    - Onboarding metadata (onboarding-metadata.json) is written by default for plan ingestion
+    - Use --no-onboarding to opt out
+    - Includes: artifact type schemas, output conventions, coverage gaps,
+      checksums, semantic conventions, and provenance chain
+
     Example:
         contextcore manifest export -p .contextcore.yaml -o ./output
         contextcore manifest export -p .contextcore.yaml -o ./output --emit-provenance
+        contextcore manifest export -p .contextcore.yaml -o ./output --no-onboarding
 
     This creates:
         ./output/my-project-projectcontext.yaml
         ./output/my-project-artifact-manifest.yaml
         ./output/provenance.json (if --emit-provenance)
+        ./output/onboarding-metadata.json (default; use --no-onboarding to skip)
     """
     from datetime import datetime as dt
 
@@ -594,6 +616,14 @@ def export(
     start_time = dt.now()
 
     try:
+        # Pre-flight validation: fail early if manifest is invalid
+        errors, warnings, _ = _validate_manifest(path, strict=False)
+        if errors:
+            click.echo(f"✗ Manifest validation failed before export:", err=True)
+            for e in errors:
+                click.echo(f"  ✗ {e}", err=True)
+            sys.exit(1)
+
         # Load manifest
         raw_data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
         version = detect_manifest_version(raw_data)
@@ -674,6 +704,7 @@ def export(
                 "dry_run": dry_run,
                 "emit_provenance": emit_provenance,
                 "embed_provenance": embed_provenance,
+                "emit_onboarding": emit_onboarding,
             }
 
             provenance = capture_provenance(
@@ -711,8 +742,30 @@ def export(
                 click.echo(f"\n--- Provenance ---")
                 prov_dict = provenance.model_dump(by_alias=True, exclude_none=True, mode="json")
                 click.echo(json.dumps(prov_dict, indent=2, default=str)[:800] + "...")
+            if emit_onboarding:
+                from contextcore.utils.onboarding import build_onboarding_metadata
+
+                onboarding_meta = build_onboarding_metadata(
+                    artifact_manifest=artifact_manifest,
+                    artifact_manifest_path=artifact_filename,
+                    project_context_path=crd_filename,
+                    provenance=provenance,
+                    artifact_manifest_content=artifact_content,
+                    project_context_content=crd_yaml,
+                    source_path=path,
+                )
+                click.echo(f"\n--- Onboarding Metadata (preview) ---")
+                click.echo(json.dumps(onboarding_meta, indent=2, default=str)[:600] + "...")
             click.echo("\n=== End Preview ===")
             _print_coverage_summary(artifact_manifest)
+            if min_coverage is not None:
+                coverage_pct = artifact_manifest.coverage.overall_coverage
+                if coverage_pct < min_coverage:
+                    click.echo(
+                        f"✗ Coverage {coverage_pct:.1f}% is below minimum {min_coverage}%",
+                        err=True,
+                    )
+                    sys.exit(1)
             return
 
         # Write files
@@ -732,13 +785,47 @@ def export(
             )
             output_files.append("provenance.json")
 
+        # Write onboarding metadata if requested (for plan ingestion, artisan seed)
+        onboarding_file = None
+        if emit_onboarding:
+            from contextcore.utils.onboarding import build_onboarding_metadata
+
+            onboarding_metadata = build_onboarding_metadata(
+                artifact_manifest=artifact_manifest,
+                artifact_manifest_path=artifact_filename,
+                project_context_path=crd_filename,
+                provenance=provenance,
+                artifact_manifest_content=artifact_content,
+                project_context_content=crd_yaml,
+                source_path=path,
+            )
+            onboarding_path = output_path / "onboarding-metadata.json"
+            onboarding_path.write_text(
+                json.dumps(onboarding_metadata, indent=2, default=str),
+                encoding="utf-8",
+            )
+            onboarding_file = str(onboarding_path)
+            output_files.append("onboarding-metadata.json")
+
         click.echo(f"✓ Exported ContextCore artifacts to {output_path}/")
         click.echo(f"  1. {crd_filename} - Kubernetes CRD (do NOT apply directly)")
         click.echo(f"  2. {artifact_filename} - Artifact Manifest (for Wayfinder)")
         if provenance_file:
             click.echo(f"  3. provenance.json - Full provenance audit trail")
+        if onboarding_file:
+            click.echo(f"  4. onboarding-metadata.json - Programmatic onboarding metadata")
 
         _print_coverage_summary(artifact_manifest)
+
+        # Enforce minimum coverage threshold if specified
+        if min_coverage is not None:
+            coverage_pct = artifact_manifest.coverage.overall_coverage
+            if coverage_pct < min_coverage:
+                click.echo(
+                    f"✗ Coverage {coverage_pct:.1f}% is below minimum {min_coverage}%",
+                    err=True,
+                )
+                sys.exit(1)
 
         # Print provenance summary if captured
         if provenance:
