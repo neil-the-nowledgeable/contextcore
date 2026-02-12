@@ -18,8 +18,11 @@ Usage:
             print(err)
 """
 
+import json
 from dataclasses import dataclass, field
 from typing import List, Optional
+
+import yaml
 
 from contextcore.models.artifact_manifest import ArtifactType
 from contextcore.utils.onboarding import ARTIFACT_OUTPUT_CONVENTIONS
@@ -70,18 +73,14 @@ def validate_artifact(
 
     if output_ext in (".yaml", ".yml"):
         try:
-            import yaml
-
             yaml.safe_load(content)
-        except Exception as e:
+        except yaml.YAMLError as e:
             result.valid = False
             result.errors.append(f"YAML parse error: {e}")
     elif output_ext == ".json":
         try:
-            import json
-
             json.loads(content)
-        except Exception as e:
+        except json.JSONDecodeError as e:
             result.valid = False
             result.errors.append(f"JSON parse error: {e}")
     elif output_ext == ".md":

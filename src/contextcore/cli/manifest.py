@@ -701,7 +701,7 @@ def export(
                 )
                 if not isinstance(artifact_task_mapping, dict):
                     artifact_task_mapping = None
-            except Exception as e:
+            except (OSError, json.JSONDecodeError) as e:
                 click.echo(f"⚠ Could not load task mapping from {task_mapping}: {e}", err=True)
 
         # Capture provenance if requested
