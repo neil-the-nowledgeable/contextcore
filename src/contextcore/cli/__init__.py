@@ -43,6 +43,7 @@ from .skill import skill
 from .insight import insight
 from .knowledge import knowledge
 from .terminology import terminology
+from .manifest import manifest
 from .core import create, annotate, generate, runbook, controller
 
 # Phase 2 commands
@@ -90,6 +91,7 @@ main.add_command(skill)
 main.add_command(insight)
 main.add_command(knowledge)
 main.add_command(terminology)
+main.add_command(manifest)
 
 # Phase 2 command groups
 main.add_command(review)
