@@ -25,7 +25,7 @@ from typing import List, Optional
 import yaml
 
 from contextcore.models.artifact_manifest import ArtifactType
-from contextcore.utils.onboarding import ARTIFACT_OUTPUT_CONVENTIONS
+from contextcore.utils.artifact_conventions import ARTIFACT_OUTPUT_CONVENTIONS
 
 
 @dataclass
@@ -102,12 +102,29 @@ def validate_artifacts(
     Validate multiple artifacts.
 
     Args:
-        artifacts: List of (artifact_type, content, artifact_id) tuples
+        artifacts: List of (artifact_type, content, artifact_id) tuples.
+            Each tuple must have exactly 3 elements.
 
     Returns:
         List of ValidationResult, one per artifact
     """
-    return [
-        validate_artifact(artifact_type=at, content=c, artifact_id=aid)
-        for at, c, aid in artifacts
-    ]
+    results: List[ValidationResult] = []
+    for i, item in enumerate(artifacts):
+        if not isinstance(item, (list, tuple)):
+            results.append(
+                ValidationResult(
+                    valid=False,
+                    errors=[f"Invalid tuple at index {i}: expected list or tuple, got {type(item).__name__}"],
+                )
+            )
+        elif len(item) != 3:
+            results.append(
+                ValidationResult(
+                    valid=False,
+                    errors=[f"Invalid tuple at index {i}: expected 3 elements (artifact_type, content, artifact_id), got {len(item)}"],
+                )
+            )
+        else:
+            at, c, aid = item
+            results.append(validate_artifact(artifact_type=at, content=c, artifact_id=aid))
+    return results
