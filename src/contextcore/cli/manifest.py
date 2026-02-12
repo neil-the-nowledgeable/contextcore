@@ -538,7 +538,19 @@ def init(path: str, name: str, manifest_version: str, force: bool):
     is_flag=True,
     help="Preview without writing files",
 )
+@click.option(
+    "--emit-provenance",
+    is_flag=True,
+    help="Write a separate provenance.json file with full audit trail",
+)
+@click.option(
+    "--embed-provenance",
+    is_flag=True,
+    help="Embed provenance metadata in the artifact manifest",
+)
+@click.pass_context
 def export(
+    ctx,
     path: str,
     output_dir: str,
     namespace: str,
@@ -546,6 +558,8 @@ def export(
     scan_existing: Optional[str],
     output_format: str,
     dry_run: bool,
+    emit_provenance: bool,
+    embed_provenance: bool,
 ):
     """
     Export CRD and Artifact Manifest for Wayfinder implementations.
@@ -557,15 +571,27 @@ def export(
     The Artifact Manifest serves as the CONTRACT between ContextCore (which knows
     WHAT artifacts are needed) and Wayfinder (which knows HOW to create them).
 
+    Provenance tracking:
+    - Use --emit-provenance to write a separate provenance.json file
+    - Use --embed-provenance to include provenance in the artifact manifest
+    - Provenance includes: git context, timestamps, checksums, CLI args
+
     Example:
         contextcore manifest export -p .contextcore.yaml -o ./output
+        contextcore manifest export -p .contextcore.yaml -o ./output --emit-provenance
 
     This creates:
         ./output/my-project-projectcontext.yaml
         ./output/my-project-artifact-manifest.yaml
+        ./output/provenance.json (if --emit-provenance)
     """
+    from datetime import datetime as dt
+
     from contextcore.models.manifest_loader import load_manifest, detect_manifest_version
     from contextcore.models.manifest_v2 import ContextManifestV2
+
+    # Capture start time for duration tracking
+    start_time = dt.now()
 
     try:
         # Load manifest
@@ -628,7 +654,40 @@ def export(
             extra_metrics=_beaver_metrics,
         )
 
+        # Capture provenance if requested
+        output_files = [crd_filename]
         artifact_filename = f"{project_name}-artifact-manifest.{output_format}"
+        output_files.append(artifact_filename)
+
+        provenance = None
+        if emit_provenance or embed_provenance:
+            from contextcore.utils.provenance import capture_provenance
+
+            # Capture CLI options for provenance
+            cli_options = {
+                "path": path,
+                "output_dir": output_dir,
+                "namespace": namespace,
+                "existing": list(existing),
+                "scan_existing": scan_existing,
+                "format": output_format,
+                "dry_run": dry_run,
+                "emit_provenance": emit_provenance,
+                "embed_provenance": embed_provenance,
+            }
+
+            provenance = capture_provenance(
+                source_path=path,
+                output_directory=str(output_path),
+                output_files=output_files,
+                cli_args=sys.argv,
+                cli_options=cli_options,
+                start_time=start_time,
+            )
+
+            if embed_provenance:
+                artifact_manifest.metadata.provenance = provenance
+
         if output_format == "yaml":
             artifact_content = yaml.dump(
                 artifact_manifest.to_dict(),
@@ -648,22 +707,48 @@ def export(
                 if len(artifact_content) > 1000
                 else artifact_content
             )
+            if provenance:
+                click.echo(f"\n--- Provenance ---")
+                prov_dict = provenance.model_dump(by_alias=True, exclude_none=True, mode="json")
+                click.echo(json.dumps(prov_dict, indent=2, default=str)[:800] + "...")
             click.echo("\n=== End Preview ===")
             _print_coverage_summary(artifact_manifest)
             return
 
         # Write files
         crd_path = output_path / crd_filename
-        artifact_path = output_path / artifact_filename
+        artifact_path_file = output_path / artifact_filename
 
         crd_path.write_text(crd_yaml, encoding="utf-8")
-        artifact_path.write_text(artifact_content, encoding="utf-8")
+        artifact_path_file.write_text(artifact_content, encoding="utf-8")
+
+        # Write provenance file if requested
+        provenance_file = None
+        if emit_provenance and provenance:
+            from contextcore.utils.provenance import write_provenance_file
+
+            provenance_file = write_provenance_file(
+                provenance, str(output_path), format="json"
+            )
+            output_files.append("provenance.json")
 
         click.echo(f"✓ Exported ContextCore artifacts to {output_path}/")
         click.echo(f"  1. {crd_filename} - Kubernetes CRD (do NOT apply directly)")
         click.echo(f"  2. {artifact_filename} - Artifact Manifest (for Wayfinder)")
+        if provenance_file:
+            click.echo(f"  3. provenance.json - Full provenance audit trail")
 
         _print_coverage_summary(artifact_manifest)
+
+        # Print provenance summary if captured
+        if provenance:
+            click.echo(f"\n  Provenance:")
+            if provenance.git:
+                git = provenance.git
+                dirty_marker = " (dirty)" if git.is_dirty else ""
+                click.echo(f"    Git: {git.branch}@{git.commit_sha[:8] if git.commit_sha else 'unknown'}{dirty_marker}")
+            click.echo(f"    Source checksum: {provenance.source_checksum[:16]}..." if provenance.source_checksum else "    Source checksum: not computed")
+            click.echo(f"    Duration: {provenance.duration_ms}ms" if provenance.duration_ms else "")
 
         click.echo(f"\nNext steps:")
         click.echo(f"  1. Review the artifact manifest for accuracy")

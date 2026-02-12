@@ -333,6 +333,93 @@ class CoverageSummary(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
+class GitContext(BaseModel):
+    """Git repository context for provenance tracking."""
+
+    commit_sha: Optional[str] = Field(
+        None, alias="commitSha", description="Git commit SHA of source file"
+    )
+    branch: Optional[str] = Field(None, description="Git branch name")
+    is_dirty: Optional[bool] = Field(
+        None, alias="isDirty", description="True if working directory has uncommitted changes"
+    )
+    remote_url: Optional[str] = Field(
+        None, alias="remoteUrl", description="Git remote origin URL"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class ExportProvenance(BaseModel):
+    """
+    Full provenance metadata for artifact manifest generation.
+    
+    Captures everything needed to understand:
+    - WHO generated this (hostname, username)
+    - WHEN it was generated (timestamp)
+    - WHAT was used (source file, checksums, versions)
+    - HOW it was generated (CLI args, environment)
+    """
+
+    # Timing
+    generated_at: datetime = Field(
+        default_factory=lambda: datetime.now(),
+        alias="generatedAt",
+        description="When this manifest was generated (ISO 8601)",
+    )
+    duration_ms: Optional[int] = Field(
+        None, alias="durationMs", description="Export duration in milliseconds"
+    )
+
+    # Source identification
+    source_path: str = Field(
+        ..., alias="sourcePath", description="Absolute path to source context manifest"
+    )
+    source_checksum: Optional[str] = Field(
+        None, alias="sourceChecksum", description="SHA-256 checksum of source file"
+    )
+
+    # Version information
+    contextcore_version: str = Field(
+        default="2.0.0",
+        alias="contextcoreVersion",
+        description="ContextCore version that generated this",
+    )
+    python_version: Optional[str] = Field(
+        None, alias="pythonVersion", description="Python version used"
+    )
+
+    # Environment
+    hostname: Optional[str] = Field(None, description="Machine hostname")
+    username: Optional[str] = Field(None, description="Username who ran the export")
+    working_directory: Optional[str] = Field(
+        None, alias="workingDirectory", description="Working directory during export"
+    )
+
+    # Git context
+    git: Optional[GitContext] = Field(
+        None, description="Git repository context for source file"
+    )
+
+    # CLI invocation
+    cli_args: Optional[List[str]] = Field(
+        None, alias="cliArgs", description="CLI arguments used for export"
+    )
+    cli_options: Optional[Dict[str, Any]] = Field(
+        None, alias="cliOptions", description="Parsed CLI options"
+    )
+
+    # Output information
+    output_directory: Optional[str] = Field(
+        None, alias="outputDirectory", description="Directory where outputs were written"
+    )
+    output_files: Optional[List[str]] = Field(
+        None, alias="outputFiles", description="List of files generated"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class ArtifactManifestMetadata(BaseModel):
     """Metadata for the artifact manifest."""
 
@@ -352,6 +439,11 @@ class ArtifactManifestMetadata(BaseModel):
         description="ContextCore version that generated this",
     )
     project_id: str = Field(..., alias="projectId", description="Project identifier")
+
+    # Extended provenance (optional, populated when --emit-provenance is used)
+    provenance: Optional[ExportProvenance] = Field(
+        None, description="Full provenance metadata for audit trail"
+    )
 
     model_config = ConfigDict(populate_by_name=True)
 
