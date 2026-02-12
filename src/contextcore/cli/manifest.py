@@ -560,6 +560,12 @@ def init(path: str, name: str, manifest_version: str, force: bool):
     default=None,
     help="Fail if overall coverage is below this percentage (e.g., 80). Omit to allow any coverage.",
 )
+@click.option(
+    "--task-mapping",
+    type=click.Path(exists=True),
+    default=None,
+    help="Path to JSON file mapping artifact IDs to task IDs (e.g., {\"checkout_api-dashboard\": \"PI-019\"}).",
+)
 @click.pass_context
 def export(
     ctx,
@@ -574,6 +580,7 @@ def export(
     embed_provenance: bool,
     emit_onboarding: bool,
     min_coverage: Optional[float],
+    task_mapping: Optional[str],
 ):
     """
     Export CRD and Artifact Manifest for Wayfinder implementations.
@@ -684,6 +691,19 @@ def export(
             extra_metrics=_beaver_metrics,
         )
 
+        # Load task mapping if provided
+        artifact_task_mapping: Optional[dict] = None
+        if task_mapping:
+            try:
+                task_mapping_path = Path(task_mapping)
+                artifact_task_mapping = json.loads(
+                    task_mapping_path.read_text(encoding="utf-8")
+                )
+                if not isinstance(artifact_task_mapping, dict):
+                    artifact_task_mapping = None
+            except Exception as e:
+                click.echo(f"⚠ Could not load task mapping from {task_mapping}: {e}", err=True)
+
         # Capture provenance if requested
         output_files = [crd_filename]
         artifact_filename = f"{project_name}-artifact-manifest.{output_format}"
@@ -753,6 +773,8 @@ def export(
                     artifact_manifest_content=artifact_content,
                     project_context_content=crd_yaml,
                     source_path=path,
+                    artifact_task_mapping=artifact_task_mapping,
+                    output_dir=str(output_path),
                 )
                 click.echo(f"\n--- Onboarding Metadata (preview) ---")
                 click.echo(json.dumps(onboarding_meta, indent=2, default=str)[:600] + "...")
@@ -798,6 +820,8 @@ def export(
                 artifact_manifest_content=artifact_content,
                 project_context_content=crd_yaml,
                 source_path=path,
+                artifact_task_mapping=artifact_task_mapping,
+                output_dir=str(output_path),
             )
             onboarding_path = output_path / "onboarding-metadata.json"
             onboarding_path.write_text(

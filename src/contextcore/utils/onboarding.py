@@ -77,6 +77,90 @@ ARTIFACT_OUTPUT_CONVENTIONS: Dict[str, Dict[str, str]] = {
 }
 
 
+# Parameter source: which params come from manifest vs CRD (per R1-F1)
+# Keys: parameter name. Values: "manifest.spec.X" or "crd.spec.X" (CRD is distilled from manifest)
+ARTIFACT_PARAMETER_SOURCES: Dict[str, Dict[str, str]] = {
+    ArtifactType.DASHBOARD.value: {
+        "criticality": "manifest.spec.business.criticality",
+        "dashboardPlacement": "manifest.spec.observability.dashboardPlacement",
+        "datasources": "manifest (template default)",
+        "risks": "manifest.spec.risks[]",
+    },
+    ArtifactType.PROMETHEUS_RULE.value: {
+        "alertSeverity": "manifest.spec.business.criticality (→ severity map)",
+        "availabilityThreshold": "manifest.spec.requirements.availability",
+        "latencyThreshold": "manifest.spec.requirements.latencyP99",
+        "latencyP50Threshold": "manifest.spec.requirements.latencyP50",
+        "throughput": "manifest.spec.requirements.throughput",
+    },
+    ArtifactType.SLO_DEFINITION.value: {
+        "availability": "manifest.spec.requirements.availability",
+        "latencyP99": "manifest.spec.requirements.latencyP99",
+        "errorBudget": "manifest.spec.requirements.errorBudget",
+        "throughput": "manifest.spec.requirements.throughput",
+    },
+    ArtifactType.SERVICE_MONITOR.value: {
+        "metricsInterval": "manifest.spec.observability.metricsInterval",
+        "namespace": "crd.spec.targets[].namespace or default",
+    },
+    ArtifactType.LOKI_RULE.value: {
+        "logSelectors": "manifest (target-based)",
+        "recordingRules": "manifest (template default)",
+        "labelExtractors": "manifest (template default)",
+        "logFormat": "manifest.spec.observability.logLevel",
+    },
+    ArtifactType.NOTIFICATION_POLICY.value: {
+        "alertChannels": "manifest.spec.observability.alertChannels",
+        "owner": "manifest.spec.business.owner",
+        "owners": "manifest.metadata.owners",
+    },
+    ArtifactType.RUNBOOK.value: {
+        "risks": "manifest.spec.risks[]",
+        "escalationContacts": "manifest.metadata.owners",
+    },
+    ArtifactType.ALERT_TEMPLATE.value: {
+        "alertSeverity": "manifest.spec.business.criticality",
+        "summaryTemplate": "manifest (template default)",
+        "descriptionTemplate": "manifest (template default)",
+    },
+}
+
+# Example output paths/snippets per artifact type (per R3-F3)
+ARTIFACT_EXAMPLE_OUTPUTS: Dict[str, Dict[str, str]] = {
+    ArtifactType.SERVICE_MONITOR.value: {
+        "example_output_path": "k8s/observability/checkout-api-service-monitor.yaml",
+        "example_snippet": "apiVersion: monitoring.coreos.com/v1\nkind: ServiceMonitor\nmetadata:\n  name: checkout-api\nspec:\n  selector:\n    matchLabels:\n      app: checkout-api\n  endpoints:\n    - port: metrics\n      interval: 30s",
+    },
+    ArtifactType.PROMETHEUS_RULE.value: {
+        "example_output_path": "prometheus/rules/checkout-api-prometheus-rules.yaml",
+        "example_snippet": "apiVersion: monitoring.coreos.com/v1\nkind: PrometheusRule\nmetadata:\n  name: checkout-api-alerts\nspec:\n  groups:\n    - name: availability\n      rules:\n        - alert: LowAvailability\n          expr: ...",
+    },
+    ArtifactType.DASHBOARD.value: {
+        "example_output_path": "grafana/dashboards/checkout-api-dashboard.json",
+        "example_snippet": '{"dashboard":{"title":"checkout-api Service Dashboard","panels":[]},"overwrite":true}',
+    },
+    ArtifactType.RUNBOOK.value: {
+        "example_output_path": "runbooks/checkout-api-runbook.md",
+        "example_snippet": "# checkout-api Incident Runbook\n\n## Overview\n\n## Risks\n\n## Escalation Contacts",
+    },
+    ArtifactType.SLO_DEFINITION.value: {
+        "example_output_path": "slo/checkout-api-slo.yaml",
+        "example_snippet": "apiVersion: openslo.github.io/v1\nkind: SLO\nmetadata:\n  name: checkout-api\nspec:\n  target: 99.5\n  timeWindow:\n    duration: 30d",
+    },
+    ArtifactType.LOKI_RULE.value: {
+        "example_output_path": "loki/rules/checkout-api-loki-rules.yaml",
+        "example_snippet": "groups:\n  - name: checkout-api\n    rules:\n      - alert: HighErrorRate\n        expr: ...",
+    },
+    ArtifactType.NOTIFICATION_POLICY.value: {
+        "example_output_path": "alertmanager/checkout-api-notification.yaml",
+        "example_snippet": "receivers:\n  - name: checkout-api-team\n    slack_configs:\n      - channel: '#alerts'",
+    },
+    ArtifactType.ALERT_TEMPLATE.value: {
+        "example_output_path": "alertmanager/templates/checkout-api-alert-template.yaml",
+        "example_snippet": "{{ define \"checkout-api.title\" }}{{ .GroupLabels.alertname }}{{ end }}",
+    },
+}
+
 # Parameter keys per artifact type (for generator validation)
 ARTIFACT_PARAMETER_SCHEMA: Dict[str, List[str]] = {
     ArtifactType.DASHBOARD.value: [
@@ -134,6 +218,8 @@ def build_onboarding_metadata(
     artifact_manifest_content: Optional[str] = None,
     project_context_content: Optional[str] = None,
     source_path: Optional[str] = None,
+    artifact_task_mapping: Optional[Dict[str, str]] = None,
+    output_dir: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Build onboarding metadata for programmatic artifact generation.
@@ -146,6 +232,8 @@ def build_onboarding_metadata(
         artifact_manifest_content: Optional content of artifact manifest for checksum
         project_context_content: Optional content of project context CRD for checksum
         source_path: Path to source context manifest (for source_checksum when provenance absent)
+        artifact_task_mapping: Optional mapping of artifact_id -> plan task ID (e.g., wayfinder_core-dashboard -> PI-019)
+        output_dir: Optional output directory; when provided, source_path_relative is computed for portability
 
     Returns:
         Dict suitable for JSON serialization
@@ -155,7 +243,7 @@ def build_onboarding_metadata(
         a.id for a in artifact_manifest.artifacts if a.status.value == "needed"
     ]
 
-    # Build artifact type schema from conventions + parameter hints
+    # Build artifact type schema from conventions + parameter hints + sources + examples
     artifact_types: Dict[str, Dict[str, Any]] = {}
     for artifact in artifact_manifest.artifacts:
         art_type = artifact.type.value
@@ -165,9 +253,13 @@ def build_onboarding_metadata(
                 {"output_ext": ".yaml", "output_path": f"generated/{{target}}-{art_type}.yaml"},
             )
             param_keys = ARTIFACT_PARAMETER_SCHEMA.get(art_type, [])
+            param_sources = ARTIFACT_PARAMETER_SOURCES.get(art_type, {})
+            example_outputs = ARTIFACT_EXAMPLE_OUTPUTS.get(art_type, {})
             artifact_types[art_type] = {
                 **conventions,
                 "parameter_keys": param_keys,
+                "parameter_sources": param_sources,
+                **example_outputs,
             }
 
     # Build semantic conventions block
@@ -228,5 +320,22 @@ def build_onboarding_metadata(
         source_checksum = get_file_checksum(source_path)
         if source_checksum:
             result["source_checksum"] = source_checksum
+
+    # Artifact ID → task mapping for plan ingestion (when known plan is used)
+    if artifact_task_mapping:
+        result["artifact_task_mapping"] = artifact_task_mapping
+
+    # Relative source path for portability (avoid absolute paths in seeds/handoffs)
+    if output_dir and source_path:
+        try:
+            from pathlib import Path
+            out_resolved = Path(output_dir).resolve()
+            project_root = out_resolved.parent
+            src_resolved = Path(source_path).resolve()
+            result["source_path_relative"] = str(src_resolved.relative_to(project_root))
+        except ValueError:
+            result["source_path_relative"] = source_path
+        except OSError:
+            result["source_path_relative"] = source_path
 
     return result
