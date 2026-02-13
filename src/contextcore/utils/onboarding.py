@@ -297,6 +297,40 @@ def build_onboarding_metadata(
                 if rule_dict not in derivation_rules[art_type]:
                     derivation_rules[art_type].append(rule_dict)
 
+    # ── Optional requirements bridge (generic, non-workflow-specific) ──
+    # Derive requirement hints from derivation rules that source values from
+    # manifest.spec.requirements.*. This keeps hints generic while enabling
+    # deterministic downstream requirement mapping.
+    requirements_hints: List[Dict[str, Any]] = []
+    seen_requirement_ids: set[str] = set()
+    for rules in derivation_rules.values():
+        for rule in rules:
+            source_field = rule.get("sourceField")
+            if not isinstance(source_field, str):
+                continue
+            if "requirements." not in source_field:
+                continue
+            if "manifest.spec.requirements." in source_field:
+                tail = source_field.split("manifest.spec.requirements.", 1)[1]
+            elif "spec.requirements." in source_field:
+                tail = source_field.split("spec.requirements.", 1)[1]
+            else:
+                tail = source_field.rsplit("requirements.", 1)[-1]
+            if not tail:
+                continue
+            req_id = f"REQ-{tail.replace('.', '-').replace('_', '-').upper()}"
+            if req_id in seen_requirement_ids:
+                continue
+            seen_requirement_ids.add(req_id)
+            requirements_hints.append(
+                {
+                    "id": req_id,
+                    "labels": ["nfr", "contextcore-export"],
+                    "priority": "medium",
+                    "acceptance_anchors": [source_field],
+                }
+            )
+
     # ── Strategic objectives for dashboard panel generation ──────────
     objectives_export: Optional[List[Dict[str, Any]]] = None
     if artifact_manifest.objectives:
@@ -441,6 +475,7 @@ def build_onboarding_metadata(
                 "parameter_resolvability",
                 "output_contracts",
                 "file_ownership",
+                "requirements_hints",
             ],
             "optional_sections": [
                 "artifact_task_mapping",
@@ -448,6 +483,7 @@ def build_onboarding_metadata(
                 "objectives",
                 "derivation_rules",
                 "provenance",
+                "requirements_hints",
             ],
         },
     }
@@ -478,6 +514,9 @@ def build_onboarding_metadata(
 
     if output_contracts:
         result["expected_output_contracts"] = output_contracts
+
+    if requirements_hints:
+        result["requirements_hints"] = requirements_hints
 
     # Integrity checksums for validation downstream
     if artifact_manifest_content is not None:

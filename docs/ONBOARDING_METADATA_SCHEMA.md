@@ -7,6 +7,7 @@ The `onboarding-metadata.json` file is produced by `contextcore manifest export`
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `version` | string | Yes | Schema version (e.g., `1.0.0`). Aligns with artifact manifest `schemaVersion`. |
+| `schema_version` | string | No | Additive schema compatibility marker for onboarding consumers. |
 | `schema` | string | Yes | Schema identifier: `contextcore.io/onboarding-metadata/v1` |
 
 ## Project Identity
@@ -69,6 +70,10 @@ Each entry in `artifact_types`:
 | Field | Type | Description |
 |-------|------|-------------|
 | `artifact_task_mapping` | object | Mapping of `artifact_id` → plan task ID (e.g., `wayfinder_core-dashboard` → `PI-019`). For known plans. |
+| `capabilities` | object | Capability negotiation block. Includes `schema_features` and `optional_sections`. |
+| `requirements_hints` | object[] | Optional requirements bridge for downstream ingestion. Each item includes `id`, `labels`, and optional `acceptance_anchors`/`source_references`. |
+| `parameter_resolvability` | object | Machine-readable parameter resolution matrix per artifact and parameter. |
+| `parameter_resolvability_summary` | object | Aggregate counts and unresolved reason breakdown for parameter resolvability. |
 | `source_path_relative` | string | Source manifest path relative to project root (output_dir parent). For portability. |
 | `semantic_conventions` | object | OTel attribute namespaces, metrics, query templates |
 | `provenance` | object | Export provenance (when `--emit-provenance`) |
@@ -98,6 +103,7 @@ Each entry in `artifact_types`:
 ## Project ID Consistency
 
 Ensure `project_id` is set consistently across:
+
 - Artifact manifest: `metadata.projectId`
 - Onboarding metadata: `project_id`
 - Seed (artisan-context-seed.json): propagate from onboarding or config

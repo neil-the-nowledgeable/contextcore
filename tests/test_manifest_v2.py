@@ -960,6 +960,7 @@ def test_enrichment_capabilities_block_present() -> None:
     assert "schema_features" in caps
     assert "optional_sections" in caps
     assert "parameter_resolvability" in caps["schema_features"]
+    assert "requirements_hints" in caps["schema_features"]
 
 
 def test_enrichment_open_questions() -> None:
@@ -989,6 +990,19 @@ def test_validation_report_contains_diagnostics() -> None:
     assert "diagnostics" in report
     # With strict min coverage, most test fixtures should produce an error diagnostic.
     assert any(d["code"] == "COVERAGE_BELOW_MINIMUM" for d in report["diagnostics"])
+
+
+def test_enrichment_requirements_hints_present() -> None:
+    """Phase D: onboarding includes optional requirements_hints bridge."""
+    meta, _ = _build_enriched_onboarding()
+    assert "requirements_hints" in meta
+    hints = meta["requirements_hints"]
+    assert isinstance(hints, list)
+    assert len(hints) > 0
+    sample = hints[0]
+    assert "id" in sample and sample["id"].startswith("REQ-")
+    assert "labels" in sample and isinstance(sample["labels"], list)
+    assert "acceptance_anchors" in sample and isinstance(sample["acceptance_anchors"], list)
 
 
 def test_enrichment_loki_rule_has_derived_from() -> None:
