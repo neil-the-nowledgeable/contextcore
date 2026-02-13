@@ -798,6 +798,8 @@ def test_build_onboarding_metadata_is_json_serializable() -> None:
     json_str = json.dumps(meta)
     assert isinstance(json_str, str)
     assert "artifact_manifest_path" in json_str
+    assert "schema_version" in json_str
+    assert "capabilities" in json_str
 
 
 # =============================================================================
@@ -930,6 +932,36 @@ def test_enrichment_resolved_artifact_parameters() -> None:
     assert rules_params["alertSeverity"] == "P1"  # critical → P1
 
 
+def test_enrichment_parameter_resolvability_present() -> None:
+    """Phase C: parameter_resolvability matrix is emitted with summary."""
+    meta, _ = _build_enriched_onboarding()
+
+    assert "parameter_resolvability" in meta
+    assert "parameter_resolvability_summary" in meta
+    summary = meta["parameter_resolvability_summary"]
+    assert "resolved" in summary
+    assert "unresolved" in summary
+    assert "total" in summary
+    assert summary["total"] == summary["resolved"] + summary["unresolved"]
+
+    # Spot check one artifact entry structure.
+    any_artifact = next(iter(meta["parameter_resolvability"].values()))
+    any_param = next(iter(any_artifact.values()))
+    assert "status" in any_param
+    assert any_param["status"] in {"resolved", "unresolved"}
+    assert "source_path" in any_param
+
+
+def test_enrichment_capabilities_block_present() -> None:
+    """Phase C: capabilities block declares schema features and optional sections."""
+    meta, _ = _build_enriched_onboarding()
+    assert "capabilities" in meta
+    caps = meta["capabilities"]
+    assert "schema_features" in caps
+    assert "optional_sections" in caps
+    assert "parameter_resolvability" in caps["schema_features"]
+
+
 def test_enrichment_open_questions() -> None:
     """Change 5: open_questions surfaces only open questions from guidance."""
     meta, _ = _build_enriched_onboarding()
@@ -941,6 +973,22 @@ def test_enrichment_open_questions() -> None:
     assert oqs[0]["id"] == "Q-DASHBOARD-FORMAT"
     assert oqs[0]["priority"] == "high"
     assert oqs[0]["status"] == "open"
+
+
+def test_validation_report_contains_diagnostics() -> None:
+    """Phase C: validation report surfaces integrity, coverage, and resolvability diagnostics."""
+    from contextcore.utils.onboarding import build_validation_report
+
+    meta, _ = _build_enriched_onboarding()
+    report = build_validation_report(onboarding_metadata=meta, min_coverage=100.0)
+
+    assert report["schema"] == "contextcore.io/validation-report/v1"
+    assert "integrity" in report
+    assert "coverage" in report
+    assert "resolvability" in report
+    assert "diagnostics" in report
+    # With strict min coverage, most test fixtures should produce an error diagnostic.
+    assert any(d["code"] == "COVERAGE_BELOW_MINIMUM" for d in report["diagnostics"])
 
 
 def test_enrichment_loki_rule_has_derived_from() -> None:

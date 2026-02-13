@@ -12,7 +12,7 @@ Used by: contextcore manifest export --emit-onboarding
 Consumed by: Plan ingestion workflows, artisan context seed enrichment
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from contextcore.models.artifact_manifest import (
     ArtifactManifest,
@@ -324,6 +324,51 @@ def build_onboarding_metadata(
             if params_dict:
                 resolved_params[artifact.id] = params_dict
 
+    # ── Parameter resolvability matrix (machine-readable) ────────────
+    # Tracks resolved/unresolved status per artifact + parameter so downstream
+    # systems can gate deterministically without embedding ContextCore logic.
+    parameter_resolvability: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    resolved_count = 0
+    unresolved_count = 0
+    for artifact in artifact_manifest.artifacts:
+        aid = artifact.id
+        art_type = artifact.type.value
+        expected_params = ARTIFACT_PARAMETER_SCHEMA.get(art_type, [])
+        source_map = ARTIFACT_PARAMETER_SOURCES.get(art_type, {})
+        actual_params = artifact.parameters or {}
+
+        if not expected_params:
+            continue
+
+        parameter_resolvability[aid] = {}
+        for key in expected_params:
+            source_path = source_map.get(key)
+            if key in actual_params and actual_params.get(key) is not None:
+                parameter_resolvability[aid][key] = {
+                    "status": "resolved",
+                    "source_path": source_path,
+                }
+                resolved_count += 1
+                continue
+
+            reason_code = (
+                "source_mapping_missing"
+                if source_path is None
+                else "value_not_materialized"
+            )
+            reason = (
+                "No source mapping exists for this parameter"
+                if source_path is None
+                else "Source mapping exists but no concrete value was produced"
+            )
+            parameter_resolvability[aid][key] = {
+                "status": "unresolved",
+                "source_path": source_path,
+                "reason_code": reason_code,
+                "reason": reason,
+            }
+            unresolved_count += 1
+
     # ── Open questions for design decision surfacing ──────────
     open_questions: Optional[List[Dict[str, Any]]] = None
     if artifact_manifest.guidance and hasattr(artifact_manifest.guidance, "questions"):
@@ -370,6 +415,7 @@ def build_onboarding_metadata(
 
     result: Dict[str, Any] = {
         "version": SCHEMA_VERSION,
+        "schema_version": SCHEMA_VERSION,
         "schema": "contextcore.io/onboarding-metadata/v1",
         "project_id": artifact_manifest.metadata.project_id,
         "artifact_manifest_path": artifact_manifest_path,
@@ -389,6 +435,21 @@ def build_onboarding_metadata(
         )
         if artifact_manifest.guidance
         else None,
+        "capabilities": {
+            "schema_features": [
+                "integrity_checksums",
+                "parameter_resolvability",
+                "output_contracts",
+                "file_ownership",
+            ],
+            "optional_sections": [
+                "artifact_task_mapping",
+                "open_questions",
+                "objectives",
+                "derivation_rules",
+                "provenance",
+            ],
+        },
     }
 
     # ── Enrichment fields (Export Enrichment Plan Changes 1-5 + Guide §6) ──
@@ -403,6 +464,14 @@ def build_onboarding_metadata(
 
     if resolved_params:
         result["resolved_artifact_parameters"] = resolved_params
+
+    if parameter_resolvability:
+        result["parameter_resolvability"] = parameter_resolvability
+        result["parameter_resolvability_summary"] = {
+            "resolved": resolved_count,
+            "unresolved": unresolved_count,
+            "total": resolved_count + unresolved_count,
+        }
 
     if open_questions:
         result["open_questions"] = open_questions
@@ -496,3 +565,100 @@ def build_onboarding_metadata(
             result["source_path_relative"] = source_path
 
     return result
+
+
+def build_validation_report(
+    *,
+    onboarding_metadata: Dict[str, Any],
+    min_coverage: Optional[float] = None,
+) -> Dict[str, Any]:
+    """Build export-time validation report from onboarding metadata."""
+    coverage = onboarding_metadata.get("coverage", {}) or {}
+    overall = coverage.get("overallCoverage", coverage.get("overall_coverage", 0))
+    try:
+        overall_pct = float(overall)
+    except (TypeError, ValueError):
+        overall_pct = 0.0
+    gaps = coverage.get("gaps", []) if isinstance(coverage, dict) else []
+    gaps_list = [g for g in gaps if isinstance(g, str)]
+
+    checksums = {
+        "source_checksum": onboarding_metadata.get("source_checksum"),
+        "artifact_manifest_checksum": onboarding_metadata.get("artifact_manifest_checksum"),
+        "project_context_checksum": onboarding_metadata.get("project_context_checksum"),
+    }
+    has_checksum_chain = all(isinstance(v, str) and bool(v.strip()) for v in checksums.values())
+
+    resolvability = onboarding_metadata.get("parameter_resolvability", {})
+    unresolved_entries: List[Dict[str, Any]] = []
+    if isinstance(resolvability, dict):
+        for artifact_id, params in resolvability.items():
+            if not isinstance(params, dict):
+                continue
+            for param_key, status_data in params.items():
+                if not isinstance(status_data, dict):
+                    continue
+                if status_data.get("status") == "unresolved":
+                    unresolved_entries.append(
+                        {
+                            "artifact_id": artifact_id,
+                            "parameter": param_key,
+                            "reason_code": status_data.get("reason_code"),
+                            "reason": status_data.get("reason"),
+                        }
+                    )
+
+    diagnostics: List[Dict[str, str]] = []
+    if not has_checksum_chain:
+        diagnostics.append(
+            {
+                "severity": "warning",
+                "code": "CHECKSUM_CHAIN_INCOMPLETE",
+                "message": "One or more integrity checksums are missing",
+            }
+        )
+    if min_coverage is not None and overall_pct < min_coverage:
+        diagnostics.append(
+            {
+                "severity": "error",
+                "code": "COVERAGE_BELOW_MINIMUM",
+                "message": (
+                    f"Coverage {overall_pct:.1f}% is below minimum {float(min_coverage):.1f}%"
+                ),
+            }
+        )
+    if unresolved_entries:
+        diagnostics.append(
+            {
+                "severity": "warning",
+                "code": "UNRESOLVED_PARAMETERS",
+                "message": f"{len(unresolved_entries)} artifact parameters are unresolved",
+            }
+        )
+
+    return {
+        "version": SCHEMA_VERSION,
+        "schema_version": SCHEMA_VERSION,
+        "schema": "contextcore.io/validation-report/v1",
+        "generated_at": onboarding_metadata.get("generated_at"),
+        "project_id": onboarding_metadata.get("project_id"),
+        "checksums": checksums,
+        "integrity": {
+            "checksum_chain_complete": has_checksum_chain,
+        },
+        "coverage": {
+            "overall_coverage_percent": overall_pct,
+            "gap_count": len(gaps_list),
+            "gaps": gaps_list,
+            "minimum_required": min_coverage,
+            "meets_minimum": (
+                True if min_coverage is None else overall_pct >= float(min_coverage)
+            ),
+        },
+        "resolvability": {
+            "summary": onboarding_metadata.get("parameter_resolvability_summary"),
+            "unresolved": unresolved_entries,
+        },
+        "capabilities": onboarding_metadata.get("capabilities", {}),
+        "diagnostics": diagnostics,
+    }

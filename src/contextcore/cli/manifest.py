@@ -640,6 +640,7 @@ def export(
     - Use --no-onboarding to opt out
     - Includes: artifact type schemas, output conventions, coverage gaps,
       checksums, semantic conventions, and provenance chain
+    - Validation report (validation-report.json) is always written for deterministic gating
 
     Example:
         contextcore manifest export -p .contextcore.yaml -o ./output
@@ -651,6 +652,7 @@ def export(
         ./output/my-project-artifact-manifest.yaml
         ./output/provenance.json (if --emit-provenance)
         ./output/onboarding-metadata.json (default; use --no-onboarding to skip)
+        ./output/validation-report.json (always)
     """
     from datetime import datetime as dt
 
@@ -788,6 +790,27 @@ def export(
         else:
             artifact_content = json.dumps(artifact_manifest.to_dict(), indent=2)
 
+        from contextcore.utils.onboarding import (
+            build_onboarding_metadata,
+            build_validation_report,
+        )
+
+        onboarding_metadata = build_onboarding_metadata(
+            artifact_manifest=artifact_manifest,
+            artifact_manifest_path=artifact_filename,
+            project_context_path=crd_filename,
+            provenance=provenance,
+            artifact_manifest_content=artifact_content,
+            project_context_content=crd_yaml,
+            source_path=path,
+            artifact_task_mapping=artifact_task_mapping,
+            output_dir=str(output_path),
+        )
+        validation_report = build_validation_report(
+            onboarding_metadata=onboarding_metadata,
+            min_coverage=min_coverage,
+        )
+
         if dry_run:
             click.echo("=== DRY RUN - Export Preview ===\n")
             click.echo(f"--- {crd_filename} ---")
@@ -803,21 +826,10 @@ def export(
                 prov_dict = provenance.model_dump(by_alias=True, exclude_none=True, mode="json")
                 click.echo(json.dumps(prov_dict, indent=2, default=str)[:800] + "...")
             if emit_onboarding:
-                from contextcore.utils.onboarding import build_onboarding_metadata
-
-                onboarding_meta = build_onboarding_metadata(
-                    artifact_manifest=artifact_manifest,
-                    artifact_manifest_path=artifact_filename,
-                    project_context_path=crd_filename,
-                    provenance=provenance,
-                    artifact_manifest_content=artifact_content,
-                    project_context_content=crd_yaml,
-                    source_path=path,
-                    artifact_task_mapping=artifact_task_mapping,
-                    output_dir=str(output_path),
-                )
                 click.echo(f"\n--- Onboarding Metadata (preview) ---")
-                click.echo(json.dumps(onboarding_meta, indent=2, default=str)[:600] + "...")
+                click.echo(json.dumps(onboarding_metadata, indent=2, default=str)[:600] + "...")
+            click.echo(f"\n--- Validation Report (preview) ---")
+            click.echo(json.dumps(validation_report, indent=2, default=str)[:600] + "...")
             click.echo("\n=== End Preview ===")
             _print_coverage_summary(artifact_manifest)
             if min_coverage is not None:
@@ -850,19 +862,6 @@ def export(
         # Write onboarding metadata if requested (for plan ingestion, artisan seed)
         onboarding_file = None
         if emit_onboarding:
-            from contextcore.utils.onboarding import build_onboarding_metadata
-
-            onboarding_metadata = build_onboarding_metadata(
-                artifact_manifest=artifact_manifest,
-                artifact_manifest_path=artifact_filename,
-                project_context_path=crd_filename,
-                provenance=provenance,
-                artifact_manifest_content=artifact_content,
-                project_context_content=crd_yaml,
-                source_path=path,
-                artifact_task_mapping=artifact_task_mapping,
-                output_dir=str(output_path),
-            )
             onboarding_path = output_path / "onboarding-metadata.json"
             onboarding_path.write_text(
                 json.dumps(onboarding_metadata, indent=2, default=str),
@@ -871,6 +870,13 @@ def export(
             onboarding_file = str(onboarding_path)
             output_files.append("onboarding-metadata.json")
 
+        validation_path = output_path / "validation-report.json"
+        validation_path.write_text(
+            json.dumps(validation_report, indent=2, default=str),
+            encoding="utf-8",
+        )
+        output_files.append("validation-report.json")
+
         click.echo(f"✓ Exported ContextCore artifacts to {output_path}/")
         click.echo(f"  1. {crd_filename} - Kubernetes CRD (do NOT apply directly)")
         click.echo(f"  2. {artifact_filename} - Artifact Manifest (for Wayfinder)")
@@ -878,6 +884,7 @@ def export(
             click.echo(f"  3. provenance.json - Full provenance audit trail")
         if onboarding_file:
             click.echo(f"  4. onboarding-metadata.json - Programmatic onboarding metadata")
+        click.echo(f"  5. validation-report.json - Export-time validation diagnostics")
 
         _print_coverage_summary(artifact_manifest)
 
