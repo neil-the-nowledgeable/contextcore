@@ -490,7 +490,7 @@ def test_v2_distill_crd() -> None:
 # =============================================================================
 
 from contextcore.models.artifact_manifest import ArtifactType as ArtifactManifestType
-from contextcore.models.manifest import KeyResult, MetricUnit, Owner
+from contextcore.models.manifest import KeyResult, MetricUnit, Owner, TargetOperator
 
 
 def _make_enriched_manifest(**overrides) -> ContextManifestV2:
@@ -798,3 +798,236 @@ def test_build_onboarding_metadata_is_json_serializable() -> None:
     json_str = json.dumps(meta)
     assert isinstance(json_str, str)
     assert "artifact_manifest_path" in json_str
+
+
+# =============================================================================
+# Export Enrichment Plan Tests (Changes 1-6 + Guide §6 calibration hints)
+# =============================================================================
+
+
+def _build_enriched_onboarding():
+    """Helper: build onboarding metadata from an enriched manifest with questions."""
+    from contextcore.utils.onboarding import build_onboarding_metadata
+
+    manifest = _make_enriched_manifest(
+        guidance=AgentGuidanceSpec(
+            focus=Focus(areas=["reliability"], reason="Q1"),
+            constraints=[
+                Constraint(id="C-1", rule="no sync deps", severity=ConstraintSeverity.BLOCKING),
+            ],
+            preferences=[
+                Preference(id="P-1", description="structured logging"),
+            ],
+            questions=[
+                Question(
+                    id="Q-DASHBOARD-FORMAT",
+                    question="Should dashboards target Grafana provisioning or API format?",
+                    status=QuestionStatus.OPEN,
+                    priority=Priority.HIGH,
+                ),
+                Question(
+                    id="Q-ANSWERED",
+                    question="Which log format?",
+                    status=QuestionStatus.ANSWERED,
+                    priority=Priority.LOW,
+                    answer="OTEL",
+                    answered_by="claude",
+                ),
+            ],
+        ),
+        strategy=StrategySpec(
+            objectives=[
+                ObjectiveV2(
+                    id="OBJ-PERF",
+                    description="Maintain sub-500ms P99 latency",
+                    key_results=[
+                        KeyResult(
+                            metric_key="latency_p99",
+                            unit=MetricUnit.MILLISECONDS,
+                            target=500.0,
+                            operator=TargetOperator.LTE,
+                            window="30d",
+                            data_source="promql:histogram_quantile(0.99, ...)",
+                        ),
+                    ],
+                ),
+            ],
+        ),
+    )
+    am = manifest.generate_artifact_manifest()
+    meta = build_onboarding_metadata(
+        artifact_manifest=am,
+        artifact_manifest_path="out/artifact-manifest.yaml",
+        project_context_path="out/project-context.yaml",
+    )
+    return meta, am
+
+
+def test_enrichment_derivation_rules() -> None:
+    """Change 1: derivation_rules surfaces derived_from rules grouped by artifact type."""
+    meta, _ = _build_enriched_onboarding()
+
+    assert "derivation_rules" in meta
+    dr = meta["derivation_rules"]
+    # All artifact types with derived_from should be present
+    assert "dashboard" in dr
+    assert "prometheus_rule" in dr
+    assert "loki_rule" in dr  # Change 6 fix
+    # Each entry should have property and sourceField
+    for rules in dr.values():
+        for rule in rules:
+            assert "property" in rule
+            assert "sourceField" in rule
+            assert "transformation" in rule
+
+
+def test_enrichment_objectives() -> None:
+    """Change 2: objectives surfaces strategic objectives with operator/window."""
+    meta, _ = _build_enriched_onboarding()
+
+    assert "objectives" in meta
+    objs = meta["objectives"]
+    assert len(objs) == 1
+    assert objs[0]["id"] == "OBJ-PERF"
+    assert objs[0]["description"] == "Maintain sub-500ms P99 latency"
+    # Key results should include operator and window
+    kr = objs[0]["keyResults"][0]
+    assert kr["metricKey"] == "latency_p99"
+    assert kr["target"] == 500.0
+    assert kr["targetOperator"] == "lte"
+    assert kr["window"] == "30d"
+
+
+def test_enrichment_artifact_dependency_graph() -> None:
+    """Change 3: artifact_dependency_graph surfaces depends_on relationships."""
+    meta, _ = _build_enriched_onboarding()
+
+    assert "artifact_dependency_graph" in meta
+    graph = meta["artifact_dependency_graph"]
+    # Prometheus rules depend on service monitor
+    rules_key = [k for k in graph if "prometheus-rules" in k]
+    assert len(rules_key) >= 1
+    # Value should be a list of artifact IDs
+    for deps in graph.values():
+        assert isinstance(deps, list)
+        for dep in deps:
+            assert isinstance(dep, str)
+
+
+def test_enrichment_resolved_artifact_parameters() -> None:
+    """Change 4: resolved_artifact_parameters surfaces concrete parameter values."""
+    meta, _ = _build_enriched_onboarding()
+
+    assert "resolved_artifact_parameters" in meta
+    params = meta["resolved_artifact_parameters"]
+    # Should have entries for artifacts with non-None parameters
+    assert len(params) > 0
+    # Prometheus rules should have alertSeverity
+    rules_key = [k for k in params if "prometheus-rules" in k]
+    assert len(rules_key) >= 1
+    rules_params = params[rules_key[0]]
+    assert "alertSeverity" in rules_params
+    assert rules_params["alertSeverity"] == "P1"  # critical → P1
+
+
+def test_enrichment_open_questions() -> None:
+    """Change 5: open_questions surfaces only open questions from guidance."""
+    meta, _ = _build_enriched_onboarding()
+
+    assert "open_questions" in meta
+    oqs = meta["open_questions"]
+    # Only the OPEN question should be surfaced, not the ANSWERED one
+    assert len(oqs) == 1
+    assert oqs[0]["id"] == "Q-DASHBOARD-FORMAT"
+    assert oqs[0]["priority"] == "high"
+    assert oqs[0]["status"] == "open"
+
+
+def test_enrichment_loki_rule_has_derived_from() -> None:
+    """Change 6: loki_rule artifacts now include derived_from rules."""
+    manifest = _make_enriched_manifest()
+    am = manifest.generate_artifact_manifest()
+
+    loki_artifacts = [a for a in am.artifacts if a.type == ArtifactManifestType.LOKI_RULE]
+    assert len(loki_artifacts) >= 1
+    for loki in loki_artifacts:
+        assert len(loki.derived_from) > 0, f"Loki artifact {loki.id} missing derived_from"
+        props = [r.property for r in loki.derived_from]
+        assert "logSelectors" in props
+
+
+def test_enrichment_design_calibration_hints() -> None:
+    """Guide §6 Principle 5: design_calibration_hints surfaces expected depth per artifact type."""
+    meta, _ = _build_enriched_onboarding()
+
+    assert "design_calibration_hints" in meta
+    hints = meta["design_calibration_hints"]
+    # All artifact types in the manifest should have hints
+    assert "dashboard" in hints
+    assert "prometheus_rule" in hints
+    assert "service_monitor" in hints
+    assert "loki_rule" in hints
+    # Each hint should have expected_depth and expected_loc_range
+    for art_type, hint in hints.items():
+        assert "expected_depth" in hint, f"Missing expected_depth for {art_type}"
+        assert "expected_loc_range" in hint, f"Missing expected_loc_range for {art_type}"
+        assert "red_flag" in hint, f"Missing red_flag for {art_type}"
+    # Spot-check specific calibrations
+    assert hints["dashboard"]["expected_depth"] == "comprehensive"
+    assert hints["service_monitor"]["expected_depth"] == "brief"
+
+
+def test_enrichment_guidance_includes_questions_export() -> None:
+    """Verify the guidance export now includes questions in the raw dump."""
+    manifest = _make_enriched_manifest(
+        guidance=AgentGuidanceSpec(
+            questions=[
+                Question(
+                    id="Q-1",
+                    question="Test question?",
+                    status=QuestionStatus.OPEN,
+                    priority=Priority.HIGH,
+                ),
+            ],
+        ),
+    )
+    am = manifest.generate_artifact_manifest()
+
+    assert am.guidance is not None
+    assert len(am.guidance.questions) == 1
+    assert am.guidance.questions[0].id == "Q-1"
+    assert am.guidance.questions[0].status == "open"
+
+
+def test_enrichment_key_result_operator_window_export() -> None:
+    """Verify KeyResultExport carries operator and window from source model."""
+    from contextcore.models.manifest import TargetOperator
+
+    manifest = _make_enriched_manifest(
+        strategy=StrategySpec(
+            objectives=[
+                ObjectiveV2(
+                    id="OBJ-AVAIL",
+                    description="High availability",
+                    key_results=[
+                        KeyResult(
+                            metric_key="availability",
+                            unit=MetricUnit.PERCENT,
+                            target=99.99,
+                            operator=TargetOperator.GTE,
+                            window="30d",
+                            baseline=99.5,
+                        ),
+                    ],
+                ),
+            ],
+        ),
+    )
+    am = manifest.generate_artifact_manifest()
+
+    assert len(am.objectives) == 1
+    kr = am.objectives[0].key_results[0]
+    assert kr.metric_key == "availability"
+    assert kr.operator == "gte"
+    assert kr.window == "30d"
+    assert kr.baseline == 99.5

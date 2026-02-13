@@ -108,6 +108,52 @@ ARTIFACT_EXAMPLE_OUTPUTS: Dict[str, Dict[str, str]] = {
     },
 }
 
+# Design calibration hints per artifact type (Guide §6 Principle 5)
+# Surfaces expected depth so downstream design calibration guards can
+# detect over/under-engineering before implementation begins.
+DESIGN_CALIBRATION_HINTS: Dict[str, Dict[str, str]] = {
+    ArtifactType.DASHBOARD.value: {
+        "expected_depth": "comprehensive",
+        "expected_loc_range": ">150",
+        "red_flag": "Calibrated as 'brief' — will produce a skeleton, not a usable dashboard",
+    },
+    ArtifactType.PROMETHEUS_RULE.value: {
+        "expected_depth": "standard",
+        "expected_loc_range": "51-150",
+        "red_flag": "Calibrated as 'brief' — likely to produce incomplete alert rules",
+    },
+    ArtifactType.SLO_DEFINITION.value: {
+        "expected_depth": "standard",
+        "expected_loc_range": "51-150",
+        "red_flag": "Calibrated as 'comprehensive' — over-engineering for a simple spec",
+    },
+    ArtifactType.SERVICE_MONITOR.value: {
+        "expected_depth": "brief",
+        "expected_loc_range": "<=50",
+        "red_flag": "Calibrated as 'comprehensive' — over-engineering a simple YAML",
+    },
+    ArtifactType.LOKI_RULE.value: {
+        "expected_depth": "standard",
+        "expected_loc_range": "51-150",
+        "red_flag": "Calibrated as 'brief' — likely to produce incomplete recording rules",
+    },
+    ArtifactType.NOTIFICATION_POLICY.value: {
+        "expected_depth": "standard",
+        "expected_loc_range": "51-150",
+        "red_flag": "Calibrated as 'comprehensive' — over-engineering a routing config",
+    },
+    ArtifactType.RUNBOOK.value: {
+        "expected_depth": "standard-comprehensive",
+        "expected_loc_range": "51-300",
+        "red_flag": "Calibrated as 'brief' — runbook will lack incident procedures",
+    },
+    ArtifactType.ALERT_TEMPLATE.value: {
+        "expected_depth": "standard",
+        "expected_loc_range": "51-150",
+        "red_flag": "Calibrated as 'comprehensive' — over-engineering a template",
+    },
+}
+
 # Parameter keys per artifact type (for generator validation)
 ARTIFACT_PARAMETER_SCHEMA: Dict[str, List[str]] = {
     ArtifactType.DASHBOARD.value: [
@@ -209,6 +255,71 @@ def build_onboarding_metadata(
                 **example_outputs,
             }
 
+    # ── Derivation rules per artifact type (Guide §4 Phase 3) ──────────
+    # Surfaces the derived_from rules so plan ingestion and artisan DESIGN
+    # have the concrete business→artifact mappings without re-parsing the
+    # full artifact manifest.
+    derivation_rules: Dict[str, List[Dict[str, Any]]] = {}
+    for artifact in artifact_manifest.artifacts:
+        art_type = artifact.type.value
+        if artifact.derived_from:
+            if art_type not in derivation_rules:
+                derivation_rules[art_type] = []
+            for rule in artifact.derived_from:
+                rule_dict = rule.model_dump(
+                    by_alias=True, exclude_none=True, mode="json"
+                )
+                # Deduplicate: same property+sourceField across targets
+                if rule_dict not in derivation_rules[art_type]:
+                    derivation_rules[art_type].append(rule_dict)
+
+    # ── Strategic objectives for dashboard panel generation ──────────
+    objectives_export: Optional[List[Dict[str, Any]]] = None
+    if artifact_manifest.objectives:
+        objectives_export = [
+            obj.model_dump(by_alias=True, exclude_none=True, mode="json")
+            for obj in artifact_manifest.objectives
+        ]
+
+    # ── Artifact dependency graph for generation ordering ──────────
+    artifact_deps: Dict[str, List[str]] = {}
+    for artifact in artifact_manifest.artifacts:
+        if artifact.depends_on:
+            artifact_deps[artifact.id] = list(artifact.depends_on)
+
+    # ── Resolved parameters per artifact (concrete values) ──────────
+    # Surfaces the actual computed parameter values so downstream consumers
+    # don't re-derive from generic parameter_sources.
+    resolved_params: Dict[str, Dict[str, Any]] = {}
+    for artifact in artifact_manifest.artifacts:
+        if artifact.parameters:
+            params_dict = {
+                k: v for k, v in artifact.parameters.items()
+                if v is not None
+            }
+            if params_dict:
+                resolved_params[artifact.id] = params_dict
+
+    # ── Open questions for design decision surfacing ──────────
+    open_questions: Optional[List[Dict[str, Any]]] = None
+    if artifact_manifest.guidance and hasattr(artifact_manifest.guidance, "questions"):
+        open_qs = [
+            q.model_dump(by_alias=True, exclude_none=True, mode="json")
+            for q in (artifact_manifest.guidance.questions or [])
+            if getattr(q, "status", "open") == "open"
+        ]
+        if open_qs:
+            open_questions = open_qs
+
+    # ── Design calibration hints (Guide §6 Principle 5) ──────────
+    # Surfaces expected depth per artifact type present in this manifest
+    # so downstream calibration guards can detect over/under-engineering.
+    calibration_hints: Dict[str, Dict[str, str]] = {}
+    for artifact in artifact_manifest.artifacts:
+        art_type = artifact.type.value
+        if art_type not in calibration_hints and art_type in DESIGN_CALIBRATION_HINTS:
+            calibration_hints[art_type] = DESIGN_CALIBRATION_HINTS[art_type]
+
     # Build semantic conventions block
     semantic_conventions: Optional[Dict[str, Any]] = None
     if artifact_manifest.semantic_conventions:
@@ -250,6 +361,26 @@ def build_onboarding_metadata(
         if artifact_manifest.guidance
         else None,
     }
+
+    # ── Enrichment fields (Export Enrichment Plan Changes 1-5 + Guide §6) ──
+    if derivation_rules:
+        result["derivation_rules"] = derivation_rules
+
+    if objectives_export:
+        result["objectives"] = objectives_export
+
+    if artifact_deps:
+        result["artifact_dependency_graph"] = artifact_deps
+
+    if resolved_params:
+        result["resolved_artifact_parameters"] = resolved_params
+
+    if open_questions:
+        result["open_questions"] = open_questions
+
+    if calibration_hints:
+        result["design_calibration_hints"] = calibration_hints
+
     # Integrity checksums for validation downstream
     if artifact_manifest_content is not None:
         result["artifact_manifest_checksum"] = get_content_checksum(

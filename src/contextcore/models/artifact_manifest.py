@@ -144,6 +144,21 @@ class GuidanceFocusExport(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
+class GuidanceQuestionExport(BaseModel):
+    """An open question from governance section for design decision surfacing."""
+
+    id: str = Field(..., description="Question identifier")
+    question: str = Field(..., description="The question text")
+    status: str = Field(..., description="Question status (open, answered, dismissed)")
+    priority: str = Field(..., description="Question priority (low, medium, high, critical)")
+    answer: Optional[str] = Field(None, description="Agent's answer (when answered)")
+    answered_by: Optional[str] = Field(
+        None, alias="answeredBy", description="Agent ID that answered"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class GuidanceExport(BaseModel):
     """Governance guidance exported for downstream artifact generation."""
 
@@ -155,6 +170,9 @@ class GuidanceExport(BaseModel):
     )
     preferences: List[GuidancePreferenceExport] = Field(
         default_factory=list, description="Soft preferences"
+    )
+    questions: List[GuidanceQuestionExport] = Field(
+        default_factory=list, description="Open questions for design decisions"
     )
 
     model_config = ConfigDict(populate_by_name=True)
@@ -168,7 +186,15 @@ class KeyResultExport(BaseModel):
     )
     unit: Optional[str] = Field(None, description="Unit of measurement")
     target: Any = Field(None, description="Target value")
+    operator: Optional[str] = Field(
+        None,
+        alias="targetOperator",
+        description="Comparison operator: 'gte' (≥), 'lte' (≤), or 'eq' (==)",
+    )
     baseline: Any = Field(None, description="Baseline value")
+    window: Optional[str] = Field(
+        None, description="Time window (e.g., '30d', '7d')"
+    )
     data_source: Optional[str] = Field(
         None,
         alias="dataSource",

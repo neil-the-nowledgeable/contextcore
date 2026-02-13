@@ -516,6 +516,7 @@ class ContextManifestV2(BaseModel):
             GuidanceExport,
             GuidanceFocusExport,
             GuidancePreferenceExport,
+            GuidanceQuestionExport,
             KeyResultExport,
             ObjectiveExport,
             OwnerContact,
@@ -580,6 +581,17 @@ class ContextManifestV2(BaseModel):
                     )
                     for p in self.guidance.preferences
                 ],
+                questions=[
+                    GuidanceQuestionExport(
+                        id=q.id,
+                        question=q.question,
+                        status=q.status.value if hasattr(q.status, "value") else str(q.status),
+                        priority=q.priority.value if hasattr(q.priority, "value") else str(q.priority),
+                        answer=q.answer,
+                        answered_by=q.answered_by,
+                    )
+                    for q in self.guidance.questions
+                ],
             )
 
         # Build objectives with key result queries
@@ -592,7 +604,9 @@ class ContextManifestV2(BaseModel):
                         metric_key=kr.metric_key,
                         unit=kr.unit.value if hasattr(kr.unit, "value") else str(kr.unit) if kr.unit else None,
                         target=kr.target,
+                        operator=kr.operator.value if kr.operator and hasattr(kr.operator, "value") else str(kr.operator) if kr.operator else None,
                         baseline=kr.baseline,
+                        window=kr.window,
                         data_source=kr.data_source,
                     )
                     for kr in obj.key_results
@@ -852,6 +866,20 @@ class ContextManifestV2(BaseModel):
                         else ArtifactStatus.NEEDED
                     ),
                     existing_path=existing_artifacts.get(loki_id),
+                    derived_from=[
+                        DerivationRule(
+                            property="logSelectors",
+                            source_field="spec.targets[].name",
+                            transformation=f'{{job="{target_name}"}}',
+                            rationale="Log selectors derived from service target name",
+                        ),
+                        DerivationRule(
+                            property="logFormat",
+                            source_field="spec.observability.logLevel",
+                            transformation="otel",
+                            rationale="Log format aligned with OTel log bridge conventions",
+                        ),
+                    ],
                     parameters={
                         "logSelectors": [f'{{app="{target_name}"}}'],
                         "recordingRules": [
