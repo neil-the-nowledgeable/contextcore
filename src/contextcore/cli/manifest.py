@@ -15,13 +15,40 @@ Usage:
 """
 
 import json
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 import click
 import yaml
+
+from contextcore.cli.export_quality_ops import (
+    apply_strict_quality_profile,
+    evaluate_ci_policy,
+    find_quality_policy_file,
+    load_quality_policy,
+    resolve_export_quality_toggles,
+    validate_export_schema_pins,
+    validate_manifest_api_pin,
+)
+from contextcore.cli.export_io_ops import (
+    build_export_quality_report,
+    enforce_min_coverage,
+    load_artifact_task_mapping,
+    parse_existing_artifacts,
+    preview_export,
+    print_export_success,
+    render_artifact_content,
+    scan_existing_artifacts,
+    validate_required_task_mapping,
+    write_export_outputs,
+)
+from contextcore.cli.init_from_plan_ops import (
+    build_v2_manifest_template,
+    infer_init_from_plan,
+)
 
 
 @click.group()
@@ -370,13 +397,23 @@ def show(path: str, output_format: str):
     is_flag=True,
     help="Overwrite existing file",
 )
-def init(path: str, name: str, manifest_version: str, force: bool):
+@click.option(
+    "--validate/--no-validate",
+    "validate_after_write",
+    default=True,
+    help="Validate the manifest after writing (default: enabled)",
+)
+def init(path: str, name: str, manifest_version: str, force: bool, validate_after_write: bool):
     """
     Initialize a new context manifest.
 
     Creates a starter manifest with example structure.
     """
     path_obj = Path(path)
+    normalized_name = name.strip().lower().replace(" ", "-")
+    if normalized_name != name:
+        click.echo(f"⚠ Normalized manifest name: {name} -> {normalized_name}")
+    name = normalized_name
 
     if path_obj.exists() and not force:
         click.echo(f"✗ File already exists: {path}")
@@ -384,102 +421,7 @@ def init(path: str, name: str, manifest_version: str, force: bool):
         sys.exit(1)
 
     if manifest_version == "v2":
-        today = datetime.now().strftime("%Y-%m-%d")
-        display_name = name.replace("-", " ").title()
-        manifest_data = {
-            "apiVersion": "contextcore.io/v1alpha2",
-            "kind": "ContextManifest",
-            "metadata": {
-                "name": name,
-                "owners": [{"team": "engineering", "slack": "#alerts", "email": "team@example.com"}],
-                "changelog": [
-                    {
-                        "version": "2.0",
-                        "date": today,
-                        "author": "you",
-                        "summary": f"Initial v2.0 manifest for {name}",
-                        "changes": ["Initial v2.0 manifest"],
-                    }
-                ],
-                "links": {
-                    "repo": f"https://github.com/your-org/{name}",
-                },
-            },
-            "spec": {
-                "project": {
-                    "id": name,
-                    "name": display_name,
-                    "description": f"{display_name} service — update this description.",
-                },
-                "business": {
-                    "criticality": "medium",
-                    "owner": "engineering",
-                    "value": "enabler",
-                },
-                "requirements": {
-                    "availability": "99.9",
-                    "latencyP99": "500ms",
-                    "throughput": "100rps",
-                    "errorBudget": "0.1",
-                },
-                "risks": [
-                    {
-                        "type": "availability",
-                        "description": "Example risk — update or remove",
-                        "priority": "P3",
-                        "mitigation": "Example mitigation",
-                    },
-                ],
-                "targets": [
-                    {
-                        "kind": "Deployment",
-                        "name": name,
-                        "namespace": "default",
-                    },
-                ],
-                "observability": {
-                    "traceSampling": 1.0,
-                    "metricsInterval": "30s",
-                    "alertChannels": ["#alerts"],
-                    "logLevel": "info",
-                },
-            },
-            "strategy": {
-                "objectives": [
-                    {
-                        "id": "OBJ-001",
-                        "description": "Example objective — update with real business goal",
-                        "keyResults": [
-                            {
-                                "metricKey": "availability",
-                                "unit": "%",
-                                "target": 99.9,
-                                "targetOperator": "gte",
-                                "window": "30d",
-                            }
-                        ],
-                    }
-                ],
-                "tactics": [
-                    {
-                        "id": "TAC-001",
-                        "description": "Example tactic — update with real action item",
-                        "status": "planned",
-                        "linkedObjectives": ["OBJ-001"],
-                    }
-                ],
-            },
-            "guidance": {
-                "focus": {
-                    "areas": ["reliability"],
-                    "reason": "Focus on core stability",
-                },
-                "constraints": [],
-                "preferences": [],
-                "questions": [],
-            },
-            "insights": [],
-        }
+        manifest_data = build_v2_manifest_template(name)
     else:
         # v1.1 template
         manifest_data = {
@@ -523,11 +465,561 @@ def init(path: str, name: str, manifest_version: str, force: bool):
     manifest_yaml = yaml.dump(manifest_data, default_flow_style=False, sort_keys=False)
     path_obj.write_text(manifest_yaml, encoding="utf-8")
 
+    if validate_after_write:
+        errors, warnings, _ = _validate_manifest(str(path_obj), strict=False)
+        if errors:
+            click.echo(f"✗ Created file failed validation: {path}", err=True)
+            for e in errors:
+                click.echo(f"  ✗ {e}", err=True)
+            sys.exit(1)
+        if warnings:
+            click.echo(f"⚠ Validation warnings ({len(warnings)}):")
+            for w in warnings:
+                click.echo(f"  - {w}")
+        click.echo("✓ Post-write validation passed")
+
     click.echo(f"✓ Created {manifest_version} manifest: {path}")
     click.echo(f"  Name: {name}")
     click.echo("\nNext steps:")
     click.echo(f"  1. Edit {path} to add your project details")
     click.echo(f"  2. Run: contextcore manifest validate --path {path}")
+
+
+def _extract_requirement_ids(requirements_text: str) -> Dict[str, List[str]]:
+    """Extract FR/NFR identifiers from requirement text."""
+    found = re.findall(r"\b(FR-\d+|NFR-\d+)\b", requirements_text, flags=re.IGNORECASE)
+    normalized = [rid.upper() for rid in found]
+    fr_ids = sorted({rid for rid in normalized if rid.startswith("FR-")})
+    nfr_ids = sorted({rid for rid in normalized if rid.startswith("NFR-")})
+    return {"fr_ids": fr_ids, "nfr_ids": nfr_ids}
+
+
+def _build_plan_draft_markdown(
+    project_id: str,
+    project_name: str,
+    draft_plan_mode: str,
+    manifest_path: str,
+    requirements_paths: List[str],
+    fr_ids: List[str],
+    nfr_ids: List[str],
+) -> str:
+    fr_lines = "\n".join(f"- {rid}: [describe requirement]" for rid in fr_ids) or "- FR-001: [describe requirement]"
+    nfr_lines = "\n".join(f"- {rid}: [describe requirement]" for rid in nfr_ids) or "- NFR-001: [describe requirement]"
+    req_paths = "\n".join(f"- `{p}`" for p in requirements_paths) or "- (none provided)"
+
+    mode_note = (
+        "Template includes inferred requirement IDs from provided requirement files."
+        if draft_plan_mode == "enriched"
+        else "Template scaffold mode; fill requirement IDs and acceptance criteria manually."
+    )
+
+    return f"""# PLAN Draft: {project_name}
+
+## 1. Overview
+- Project ID: `{project_id}`
+- Plan mode: `{draft_plan_mode}`
+- Manifest path: `{manifest_path}`
+- Note: {mode_note}
+
+## 2. Goals and Outcomes
+- [Goal 1]
+- [Goal 2]
+
+## 3. Scope and Assumptions
+### In Scope
+- [in-scope item]
+
+### Out of Scope
+- [out-of-scope item]
+
+### Assumptions
+- [assumption]
+
+## 4. Requirements Inputs
+{req_paths}
+
+## 5. Functional Requirements (FR)
+{fr_lines}
+
+## 6. Non-Functional Requirements (NFR)
+{nfr_lines}
+
+## 7. Artifact Generation Plan
+- [dashboard]
+- [prometheus_rule]
+- [loki_rule]
+- [service_monitor]
+- [slo_definition]
+- [notification_policy]
+- [runbook]
+
+## 8. Validation and Test Obligations
+- [unit/integration tests]
+- [schema validation checks]
+- [acceptance criteria checks]
+
+## 9. Risks and Mitigations
+- Risk: [describe]
+  - Mitigation: [describe]
+
+## 10. Execution Notes for Startd8
+- Feed this plan to `startd8 workflow run plan-ingestion`.
+- Keep ContextCore export artifacts available for ingestion preflight.
+- Route expectation: Prime for simpler scope; Artisan for complex or low-quality translation.
+"""
+
+
+@manifest.command()
+@click.option(
+    "--project-id",
+    required=True,
+    help="Canonical project identifier used in create outputs",
+)
+@click.option(
+    "--project-name",
+    default=None,
+    help="Display name for the plan draft (defaults to project-id title case)",
+)
+@click.option(
+    "--manifest-path",
+    default=".contextcore.yaml",
+    help="Expected path for context manifest (used in emitted artifacts)",
+)
+@click.option(
+    "--requirements-path",
+    "requirements_paths",
+    multiple=True,
+    type=click.Path(exists=True),
+    help="Requirements document path (repeatable)",
+)
+@click.option(
+    "--output-dir",
+    "-o",
+    default="./out/create",
+    type=click.Path(),
+    help="Directory to write create artifacts",
+)
+@click.option(
+    "--draft-plan-mode",
+    type=click.Choice(["scaffold", "enriched"]),
+    default="scaffold",
+    help="Draft plan generation mode",
+)
+@click.option(
+    "--interactive/--no-interactive",
+    default=False,
+    help="Reserved for guided prompt mode (currently deterministic outputs only)",
+)
+@click.option(
+    "--complexity-threshold",
+    type=int,
+    default=40,
+    help="Plan ingestion threshold: <= threshold routes to prime, else artisan",
+)
+@click.option(
+    "--route-policy",
+    type=click.Choice(["auto", "prime", "artisan"]),
+    default="auto",
+    help="Routing policy for downstream plan ingestion",
+)
+@click.option(
+    "--low-quality-policy",
+    type=click.Choice(["bias_artisan", "fail"]),
+    default="bias_artisan",
+    help="Action when translation quality is low in plan ingestion",
+)
+@click.option(
+    "--min-export-coverage",
+    type=float,
+    default=70.0,
+    help="Minimum export coverage threshold used in emitted gate policy",
+)
+@click.option(
+    "--contextcore-export-dir",
+    default="./out/export",
+    help="Expected ContextCore export directory for plan ingestion preflight",
+)
+@click.option(
+    "--emit-startd8-config/--no-emit-startd8-config",
+    default=True,
+    help="Emit startd8-plan-ingestion-config.json (default: enabled)",
+)
+@click.option(
+    "--emit-wayfinder-config/--no-emit-wayfinder-config",
+    default=False,
+    help="Emit wayfinder-run-config.json",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Overwrite existing artifact files in output directory",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Preview create outputs without writing files",
+)
+def create(
+    project_id: str,
+    project_name: Optional[str],
+    manifest_path: str,
+    requirements_paths: tuple,
+    output_dir: str,
+    draft_plan_mode: str,
+    interactive: bool,
+    complexity_threshold: int,
+    route_policy: str,
+    low_quality_policy: str,
+    min_export_coverage: float,
+    contextcore_export_dir: str,
+    emit_startd8_config: bool,
+    emit_wayfinder_config: bool,
+    force: bool,
+    dry_run: bool,
+):
+    """
+    Create a planning and handoff artifact package for init/export/ingestion.
+
+    This command does not generate code. It drafts plan and policy artifacts
+    for the downstream startd8 plan-ingestion and contractor workflows.
+    """
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    display_name = project_name or project_id.replace("-", " ").replace("_", " ").title()
+    requirement_files = [str(Path(p)) for p in requirements_paths]
+    requirements_text = "\n\n".join(
+        Path(p).read_text(encoding="utf-8") for p in requirement_files
+    ) if requirement_files else ""
+    req_ids = _extract_requirement_ids(requirements_text)
+
+    plan_filename = "PLAN-draft.md"
+    create_spec_filename = "create-spec.json"
+    gates_filename = "create-gates.json"
+    startd8_config_filename = "startd8-plan-ingestion-config.json"
+    wayfinder_config_filename = "wayfinder-run-config.json"
+
+    plan_path = output_path / plan_filename
+    create_spec_path = output_path / create_spec_filename
+    gates_path = output_path / gates_filename
+    startd8_config_path = output_path / startd8_config_filename
+    wayfinder_config_path = output_path / wayfinder_config_filename
+
+    target_files = [plan_path, create_spec_path, gates_path]
+    if emit_startd8_config:
+        target_files.append(startd8_config_path)
+    if emit_wayfinder_config:
+        target_files.append(wayfinder_config_path)
+
+    if not force:
+        existing = [str(p) for p in target_files if p.exists()]
+        if existing and not dry_run:
+            click.echo("✗ create would overwrite existing files:", err=True)
+            for fp in existing:
+                click.echo(f"  - {fp}", err=True)
+            click.echo("  Re-run with --force to overwrite", err=True)
+            sys.exit(1)
+
+    plan_draft = _build_plan_draft_markdown(
+        project_id=project_id,
+        project_name=display_name,
+        draft_plan_mode=draft_plan_mode,
+        manifest_path=manifest_path,
+        requirements_paths=requirement_files,
+        fr_ids=req_ids["fr_ids"],
+        nfr_ids=req_ids["nfr_ids"],
+    )
+
+    create_spec: Dict[str, Any] = {
+        "schema": "contextcore.io/create-spec/v1",
+        "generated_at": datetime.now().isoformat(),
+        "project": {"id": project_id, "name": display_name},
+        "inputs": {
+            "manifest_path": manifest_path,
+            "requirements_files": requirement_files,
+            "draft_plan_mode": draft_plan_mode,
+            "interactive_requested": interactive,
+        },
+        "requirements": {
+            "functional_ids": req_ids["fr_ids"],
+            "non_functional_ids": req_ids["nfr_ids"],
+            "unresolved_notes": [
+                "Fill requirement descriptions and acceptance criteria in PLAN-draft.md.",
+            ],
+        },
+        "artifact_contract": {
+            "required_types": [
+                "dashboard",
+                "prometheus_rule",
+                "loki_rule",
+                "service_monitor",
+                "slo_definition",
+                "notification_policy",
+                "runbook",
+            ],
+            "recommended_types": [],
+        },
+        "routing_policy": {
+            "complexity_threshold": complexity_threshold,
+            "route_policy": route_policy,
+            "low_quality_policy": low_quality_policy,
+        },
+        "handoff": {
+            "plan_path": str(plan_path),
+            "contextcore_export_dir_expected": contextcore_export_dir,
+            "startd8_config_path": str(startd8_config_path) if emit_startd8_config else None,
+        },
+    }
+
+    create_gates: Dict[str, Any] = {
+        "schema": "contextcore.io/create-gates/v1",
+        "generated_at": datetime.now().isoformat(),
+        "gates": {
+            "checksum_chain_required": True,
+            "min_export_coverage": min_export_coverage,
+            "block_on_unresolved_parameter_sources": True,
+            "block_on_validation_diagnostics": True,
+        },
+        "notes": [
+            "These gates are intended for pre-ingestion validation.",
+            "Use with contextcore manifest export outputs and plan-ingestion preflight checks.",
+        ],
+    }
+
+    startd8_config: Dict[str, Any] = {
+        "plan_path": str(plan_path),
+        "output_dir": str(output_path),
+        "complexity_threshold": complexity_threshold,
+        "contextcore_export_dir": contextcore_export_dir,
+        "requirements_files": requirement_files,
+        "low_quality_policy": low_quality_policy,
+        "min_export_coverage": min_export_coverage,
+    }
+    if route_policy in {"prime", "artisan"}:
+        startd8_config["force_route"] = route_policy
+
+    wayfinder_config: Dict[str, Any] = {
+        "schema": "contextcore.io/wayfinder-create-config/v1",
+        "project_id": project_id,
+        "plan_path": str(plan_path),
+        "create_spec_path": str(create_spec_path),
+        "gates_path": str(gates_path),
+        "contextcore_export_dir_expected": contextcore_export_dir,
+    }
+
+    if dry_run:
+        click.echo("=== DRY RUN - manifest create preview ===\n")
+        click.echo(f"Project: {project_id}")
+        click.echo(f"Output dir: {output_path}")
+        click.echo(f"Draft mode: {draft_plan_mode}")
+        if interactive:
+            click.echo("Note: --interactive is reserved; command currently emits deterministic artifacts.")
+        click.echo("\nFiles to emit:")
+        for fp in target_files:
+            click.echo(f"  - {fp}")
+        click.echo("\nPLAN-draft.md preview:")
+        click.echo(plan_draft[:1200] + ("..." if len(plan_draft) > 1200 else ""))
+        click.echo("\ncreate-spec.json preview:")
+        click.echo(json.dumps(create_spec, indent=2)[:1200] + "...")
+        click.echo("\n=== End Preview ===")
+        return
+
+    plan_path.write_text(plan_draft, encoding="utf-8")
+    create_spec_path.write_text(json.dumps(create_spec, indent=2), encoding="utf-8")
+    gates_path.write_text(json.dumps(create_gates, indent=2), encoding="utf-8")
+    if emit_startd8_config:
+        startd8_config_path.write_text(json.dumps(startd8_config, indent=2), encoding="utf-8")
+    if emit_wayfinder_config:
+        wayfinder_config_path.write_text(json.dumps(wayfinder_config, indent=2), encoding="utf-8")
+
+    click.echo(f"✓ Created manifest planning artifacts in {output_path}/")
+    click.echo(f"  1. {plan_filename} - Draft plan for startd8 plan-ingestion")
+    click.echo(f"  2. {create_spec_filename} - Requirements and routing contract")
+    click.echo(f"  3. {gates_filename} - Pre-ingestion quality gates")
+    if emit_startd8_config:
+        click.echo(f"  4. {startd8_config_filename} - startd8 plan-ingestion config")
+    if emit_wayfinder_config:
+        click.echo(f"  5. {wayfinder_config_filename} - Optional wayfinder run config")
+
+    click.echo("\nNext steps:")
+    click.echo("  1. Refine PLAN-draft.md with concrete requirement descriptions and acceptance criteria")
+    click.echo("  2. Run: contextcore install init")
+    click.echo("  3. Run: contextcore manifest export -p .contextcore.yaml -o ./out/export")
+    click.echo(f"  4. Run: startd8 workflow run plan-ingestion --config {startd8_config_path}")
+
+
+@manifest.command(name="init-from-plan")
+@click.option(
+    "--plan",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to a plan document (markdown/text)",
+)
+@click.option(
+    "--requirements",
+    multiple=True,
+    type=click.Path(exists=True),
+    help="Path(s) to requirements documents (can specify multiple)",
+)
+@click.option(
+    "--project-root",
+    type=click.Path(exists=True),
+    help="Project root path for contextual inference (target naming, repo context)",
+)
+@click.option(
+    "--output",
+    "-o",
+    default=".contextcore.yaml",
+    help="Output path for generated manifest",
+)
+@click.option(
+    "--name",
+    help="Override inferred manifest name (defaults to project root basename or output stem)",
+)
+@click.option(
+    "--report-out",
+    type=click.Path(),
+    help="Path to write init-from-plan inference report JSON",
+)
+@click.option(
+    "--strict-quality/--no-strict-quality",
+    default=True,
+    help="Require minimum inference quality (default: enabled)",
+)
+@click.option(
+    "--emit-guidance-questions/--no-emit-guidance-questions",
+    default=True,
+    help="Extract plan questions into guidance.questions (default: enabled)",
+)
+@click.option(
+    "--validate/--no-validate",
+    "validate_after_write",
+    default=True,
+    help="Validate generated manifest after write (default: enabled)",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Overwrite existing output file",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Preview inferred output and report without writing files",
+)
+def init_from_plan(
+    plan: str,
+    requirements: tuple,
+    project_root: Optional[str],
+    output: str,
+    name: Optional[str],
+    report_out: Optional[str],
+    strict_quality: bool,
+    emit_guidance_questions: bool,
+    validate_after_write: bool,
+    force: bool,
+    dry_run: bool,
+):
+    """
+    Initialize a v2 manifest from plan + requirements with programmatic inference.
+
+    This is a scaffold command that translates plan/requirements text into
+    structured .contextcore.yaml fields to reduce manual bootstrap work.
+    """
+    output_path = Path(output)
+    if output_path.exists() and not force and not dry_run:
+        click.echo(f"✗ File already exists: {output}", err=True)
+        click.echo("  Use --force to overwrite", err=True)
+        sys.exit(1)
+
+    inferred_name = name
+    if not inferred_name:
+        if project_root:
+            inferred_name = Path(project_root).name
+        else:
+            inferred_name = output_path.stem.replace(".contextcore", "")
+    inferred_name = inferred_name.strip().lower().replace(" ", "-")
+
+    manifest_data = build_v2_manifest_template(inferred_name)
+
+    plan_text = Path(plan).read_text(encoding="utf-8")
+    req_text = "\n\n".join(
+        Path(req).read_text(encoding="utf-8") for req in requirements
+    ) if requirements else ""
+
+    inference = infer_init_from_plan(
+        manifest_data=manifest_data,
+        plan_text=plan_text,
+        requirements_text=req_text,
+        project_root=project_root,
+        emit_guidance_questions=emit_guidance_questions,
+    )
+    manifest_data = inference["manifest_data"]
+    inference_warnings = list(inference["warnings"])
+
+    report = {
+        "version": "1.0.0",
+        "schema": "contextcore.io/init-from-plan-report/v1",
+        "generated_at": datetime.now().isoformat(),
+        "inputs": {
+            "plan": plan,
+            "requirements": list(requirements),
+            "project_root": project_root,
+        },
+        "output_manifest": str(output_path),
+        "strict_quality": strict_quality,
+        "inferences": inference["inferences"],
+        "core_inferred_count": inference["core_inferred_count"],
+        "warnings": inference_warnings,
+    }
+
+    if strict_quality and inference["core_inferred_count"] < 3:
+        report["status"] = "failed_quality_gate"
+        report["quality_gate_reason"] = (
+            "Fewer than 3 core fields were inferred. "
+            "Provide richer plan/requirements or use --no-strict-quality."
+        )
+        if not report_out:
+            report_out = str(output_path.with_suffix(".init-from-plan-report.json"))
+        Path(report_out).write_text(json.dumps(report, indent=2), encoding="utf-8")
+        click.echo("✗ init-from-plan strict-quality gate failed", err=True)
+        click.echo(f"  Report written: {report_out}", err=True)
+        sys.exit(1)
+
+    manifest_yaml = yaml.dump(manifest_data, default_flow_style=False, sort_keys=False)
+    if dry_run:
+        click.echo("=== DRY RUN - init-from-plan preview ===")
+        click.echo(manifest_yaml[:1500] + ("..." if len(manifest_yaml) > 1500 else ""))
+        report["status"] = "dry_run"
+    else:
+        output_path.write_text(manifest_yaml, encoding="utf-8")
+        report["status"] = "written"
+        if validate_after_write:
+            errors, warnings, _ = _validate_manifest(str(output_path), strict=False)
+            if errors:
+                report["status"] = "validation_failed"
+                report["validation_errors"] = errors
+                if not report_out:
+                    report_out = str(output_path.with_suffix(".init-from-plan-report.json"))
+                Path(report_out).write_text(json.dumps(report, indent=2), encoding="utf-8")
+                click.echo(f"✗ Generated manifest failed validation: {output}", err=True)
+                for e in errors:
+                    click.echo(f"  ✗ {e}", err=True)
+                sys.exit(1)
+            if warnings:
+                report["validation_warnings"] = warnings
+
+    if not report_out:
+        report_out = str(output_path.with_suffix(".init-from-plan-report.json"))
+    Path(report_out).write_text(json.dumps(report, indent=2), encoding="utf-8")
+
+    if dry_run:
+        click.echo(f"✓ Dry run complete. Report written: {report_out}")
+    else:
+        click.echo(f"✓ Created v2 manifest from plan: {output}")
+        click.echo(f"  Name: {inferred_name}")
+        click.echo(f"  Inferences: {len(inference['inferences'])}")
+        click.echo(f"  Report: {report_out}")
 
 
 @manifest.command()
@@ -577,6 +1069,16 @@ def init(path: str, name: str, manifest_version: str, force: bool):
     help="Preview without writing files",
 )
 @click.option(
+    "--strict-quality/--no-strict-quality",
+    default=None,
+    help="Enable strict quality safeguards (default: enabled)",
+)
+@click.option(
+    "--deterministic-output/--no-deterministic-output",
+    default=None,
+    help="Enable deterministic artifact ordering/serialization (default: enabled in strict quality profile)",
+)
+@click.option(
     "--emit-provenance",
     is_flag=True,
     help="Write a separate provenance.json file with full audit trail",
@@ -604,6 +1106,11 @@ def init(path: str, name: str, manifest_version: str, force: bool):
     default=None,
     help="Path to JSON file mapping artifact IDs to task IDs (e.g., {\"checkout_api-dashboard\": \"PI-019\"}).",
 )
+@click.option(
+    "--emit-quality-report/--no-emit-quality-report",
+    default=None,
+    help="Write export-quality-report.json with strict-quality gate outcomes",
+)
 @click.pass_context
 def export(
     ctx,
@@ -614,11 +1121,14 @@ def export(
     scan_existing: Optional[str],
     output_format: str,
     dry_run: bool,
+    strict_quality: Optional[bool],
+    deterministic_output: Optional[bool],
     emit_provenance: bool,
     embed_provenance: bool,
     emit_onboarding: bool,
     min_coverage: Optional[float],
     task_mapping: Optional[str],
+    emit_quality_report: Optional[bool],
 ):
     """
     Export CRD and Artifact Manifest for Wayfinder implementations.
@@ -661,6 +1171,7 @@ def export(
 
     # Capture start time for duration tracking
     start_time = dt.now()
+    policy = load_quality_policy(path)
 
     try:
         # Pre-flight validation: fail early if manifest is invalid
@@ -670,6 +1181,38 @@ def export(
             for e in errors:
                 click.echo(f"  ✗ {e}", err=True)
             sys.exit(1)
+
+        strict_quality, deterministic_output, emit_quality_report = resolve_export_quality_toggles(
+            policy=policy,
+            strict_quality=strict_quality,
+            deterministic_output=deterministic_output,
+            emit_quality_report=emit_quality_report,
+        )
+
+        ci_violation = evaluate_ci_policy(strict_quality=strict_quality, policy=policy)
+        if ci_violation:
+            click.echo(ci_violation["headline"], err=True)
+            click.echo(ci_violation["detail"], err=True)
+            sys.exit(1)
+
+        profile = apply_strict_quality_profile(
+            strict_quality=strict_quality,
+            policy=policy,
+            min_coverage=min_coverage,
+            task_mapping=task_mapping,
+            scan_existing=scan_existing,
+            emit_provenance=emit_provenance,
+            embed_provenance=embed_provenance,
+        )
+        if not profile["ok"]:
+            for line in profile["errors"]:
+                click.echo(line, err=True)
+            sys.exit(1)
+        for warning in profile["warnings"]:
+            click.echo(warning)
+        min_coverage = profile["min_coverage"]
+        emit_provenance = profile["emit_provenance"]
+        embed_provenance = profile["embed_provenance"]
 
         # Load manifest
         raw_data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
@@ -683,20 +1226,24 @@ def export(
             click.echo(f"  Run: contextcore manifest migrate -p {path}", err=True)
             sys.exit(1)
 
-        # Parse existing artifacts
-        existing_artifacts: dict = {}
-        for item in existing:
-            if ":" in item:
-                artifact_id, artifact_path = item.split(":", 1)
-                existing_artifacts[artifact_id] = artifact_path
-            else:
-                click.echo(f"⚠ Invalid --existing format: {item} (expected 'id:path')", err=True)
+        schema_pin_error = validate_manifest_api_pin(
+            strict_quality=strict_quality,
+            policy=policy,
+            raw_data=raw_data,
+        )
+        if schema_pin_error:
+            click.echo(schema_pin_error, err=True)
+            sys.exit(1)
+
+        existing_artifacts, existing_warnings = parse_existing_artifacts(existing)
+        for warning in existing_warnings:
+            click.echo(warning, err=True)
 
         # Scan existing directory if provided
         if scan_existing:
             scan_path = Path(scan_existing)
             click.echo(f"Scanning for existing artifacts in {scan_path}...")
-            scanned = _scan_existing_artifacts(scan_path)
+            scanned = scan_existing_artifacts(scan_path)
             existing_artifacts.update(scanned)
             click.echo(f"  Found {len(scanned)} existing artifacts")
 
@@ -730,19 +1277,24 @@ def export(
             existing_artifacts=existing_artifacts,
             extra_metrics=_beaver_metrics,
         )
+        if deterministic_output:
+            artifact_manifest.artifacts = sorted(
+                artifact_manifest.artifacts, key=lambda a: a.id
+            )
 
         # Load task mapping if provided
-        artifact_task_mapping: Optional[dict] = None
-        if task_mapping:
-            try:
-                task_mapping_path = Path(task_mapping)
-                artifact_task_mapping = json.loads(
-                    task_mapping_path.read_text(encoding="utf-8")
-                )
-                if not isinstance(artifact_task_mapping, dict):
-                    artifact_task_mapping = None
-            except (OSError, json.JSONDecodeError) as e:
-                click.echo(f"⚠ Could not load task mapping from {task_mapping}: {e}", err=True)
+        artifact_task_mapping, task_mapping_warning = load_artifact_task_mapping(task_mapping)
+        if task_mapping_warning:
+            click.echo(task_mapping_warning, err=True)
+        mapping_errors = validate_required_task_mapping(
+            strict_quality=strict_quality,
+            artifact_manifest=artifact_manifest,
+            artifact_task_mapping=artifact_task_mapping,
+        )
+        if mapping_errors:
+            for line in mapping_errors:
+                click.echo(line, err=True)
+            sys.exit(1)
 
         # Capture provenance if requested
         output_files = [crd_filename]
@@ -781,14 +1333,7 @@ def export(
             if embed_provenance:
                 artifact_manifest.metadata.provenance = provenance
 
-        if output_format == "yaml":
-            artifact_content = yaml.dump(
-                artifact_manifest.to_dict(),
-                default_flow_style=False,
-                sort_keys=False,
-            )
-        else:
-            artifact_content = json.dumps(artifact_manifest.to_dict(), indent=2)
+        artifact_content = render_artifact_content(artifact_manifest, output_format)
 
         from contextcore.utils.onboarding import (
             build_onboarding_metadata,
@@ -810,109 +1355,76 @@ def export(
             onboarding_metadata=onboarding_metadata,
             min_coverage=min_coverage,
         )
+        generated_schema_error = validate_export_schema_pins(
+            strict_quality=strict_quality,
+            policy=policy,
+            onboarding_metadata=onboarding_metadata,
+            validation_report=validation_report,
+        )
+        if generated_schema_error:
+            click.echo(generated_schema_error, err=True)
+            sys.exit(1)
+
+        policy_file = find_quality_policy_file(path)
+        quality_report = build_export_quality_report(
+            path=path,
+            strict_quality=strict_quality,
+            deterministic_output=deterministic_output,
+            min_coverage=min_coverage,
+            profile=profile,
+            policy_file=str(policy_file) if policy_file else None,
+            validation_report=validation_report,
+        )
 
         if dry_run:
-            click.echo("=== DRY RUN - Export Preview ===\n")
-            click.echo(f"--- {crd_filename} ---")
-            click.echo(crd_yaml[:500] + "..." if len(crd_yaml) > 500 else crd_yaml)
-            click.echo(f"\n--- {artifact_filename} ---")
-            click.echo(
-                artifact_content[:1000] + "..."
-                if len(artifact_content) > 1000
-                else artifact_content
+            preview_export(
+                crd_filename=crd_filename,
+                crd_yaml=crd_yaml,
+                artifact_filename=artifact_filename,
+                artifact_content=artifact_content,
+                provenance=provenance,
+                emit_onboarding=emit_onboarding,
+                onboarding_metadata=onboarding_metadata,
+                validation_report=validation_report,
+                emit_quality_report=emit_quality_report,
+                quality_report=quality_report,
+                artifact_manifest=artifact_manifest,
             )
-            if provenance:
-                click.echo(f"\n--- Provenance ---")
-                prov_dict = provenance.model_dump(by_alias=True, exclude_none=True, mode="json")
-                click.echo(json.dumps(prov_dict, indent=2, default=str)[:800] + "...")
-            if emit_onboarding:
-                click.echo(f"\n--- Onboarding Metadata (preview) ---")
-                click.echo(json.dumps(onboarding_metadata, indent=2, default=str)[:600] + "...")
-            click.echo(f"\n--- Validation Report (preview) ---")
-            click.echo(json.dumps(validation_report, indent=2, default=str)[:600] + "...")
-            click.echo("\n=== End Preview ===")
-            _print_coverage_summary(artifact_manifest)
-            if min_coverage is not None:
-                coverage_pct = artifact_manifest.coverage.overall_coverage
-                if coverage_pct < min_coverage:
-                    click.echo(
-                        f"✗ Coverage {coverage_pct:.1f}% is below minimum {min_coverage}%",
-                        err=True,
-                    )
-                    sys.exit(1)
+            coverage_error = enforce_min_coverage(min_coverage, artifact_manifest)
+            if coverage_error:
+                click.echo(coverage_error, err=True)
+                sys.exit(1)
             return
 
-        # Write files
-        crd_path = output_path / crd_filename
-        artifact_path_file = output_path / artifact_filename
-
-        crd_path.write_text(crd_yaml, encoding="utf-8")
-        artifact_path_file.write_text(artifact_content, encoding="utf-8")
-
-        # Write provenance file if requested
-        provenance_file = None
-        if emit_provenance and provenance:
-            from contextcore.utils.provenance import write_provenance_file
-
-            provenance_file = write_provenance_file(
-                provenance, str(output_path), format="json"
-            )
-            output_files.append("provenance.json")
-
-        # Write onboarding metadata if requested (for plan ingestion, artisan seed)
-        onboarding_file = None
-        if emit_onboarding:
-            onboarding_path = output_path / "onboarding-metadata.json"
-            onboarding_path.write_text(
-                json.dumps(onboarding_metadata, indent=2, default=str),
-                encoding="utf-8",
-            )
-            onboarding_file = str(onboarding_path)
-            output_files.append("onboarding-metadata.json")
-
-        validation_path = output_path / "validation-report.json"
-        validation_path.write_text(
-            json.dumps(validation_report, indent=2, default=str),
-            encoding="utf-8",
+        file_results = write_export_outputs(
+            output_path=output_path,
+            crd_filename=crd_filename,
+            crd_yaml=crd_yaml,
+            artifact_filename=artifact_filename,
+            artifact_content=artifact_content,
+            emit_provenance=emit_provenance,
+            provenance=provenance,
+            emit_onboarding=emit_onboarding,
+            onboarding_metadata=onboarding_metadata,
+            validation_report=validation_report,
+            emit_quality_report=emit_quality_report,
+            quality_report=quality_report,
+            output_files=output_files,
         )
-        output_files.append("validation-report.json")
-
-        click.echo(f"✓ Exported ContextCore artifacts to {output_path}/")
-        click.echo(f"  1. {crd_filename} - Kubernetes CRD (do NOT apply directly)")
-        click.echo(f"  2. {artifact_filename} - Artifact Manifest (for Wayfinder)")
-        if provenance_file:
-            click.echo(f"  3. provenance.json - Full provenance audit trail")
-        if onboarding_file:
-            click.echo(f"  4. onboarding-metadata.json - Programmatic onboarding metadata")
-        click.echo(f"  5. validation-report.json - Export-time validation diagnostics")
-
-        _print_coverage_summary(artifact_manifest)
-
-        # Enforce minimum coverage threshold if specified
-        if min_coverage is not None:
-            coverage_pct = artifact_manifest.coverage.overall_coverage
-            if coverage_pct < min_coverage:
-                click.echo(
-                    f"✗ Coverage {coverage_pct:.1f}% is below minimum {min_coverage}%",
-                    err=True,
-                )
-                sys.exit(1)
-
-        # Print provenance summary if captured
-        if provenance:
-            click.echo(f"\n  Provenance:")
-            if provenance.git:
-                git = provenance.git
-                dirty_marker = " (dirty)" if git.is_dirty else ""
-                click.echo(f"    Git: {git.branch}@{git.commit_sha[:8] if git.commit_sha else 'unknown'}{dirty_marker}")
-            click.echo(f"    Source checksum: {provenance.source_checksum[:16]}..." if provenance.source_checksum else "    Source checksum: not computed")
-            click.echo(f"    Duration: {provenance.duration_ms}ms" if provenance.duration_ms else "")
-
-        click.echo(f"\nNext steps:")
-        click.echo(f"  1. Review the artifact manifest for accuracy")
-        click.echo(f"  2. Pass both files to your Wayfinder implementation")
-        click.echo(f"  3. Wayfinder will generate the observability artifacts")
-        click.echo(f"  4. Re-run with --scan-existing to update coverage")
+        print_export_success(
+            output_path=output_path,
+            crd_filename=crd_filename,
+            artifact_filename=artifact_filename,
+            provenance_file=file_results["provenance_file"],
+            onboarding_file=file_results["onboarding_file"],
+            quality_path=file_results["quality_path"],
+            artifact_manifest=artifact_manifest,
+            provenance=provenance,
+        )
+        coverage_error = enforce_min_coverage(min_coverage, artifact_manifest)
+        if coverage_error:
+            click.echo(coverage_error, err=True)
+            sys.exit(1)
 
     except Exception as e:
         click.echo(f"✗ Error: {e}", err=True)
@@ -920,83 +1432,3 @@ def export(
         traceback.print_exc()
         sys.exit(1)
 
-
-def _scan_existing_artifacts(scan_path: Path) -> dict:
-    """
-    Scan a directory for existing observability artifacts.
-
-    Looks for patterns like:
-    - *-dashboard.json
-    - *-rules.yaml, *-prometheus-rules.yaml
-    - *-slo.yaml, *-slo-definition.yaml
-    - *-service-monitor.yaml
-    - *-loki-rules.yaml
-    - *-notification*.yaml
-    - *-runbook.md
-    """
-    existing = {}
-
-    patterns = [
-        ("*-dashboard.json", "dashboard"),
-        ("*-prometheus-rules.yaml", "prometheus_rule"),
-        ("*-rules.yaml", "prometheus_rule"),
-        ("*-slo.yaml", "slo_definition"),
-        ("*-slo-definition.yaml", "slo_definition"),
-        ("*-service-monitor.yaml", "service_monitor"),
-        ("*-loki-rules.yaml", "loki_rule"),
-        ("*-notification*.yaml", "notification_policy"),
-        ("*-runbook.md", "runbook"),
-    ]
-
-    for pattern, artifact_type in patterns:
-        for file_path in scan_path.rglob(pattern):
-            # Extract service name from filename
-            stem = file_path.stem
-            # Remove artifact type suffix
-            for suffix in [
-                "-dashboard",
-                "-prometheus-rules",
-                "-rules",
-                "-slo",
-                "-slo-definition",
-                "-service-monitor",
-                "-loki-rules",
-                "-notification",
-                "-runbook",
-            ]:
-                if stem.endswith(suffix):
-                    service_name = stem[: -len(suffix)]
-                    break
-            else:
-                service_name = stem
-
-            # Normalize service name
-            service_id = service_name.replace("-", "_")
-            artifact_id = f"{service_id}-{artifact_type.replace('_', '-')}"
-
-            existing[artifact_id] = str(file_path)
-
-    return existing
-
-
-def _print_coverage_summary(artifact_manifest) -> None:
-    """Print a formatted coverage summary."""
-    coverage = artifact_manifest.coverage
-
-    click.echo(f"\n  Coverage Summary:")
-    click.echo(f"    Overall: {coverage.overall_coverage:.1f}%")
-    click.echo(f"    Required: {coverage.total_required}")
-    click.echo(f"    Existing: {coverage.total_existing}")
-
-    if coverage.by_type:
-        click.echo(f"\n  Missing by Type:")
-        for artifact_type, count in coverage.by_type.items():
-            click.echo(f"    - {artifact_type}: {count}")
-
-    gaps = artifact_manifest.get_gaps()
-    if gaps:
-        click.echo(f"\n  Top Gaps ({len(gaps)} total):")
-        for gap in gaps[:5]:
-            click.echo(f"    - [{gap.priority.value}] {gap.id}: {gap.name}")
-        if len(gaps) > 5:
-            click.echo(f"    ... and {len(gaps) - 5} more")
