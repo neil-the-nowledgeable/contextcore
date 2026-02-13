@@ -272,6 +272,53 @@ def build_onboarding_metadata(
     if artifact_task_mapping:
         result["artifact_task_mapping"] = artifact_task_mapping
 
+    # ── File ownership mapping (defense-in-depth Principle 1) ─────────
+    # Resolves output path templates to concrete file paths and records
+    # which artifact(s) own each file.  Downstream consumers (plan
+    # ingestion, artisan) use this to classify files as "primary"
+    # (single owner) vs "shared" (multiple owners) at the contract level
+    # — preventing the plan-design mismatch where a task lists a file in
+    # target_files but the design doc says it belongs to another task.
+    #
+    # Structure:
+    #   file_ownership[resolved_path] = {
+    #       "artifact_ids": [list of artifact IDs that target this path],
+    #       "artifact_types": [list of artifact types],
+    #       "scope": "primary" | "shared",
+    #       "task_ids": [mapped task IDs, if artifact_task_mapping provided],
+    #   }
+    file_ownership: Dict[str, Dict[str, Any]] = {}
+    for artifact in artifact_manifest.artifacts:
+        art_type = artifact.type.value
+        conventions = ARTIFACT_OUTPUT_CONVENTIONS.get(art_type, {})
+        output_template = conventions.get("output_path", "")
+        if output_template and artifact.target:
+            resolved_path = output_template.replace("{target}", artifact.target)
+            if resolved_path not in file_ownership:
+                file_ownership[resolved_path] = {
+                    "artifact_ids": [],
+                    "artifact_types": [],
+                    "scope": "primary",
+                    "task_ids": [],
+                }
+            entry = file_ownership[resolved_path]
+            entry["artifact_ids"].append(artifact.id)
+            if art_type not in entry["artifact_types"]:
+                entry["artifact_types"].append(art_type)
+            # Map to task ID if available
+            if artifact_task_mapping and artifact.id in artifact_task_mapping:
+                tid = artifact_task_mapping[artifact.id]
+                if tid not in entry["task_ids"]:
+                    entry["task_ids"].append(tid)
+
+    # Mark shared files (owned by multiple artifacts)
+    for path, entry in file_ownership.items():
+        if len(entry["artifact_ids"]) > 1:
+            entry["scope"] = "shared"
+
+    if file_ownership:
+        result["file_ownership"] = file_ownership
+
     # Relative source path for portability (avoid absolute paths in seeds/handoffs)
     # Assumption: output_dir is a subdirectory of project root (e.g. out/ or ./output).
     # When output_dir is outside project (e.g. /tmp/export), relative_to may raise
