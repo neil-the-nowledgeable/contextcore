@@ -16,6 +16,7 @@ Usage:
 
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -383,41 +384,78 @@ def init(path: str, name: str, manifest_version: str, force: bool):
         sys.exit(1)
 
     if manifest_version == "v2":
+        today = datetime.now().strftime("%Y-%m-%d")
+        display_name = name.replace("-", " ").title()
         manifest_data = {
             "apiVersion": "contextcore.io/v1alpha2",
             "kind": "ContextManifest",
             "metadata": {
                 "name": name,
-                "owners": [{"team": "engineering"}],
+                "owners": [{"team": "engineering", "slack": "#alerts", "email": "team@example.com"}],
                 "changelog": [
                     {
                         "version": "2.0",
-                        "date": "2024-01-01",
+                        "date": today,
                         "author": "you",
+                        "summary": f"Initial v2.0 manifest for {name}",
                         "changes": ["Initial v2.0 manifest"],
                     }
                 ],
+                "links": {
+                    "repo": f"https://github.com/your-org/{name}",
+                },
             },
             "spec": {
                 "project": {
                     "id": name,
-                    "name": name.replace("-", " ").title(),
+                    "name": display_name,
+                    "description": f"{display_name} service — update this description.",
                 },
                 "business": {
                     "criticality": "medium",
                     "owner": "engineering",
+                    "value": "enabler",
+                },
+                "requirements": {
+                    "availability": "99.9",
+                    "latencyP99": "500ms",
+                    "throughput": "100rps",
+                    "errorBudget": "0.1",
+                },
+                "risks": [
+                    {
+                        "type": "availability",
+                        "description": "Example risk — update or remove",
+                        "priority": "P3",
+                        "mitigation": "Example mitigation",
+                    },
+                ],
+                "targets": [
+                    {
+                        "kind": "Deployment",
+                        "name": name,
+                        "namespace": "default",
+                    },
+                ],
+                "observability": {
+                    "traceSampling": 1.0,
+                    "metricsInterval": "30s",
+                    "alertChannels": ["#alerts"],
+                    "logLevel": "info",
                 },
             },
             "strategy": {
                 "objectives": [
                     {
                         "id": "OBJ-001",
-                        "description": "Example objective",
+                        "description": "Example objective — update with real business goal",
                         "keyResults": [
                             {
                                 "metricKey": "availability",
                                 "unit": "%",
                                 "target": 99.9,
+                                "targetOperator": "gte",
+                                "window": "30d",
                             }
                         ],
                     }
@@ -425,7 +463,7 @@ def init(path: str, name: str, manifest_version: str, force: bool):
                 "tactics": [
                     {
                         "id": "TAC-001",
-                        "description": "Example tactic",
+                        "description": "Example tactic — update with real action item",
                         "status": "planned",
                         "linkedObjectives": ["OBJ-001"],
                     }

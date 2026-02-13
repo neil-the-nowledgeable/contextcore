@@ -956,25 +956,39 @@ def test_enrichment_loki_rule_has_derived_from() -> None:
         assert "logSelectors" in props
 
 
-def test_enrichment_design_calibration_hints() -> None:
-    """Guide §6 Principle 5: design_calibration_hints surfaces expected depth per artifact type."""
+def test_enrichment_expected_output_contracts() -> None:
+    """Guide §6 + ExpectedOutput: expected_output_contracts unifies calibration, size, and fields."""
     meta, _ = _build_enriched_onboarding()
 
-    assert "design_calibration_hints" in meta
-    hints = meta["design_calibration_hints"]
-    # All artifact types in the manifest should have hints
-    assert "dashboard" in hints
-    assert "prometheus_rule" in hints
-    assert "service_monitor" in hints
-    assert "loki_rule" in hints
-    # Each hint should have expected_depth and expected_loc_range
-    for art_type, hint in hints.items():
-        assert "expected_depth" in hint, f"Missing expected_depth for {art_type}"
-        assert "expected_loc_range" in hint, f"Missing expected_loc_range for {art_type}"
-        assert "red_flag" in hint, f"Missing red_flag for {art_type}"
+    assert "expected_output_contracts" in meta
+    contracts = meta["expected_output_contracts"]
+    # All artifact types in the manifest should have contracts
+    assert "dashboard" in contracts
+    assert "prometheus_rule" in contracts
+    assert "service_monitor" in contracts
+    assert "loki_rule" in contracts
+    # Each contract should have all ExpectedOutput-pattern fields
+    for art_type, contract in contracts.items():
+        assert "expected_depth" in contract, f"Missing expected_depth for {art_type}"
+        assert "max_lines" in contract, f"Missing max_lines for {art_type}"
+        assert "max_tokens" in contract, f"Missing max_tokens for {art_type}"
+        assert "completeness_markers" in contract, f"Missing completeness_markers for {art_type}"
+        assert "fields" in contract, f"Missing fields for {art_type}"
+        assert "red_flag" in contract, f"Missing red_flag for {art_type}"
+        # Size limits should be positive
+        assert contract["max_lines"] > 0
+        assert contract["max_tokens"] > 0
+        # Fields should come from parameter schema
+        assert isinstance(contract["fields"], list)
+        # Completeness markers should be non-empty
+        assert len(contract["completeness_markers"]) > 0
     # Spot-check specific calibrations
-    assert hints["dashboard"]["expected_depth"] == "comprehensive"
-    assert hints["service_monitor"]["expected_depth"] == "brief"
+    assert contracts["dashboard"]["expected_depth"] == "comprehensive"
+    assert contracts["dashboard"]["max_lines"] == 300
+    assert "panels" in contracts["dashboard"]["completeness_markers"]
+    assert "criticality" in contracts["dashboard"]["fields"]
+    assert contracts["service_monitor"]["expected_depth"] == "brief"
+    assert contracts["service_monitor"]["max_lines"] == 50
 
 
 def test_enrichment_guidance_includes_questions_export() -> None:

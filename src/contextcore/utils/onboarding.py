@@ -108,48 +108,72 @@ ARTIFACT_EXAMPLE_OUTPUTS: Dict[str, Dict[str, str]] = {
     },
 }
 
-# Design calibration hints per artifact type (Guide §6 Principle 5)
-# Surfaces expected depth so downstream design calibration guards can
-# detect over/under-engineering before implementation begins.
-DESIGN_CALIBRATION_HINTS: Dict[str, Dict[str, str]] = {
+# Expected output contracts per artifact type (Guide §6 Principle 5 + ExpectedOutput pattern)
+# Unifies calibration hints, size limits, required fields, and completeness markers
+# into a single per-type contract that downstream consumers can validate against directly.
+#
+# Follows the ExpectedOutput pattern from src/contextcore/agent/handoff.py:
+#   fields: required parameter keys (from ARTIFACT_PARAMETER_SCHEMA)
+#   max_lines: size upper bound for proactive truncation prevention
+#   max_tokens: approximate token budget (TOKENS_PER_LINE ≈ 3)
+#   expected_depth: brief / standard / comprehensive
+#   completeness_markers: structural markers that must be present in generated output
+#   red_flag: calibration mismatch signal
+EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
     ArtifactType.DASHBOARD.value: {
         "expected_depth": "comprehensive",
-        "expected_loc_range": ">150",
+        "max_lines": 300,
+        "max_tokens": 1500,
+        "completeness_markers": ["panels", "templating", "title", "datasource"],
         "red_flag": "Calibrated as 'brief' — will produce a skeleton, not a usable dashboard",
     },
     ArtifactType.PROMETHEUS_RULE.value: {
         "expected_depth": "standard",
-        "expected_loc_range": "51-150",
+        "max_lines": 150,
+        "max_tokens": 750,
+        "completeness_markers": ["groups", "rules", "alert", "expr"],
         "red_flag": "Calibrated as 'brief' — likely to produce incomplete alert rules",
     },
     ArtifactType.SLO_DEFINITION.value: {
         "expected_depth": "standard",
-        "expected_loc_range": "51-150",
+        "max_lines": 150,
+        "max_tokens": 750,
+        "completeness_markers": ["target", "timeWindow", "indicator"],
         "red_flag": "Calibrated as 'comprehensive' — over-engineering for a simple spec",
     },
     ArtifactType.SERVICE_MONITOR.value: {
         "expected_depth": "brief",
-        "expected_loc_range": "<=50",
+        "max_lines": 50,
+        "max_tokens": 250,
+        "completeness_markers": ["selector", "endpoints", "interval"],
         "red_flag": "Calibrated as 'comprehensive' — over-engineering a simple YAML",
     },
     ArtifactType.LOKI_RULE.value: {
         "expected_depth": "standard",
-        "expected_loc_range": "51-150",
+        "max_lines": 150,
+        "max_tokens": 750,
+        "completeness_markers": ["groups", "rules", "expr"],
         "red_flag": "Calibrated as 'brief' — likely to produce incomplete recording rules",
     },
     ArtifactType.NOTIFICATION_POLICY.value: {
         "expected_depth": "standard",
-        "expected_loc_range": "51-150",
+        "max_lines": 150,
+        "max_tokens": 750,
+        "completeness_markers": ["receivers", "routes"],
         "red_flag": "Calibrated as 'comprehensive' — over-engineering a routing config",
     },
     ArtifactType.RUNBOOK.value: {
         "expected_depth": "standard-comprehensive",
-        "expected_loc_range": "51-300",
+        "max_lines": 300,
+        "max_tokens": 1500,
+        "completeness_markers": ["Overview", "Risks", "Escalation", "Procedures"],
         "red_flag": "Calibrated as 'brief' — runbook will lack incident procedures",
     },
     ArtifactType.ALERT_TEMPLATE.value: {
         "expected_depth": "standard",
-        "expected_loc_range": "51-150",
+        "max_lines": 150,
+        "max_tokens": 750,
+        "completeness_markers": ["define", "template"],
         "red_flag": "Calibrated as 'comprehensive' — over-engineering a template",
     },
 }
@@ -311,14 +335,19 @@ def build_onboarding_metadata(
         if open_qs:
             open_questions = open_qs
 
-    # ── Design calibration hints (Guide §6 Principle 5) ──────────
-    # Surfaces expected depth per artifact type present in this manifest
-    # so downstream calibration guards can detect over/under-engineering.
-    calibration_hints: Dict[str, Dict[str, str]] = {}
+    # ── Expected output contracts (Guide §6 + ExpectedOutput pattern) ──
+    # Unifies calibration hints, size limits, required fields, and
+    # completeness markers into a single per-type contract.  Downstream
+    # consumers (plan ingestion, artisan DESIGN/IMPLEMENT, coyote typed
+    # stages) can validate generated artifacts against these directly.
+    output_contracts: Dict[str, Dict[str, Any]] = {}
     for artifact in artifact_manifest.artifacts:
         art_type = artifact.type.value
-        if art_type not in calibration_hints and art_type in DESIGN_CALIBRATION_HINTS:
-            calibration_hints[art_type] = DESIGN_CALIBRATION_HINTS[art_type]
+        if art_type not in output_contracts and art_type in EXPECTED_OUTPUT_CONTRACTS:
+            contract = dict(EXPECTED_OUTPUT_CONTRACTS[art_type])
+            # Merge required fields from parameter schema
+            contract["fields"] = ARTIFACT_PARAMETER_SCHEMA.get(art_type, [])
+            output_contracts[art_type] = contract
 
     # Build semantic conventions block
     semantic_conventions: Optional[Dict[str, Any]] = None
@@ -378,8 +407,8 @@ def build_onboarding_metadata(
     if open_questions:
         result["open_questions"] = open_questions
 
-    if calibration_hints:
-        result["design_calibration_hints"] = calibration_hints
+    if output_contracts:
+        result["expected_output_contracts"] = output_contracts
 
     # Integrity checksums for validation downstream
     if artifact_manifest_content is not None:
