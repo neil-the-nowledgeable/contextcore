@@ -650,6 +650,16 @@ def _build_plan_draft_markdown(
     help="Emit wayfinder-run-config.json",
 )
 @click.option(
+    "--write-manifest-scaffold/--no-write-manifest-scaffold",
+    default=False,
+    help="Also write a v2 context manifest scaffold from create inputs",
+)
+@click.option(
+    "--manifest-scaffold-path",
+    default=".contextcore.yaml",
+    help="Path for scaffold manifest when --write-manifest-scaffold is enabled",
+)
+@click.option(
     "--force",
     is_flag=True,
     help="Overwrite existing artifact files in output directory",
@@ -674,6 +684,8 @@ def create(
     contextcore_export_dir: str,
     emit_startd8_config: bool,
     emit_wayfinder_config: bool,
+    write_manifest_scaffold: bool,
+    manifest_scaffold_path: str,
     force: bool,
     dry_run: bool,
 ):
@@ -704,12 +716,15 @@ def create(
     gates_path = output_path / gates_filename
     startd8_config_path = output_path / startd8_config_filename
     wayfinder_config_path = output_path / wayfinder_config_filename
+    manifest_scaffold = Path(manifest_scaffold_path)
 
     target_files = [plan_path, create_spec_path, gates_path]
     if emit_startd8_config:
         target_files.append(startd8_config_path)
     if emit_wayfinder_config:
         target_files.append(wayfinder_config_path)
+    if write_manifest_scaffold:
+        target_files.append(manifest_scaffold)
 
     if not force:
         existing = [str(p) for p in target_files if p.exists()]
@@ -807,6 +822,9 @@ def create(
         "contextcore_export_dir_expected": contextcore_export_dir,
     }
 
+    manifest_scaffold_data = build_v2_manifest_template(project_id)
+    manifest_scaffold_data["spec"]["project"]["name"] = display_name
+
     if dry_run:
         click.echo("=== DRY RUN - manifest create preview ===\n")
         click.echo(f"Project: {project_id}")
@@ -821,6 +839,12 @@ def create(
         click.echo(plan_draft[:1200] + ("..." if len(plan_draft) > 1200 else ""))
         click.echo("\ncreate-spec.json preview:")
         click.echo(json.dumps(create_spec, indent=2)[:1200] + "...")
+        if write_manifest_scaffold:
+            scaffold_yaml = yaml.dump(
+                manifest_scaffold_data, default_flow_style=False, sort_keys=False
+            )
+            click.echo("\nmanifest scaffold preview:")
+            click.echo(scaffold_yaml[:1000] + ("..." if len(scaffold_yaml) > 1000 else ""))
         click.echo("\n=== End Preview ===")
         return
 
@@ -831,6 +855,11 @@ def create(
         startd8_config_path.write_text(json.dumps(startd8_config, indent=2), encoding="utf-8")
     if emit_wayfinder_config:
         wayfinder_config_path.write_text(json.dumps(wayfinder_config, indent=2), encoding="utf-8")
+    if write_manifest_scaffold:
+        manifest_yaml = yaml.dump(
+            manifest_scaffold_data, default_flow_style=False, sort_keys=False
+        )
+        manifest_scaffold.write_text(manifest_yaml, encoding="utf-8")
 
     click.echo(f"✓ Created manifest planning artifacts in {output_path}/")
     click.echo(f"  1. {plan_filename} - Draft plan for startd8 plan-ingestion")
@@ -840,6 +869,8 @@ def create(
         click.echo(f"  4. {startd8_config_filename} - startd8 plan-ingestion config")
     if emit_wayfinder_config:
         click.echo(f"  5. {wayfinder_config_filename} - Optional wayfinder run config")
+    if write_manifest_scaffold:
+        click.echo(f"  6. {manifest_scaffold} - v2 context manifest scaffold")
 
     click.echo("\nNext steps:")
     click.echo("  1. Refine PLAN-draft.md with concrete requirement descriptions and acceptance criteria")
