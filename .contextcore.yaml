@@ -1,6 +1,6 @@
 # ContextCore Project Context
 # This file defines project metadata that Claude Code uses for context-aware assistance
-# Updated: 2026-01-26
+# Updated: 2026-02-04
 
 # =============================================================================
 # ENVIRONMENT QUICK REFERENCE
@@ -48,12 +48,18 @@ status:
     - "Created Agent Insights dashboard for gen_ai.* attributes (12 dashboards total)"
     - "Deployed Loki recording rules for task_percent_complete metrics"
     - "Added OTel GenAI dual-emit to startd8-sdk TrackedAgentMixin"
+    - "Implemented decomposition logic in CodeGenerationCapability (_decompose_spec, _assemble_chunks, 40 tests)"
+    - "Added deliverable validation to TaskTracker (Deliverable dataclass, _validate_deliverables, span events, 20 tests)"
+    - "Added load-logs CLI command and fixed Loki exporter dead code bug"
+    - "Verified demo data in both Tempo (199 spans) and Loki (862 logs)"
+    - "Fixed demo generator timestamp clamping (now - 24h window for --months 0)"
+    - "Created scripts/validate_dependencies.py (CI validation for dependency manifests)"
+    - "Added .pre-commit-config.yaml with dashboard dependency scanning hook"
+    - "Added GitHub Actions workflow for dependency validation on PR"
   nextSteps:
-    - "Implement decomposition logic in CodeGenerationCapability (TODO stub)"
-    - "Verify demo data appears in both Tempo and Loki"
-    - "Add deliverable validation to task completion criteria"
-    - "Add CI validation for dependency manifests"
-    - "Create pre-commit hook for dependency scanning"
+    - "Consolidate DEV and TEST environments into single deployment source"
+    - "Add runtime GrafanaPluginRequirement to contextcore install verify"
+    - "Create Agent Handoffs dashboard (handoff.* + gen_ai.tool.*)"
 
 business:
   criticality: critical
@@ -103,35 +109,51 @@ business:
 
     - risk: "Metrics derivation requires Loki recording rules not yet deployed"
       priority: P2
-      mitigation: "Document recording rules in semantic-conventions.md, add provisioning"
+      status: RESOLVED  # Deployed 2026-02-04
+      mitigation: |
+        **RESOLVED (2026-02-04)**: Loki recording rules deployed.
+
+        loki/rules/fake/contextcore-rules.yaml contains 5 rules across 2 groups:
+        - contextcore_task_progress: percent_complete gauge, sprint avg, completed count, progress rate
+        - contextcore_task_status: task count by status
+        docker-compose.yaml updated with ./loki/rules:/loki/rules:ro volume mount.
       scope:
         - "docs/semantic-conventions.md"
-        - "loki/rules/"
+        - "loki/rules/fake/contextcore-rules.yaml"
+        - "docker-compose.yaml"
 
     - risk: "Task 'done' status tracks execution, not deliverable completion"
       priority: P2
+      status: RESOLVED  # Fixed 2026-02-04
       mitigation: |
-        Task tracking captures workflow execution status (ran successfully) but not
-        whether expected deliverables were produced. Add deliverable validation:
-        1. Post-completion hooks that verify expected outputs exist
-        2. Span events with deliverable checksums or existence checks
-        3. Dashboard panels showing tasks vs verified deliverables
+        **RESOLVED (2026-02-04)**: Deliverable validation implemented in TaskTracker.
+
+        start_task() accepts optional deliverables list (Deliverable dataclass: type, path,
+        description, validator callable). complete_task() calls _validate_deliverables() which:
+        - Calls custom validators or checks os.path.exists() for file types
+        - Emits task.deliverables_verified span event with counts and JSON results
+        - Sets task.deliverable.count, task.deliverable.verified, task.deliverables_complete attrs
+        - Logs warnings for failures but does NOT block completion
+        20 new tests + 23 existing pass (43 total).
       scope:
         - "src/contextcore/tracker.py"
         - "docs/semantic-conventions.md"
+        - "tests/test_deliverable_validation.py"
       lesson: |
         Discovered via phase tasks that marked 11 tasks as 'done' in Tempo but
         expected document sections were not created. Execution ≠ completion.
 
     - risk: "Implicit dependencies cause deployment failures"
       priority: P2
+      status: MITIGATED  # CI + pre-commit implemented 2026-02-04
       mitigation: |
-        Dependencies defined in design artifacts (dashboards, configs) must be
-        explicitly declared in manifests and validated at multiple checkpoints:
-        1. Dependency manifests at component level (grafana/provisioning/dashboards/dependencies.yaml)
-        2. Pre-commit validation for new dependency references
-        3. CI pipeline validation of manifest completeness
-        4. Runtime verification via contextcore install verify
+        **MITIGATED (2026-02-04)**: CI validation and pre-commit hook implemented.
+
+        1. Dependency manifests: grafana/provisioning/dashboards/dependencies.yaml (DONE)
+        2. Pre-commit hook: .pre-commit-config.yaml with check-dashboard-dependencies (DONE)
+        3. CI pipeline: .github/workflows/validate-dependencies.yml (DONE)
+        4. Validation script: scripts/validate_dependencies.py scans 14 dashboards (DONE)
+        5. Runtime verification via contextcore install verify (TODO)
         See docs/DEPENDENCY_MANIFEST_PATTERN.md for full pattern.
       scope:
         - "grafana/provisioning/dashboards/dependencies.yaml"

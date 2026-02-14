@@ -267,6 +267,131 @@ span.set_attribute("capability.audience", audience_value)
 
 ---
 
+## 2026-02-03: Phase 3 OTel Propagation (Wayfinder + ContextCore)
+
+### OTel SDK Import Path Discovery (TraceContextTextMapPropagator)
+
+**Problem:** `from opentelemetry.trace.propagation import TraceContextTextMapPropagator` fails with `ImportError` in OTel SDK 1.39.1. The class is not re-exported at the package level, despite being documented that way in older examples.
+
+**Solution:** The correct import path is:
+```python
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+```
+
+**Discovery Method:** Inspected the default global propagator's internal `_propagators` list to find the actual module path:
+```python
+from opentelemetry.propagate import get_global_textmap
+propagator = get_global_textmap()
+print(propagator._propagators)  # Reveals actual class locations
+```
+
+**Key Takeaway:** OTel Python SDK submodule re-exports vary across versions. When an import fails, inspect the runtime objects to find the real module path rather than guessing.
+
+---
+
+### Dual-Repo Contract Propagation Under Model C
+
+**Problem:** When ContextCore (library) and Wayfinder (distribution) share contracts like `get_emit_mode()`, `RecordingRuleName`, and `AlertRuleName`, changes must be applied to both repos — but at different file locations and with different surrounding context.
+
+**Solution:** Follow the Model C litmus test:
+- **"Would a third-party developer need this?"** Yes = ContextCore. No = Wayfinder.
+- Contracts, types, enums, and pure functions propagate to ContextCore.
+- Deployment wiring (sampler factory, propagator setup, middleware) stays in Wayfinder.
+- The same `get_emit_mode()` function exists at different line numbers in each repo's `otel_genai.py` (Wayfinder: ~line 54, ContextCore: ~line 891).
+
+**Pattern for dual-repo edits:**
+1. Implement and verify in Wayfinder first (deployment context available for integration testing).
+2. Propagate only the library-level changes to ContextCore.
+3. Run test suites in both repos independently.
+
+**Key Takeaway:** In a library/distribution split, always edit the distribution first (more testable), then propagate contracts back to the library. Never propagate deployment wiring.
+
+---
+
+### validate_metric_name() vs kubernetes-mixin Naming Conventions
+
+**Problem:** `validate_metric_name()` uses regex `^[a-z][a-z0-9_]*$` which rejects colons. But Prometheus recording rules follow the `level:metric:aggregation` pattern with colons (e.g., `project:contextcore_task_percent_complete:max_over_time5m`), and alert rules use CamelCase (e.g., `ContextCoreExporterFailure`).
+
+**Solution:** Added separate validators for each naming convention:
+- `validate_metric_name()` — regular metrics (lowercase, underscores only)
+- `validate_recording_rule_name()` — recording rules (colons required, `level:metric:aggregation` pattern)
+- `validate_alert_rule_name()` — alert rules (CamelCase, starts uppercase, no colons)
+
+**Key Takeaway:** Prometheus has three distinct naming conventions (metrics, recording rules, alert rules). A single validator cannot handle all three — provide separate validators per convention.
+
+---
+
+### Idempotent Global Propagator Configuration
+
+**Problem:** `configure_propagator()` sets the global OTel TextMapPropagator. It may be called from multiple initialization paths (`TaskTracker.__init__`, `A2AServer.__init__`), risking double-configuration or order-dependent bugs.
+
+**Solution:** Use a module-level boolean flag for idempotency:
+```python
+_propagator_configured = False
+
+def configure_propagator() -> None:
+    global _propagator_configured
+    if _propagator_configured:
+        return
+    propagator = CompositeHTTPPropagator([
+        TraceContextTextMapPropagator(),
+        W3CBaggagePropagator(),
+    ])
+    set_global_textmap(propagator)
+    _propagator_configured = True
+```
+
+**Key Takeaway:** Any function that modifies OTel global state must be idempotent. Use a module-level guard since `set_global_textmap()` doesn't protect against double-calls itself.
+
+---
+
+### OTEL_SEMCONV_STABILITY_OPT_IN Precedence Design
+
+**Problem:** Two env vars can control emit mode: the project-specific `CONTEXTCORE_EMIT_MODE` and the OTel standard `OTEL_SEMCONV_STABILITY_OPT_IN`. Need a clear precedence hierarchy that respects both without surprising behavior.
+
+**Solution:** Three-tier resolution with explicit precedence:
+1. `CONTEXTCORE_EMIT_MODE` (project-specific, highest priority)
+2. `OTEL_SEMCONV_STABILITY_OPT_IN` (OTel standard, comma-separated tokens — `gen_ai_latest_experimental` maps to `EmitMode.OTEL`)
+3. Default: `EmitMode.DUAL`
+
+The project-specific var always wins because operators who set it have made a deliberate choice. The OTel standard var is a fallback for environments where only OTel-standard configuration is available.
+
+**Key Takeaway:** When bridging project-specific and OTel-standard env vars, project-specific should take precedence — operators who explicitly set it have made a conscious decision.
+
+---
+
+## 2026-02-04: Demo Data Pipeline, Dependency Validation, Timestamp Clamping
+
+### Loki Exporter Dead Code Crash
+
+**Problem:** `load_to_loki()` crashed with `json.JSONDecodeError` on a stale code block (line 219) that attempted `json.loads()` on label keys. The correct implementation existed below but was unreachable.
+
+**Solution:** Deleted the dead code block (lines 216-224). The correct string-splitting implementation at lines 226-241 then executed successfully.
+
+**Key Takeaway:** When replacing code iteratively, delete the old implementation immediately. Leaving it "for reference" creates unreachable correct code shadowed by crashing stale code.
+
+---
+
+### Loki Future Timestamp Rejection and Belt-and-Suspenders Clamping
+
+**Problem:** Demo data generated with `--months 0` produced timestamps in the future because task durations (5-30 days) exceeded the 24-hour window. Loki rejected with "timestamp too new."
+
+**Solution:** Implemented two-layer clamping: (1) Generator clamps all timestamps to `now` ceiling with proportional duration scaling (`scale = total_days / 90.0`), (2) Consumer clamps any remaining future timestamps before push.
+
+**Key Takeaway:** When pushing time-series data to systems with strict timestamp validation, clamp at both generation and ingestion. Neither layer alone is sufficient.
+
+---
+
+### Pre-Commit pass_filenames=false for Holistic Validation
+
+**Problem:** Standard pre-commit hooks check only changed files. Dependency validation needs to scan ALL dashboards against the manifest to catch undeclared types.
+
+**Solution:** Used `pass_filenames: false` with `files:` regex. The regex controls when the hook triggers; the script does a complete scan each time.
+
+**Key Takeaway:** Use `pass_filenames: false` when validation requires cross-file consistency checking. Per-file hooks can't validate relationships between files and manifests.
+
+---
+
 ## Template for Future Lessons
 
 Use this format when adding new lessons:
