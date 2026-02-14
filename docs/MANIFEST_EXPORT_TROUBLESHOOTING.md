@@ -87,11 +87,12 @@ Common issues when using `contextcore manifest export` and related tooling.
 
 **Symptom:** `provenance` in onboarding-metadata.json is null; `source_checksum` is missing.
 
-**Cause:** `--emit-provenance` was not used. Provenance is optional.
+**Cause:** `--emit-provenance` was not used. Provenance is optional but **required for A2A governance gates**.
 
 **Resolution:**
 1. Use `--emit-provenance` to capture full provenance and `source_checksum`
 2. `source_checksum` can still be populated from the source file when provenance is absent if `source_path` is available to the onboarding builder
+3. **Important:** `contextcore contract a2a-check-pipeline` requires provenance for the `checksum-chain` gate. Without `--emit-provenance`, this gate will fail
 
 ---
 
@@ -108,8 +109,62 @@ Common issues when using `contextcore manifest export` and related tooling.
 
 ---
 
+## A2A Pipeline Checker Fails (Gate 1)
+
+**Symptom:** `contextcore contract a2a-check-pipeline` reports one or more gate failures.
+
+**Individual gate failures:**
+
+| Failed Gate | Likely Cause | Resolution |
+|-------------|-------------|------------|
+| `structural-integrity` | Missing export files (CRD, artifact manifest, onboarding metadata) | Re-run export; check output directory |
+| `checksum-chain` | Stale export or missing provenance | Re-run with `--emit-provenance`; do not hand-edit exported files |
+| `provenance-consistency` | Git metadata mismatch or export from dirty worktree | Commit changes before exporting; verify git state |
+| `mapping-completeness` | Targets in manifest don't have corresponding artifacts | Check `spec.targets` — each target should produce artifacts |
+| `gap-parity` | Coverage gaps don't match parsed feature count | Verify `--scan-existing` is used if artifacts already exist |
+| `design-calibration` | Artifact depth tiers don't match type expectations | Check `expected_output_contracts` in onboarding metadata |
+
+**General resolution:**
+1. Read the `GateResult` output — it includes `failed_gate`, `reason`, and `next_action`
+2. Fix the upstream issue (usually in the manifest or export flags)
+3. Re-run export and re-run the checker
+
+---
+
+## A2A Three Questions Diagnostic Fails (Gate 2)
+
+**Symptom:** `contextcore contract a2a-diagnose` stops at a failing question.
+
+| Failing Question | What it means | Resolution |
+|-----------------|---------------|------------|
+| Q1: Contract not complete | Artifact manifest is missing required artifacts or enrichment fields | Re-run export with fully populated manifest; check `derivation_rules` and `expected_output_contracts` |
+| Q2: Not faithfully translated | Plan ingestion dropped artifacts or routed incorrectly | Check plan ingestion output; verify all `coverage.gaps` appear as features |
+| Q3: Not faithfully executed | Contractor failed to generate or finalize some artifacts | Check contractor logs and finalize report; re-run failed tasks |
+
+**Key insight:** The diagnostic stops at the first failing question. If Q1 fails, don't investigate Q2 or Q3 — fix the export first.
+
+---
+
+## Missing Enrichment Fields
+
+**Symptom:** A2A pipeline checker warns about missing enrichment fields; downstream consumers report incomplete context.
+
+**Expected enrichment fields in onboarding-metadata.json:**
+
+| Field | Source | Fix if missing |
+|-------|--------|---------------|
+| `derivation_rules` | Derived from manifest `spec.business.criticality` + `spec.requirements` | Ensure manifest has populated business and requirements sections |
+| `expected_output_contracts` | Derived from artifact types and criticality | Ensure at least one target exists in manifest |
+| `artifact_dependency_graph` | Derived from artifact type relationships | Normal for simple projects to have empty graph |
+| `open_questions` | From `guidance.questions` with `status: open` | Add open questions to manifest or accept empty |
+| `file_ownership` | From resolved artifact output paths | Ensure export has targets to derive paths from |
+
+---
+
 ## Related
 
 - [MANIFEST_ONBOARDING_GUIDE.md](./MANIFEST_ONBOARDING_GUIDE.md)
 - [ONBOARDING_METADATA_SCHEMA.md](./ONBOARDING_METADATA_SCHEMA.md)
 - [ARTIFACT_MANIFEST_CONTRACT.md](./ARTIFACT_MANIFEST_CONTRACT.md)
+- [EXPORT_PIPELINE_ANALYSIS_GUIDE.md](./EXPORT_PIPELINE_ANALYSIS_GUIDE.md)
+- [design/contextcore-a2a-comms-design.md](./design/contextcore-a2a-comms-design.md)

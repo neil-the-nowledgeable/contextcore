@@ -65,6 +65,47 @@ Each entry in `artifact_types`:
 | `coverage.totalExisting` | number | Yes | Artifacts with status `exists` |
 | `coverage.overallCoverage` | number | Yes | Percentage (0–100) |
 
+## Enrichment Fields
+
+These fields provide the deeper context that A2A governance gates validate and downstream consumers depend on. They are populated by `src/contextcore/utils/onboarding.py`.
+
+| Field | Type | Required by A2A | Description |
+|-------|------|-----------------|-------------|
+| `derivation_rules` | object | Yes (design-calibration gate) | Per-artifact-type rules mapping business metadata (criticality, SLOs) to artifact parameters. Keys are artifact types (e.g., `dashboard`, `prometheus_rule`). Each value is a list of rule objects with `source_field`, `target_parameter`, and `transform`. |
+| `expected_output_contracts` | object | Yes (gap-parity gate) | Per-artifact-type contracts defining expected depth (`brief`/`standard`/`comprehensive`), `max_lines`, `max_tokens`, `completeness_markers`, and `required_fields`. Used by artisan IMPLEMENT/TEST phases. |
+| `artifact_dependency_graph` | object | Recommended | Maps artifact ID → list of dependent artifact IDs (e.g., SLO depends on PrometheusRule). Used for plan sequencing and parallel execution planning. |
+| `resolved_artifact_parameters` | object | Recommended | Pre-resolved parameter values per artifact, ready for template substitution. Reduces LLM inference burden in artisan IMPLEMENT. |
+| `open_questions` | object[] | Recommended | Unresolved questions from `guidance.questions` (status=`open`). Downstream consumers should surface these during design review. |
+| `file_ownership` | object | Recommended | Maps resolved output file path → artifact ID. Used for post-generation validation and CI ownership checks. |
+| `objectives` | object[] | No | Strategic objectives from `strategy.objectives`. Provides business context for contractor alignment during design phase. |
+
+### Example: derivation_rules
+
+```json
+{
+  "derivation_rules": {
+    "dashboard": [
+      {"source_field": "spec.business.criticality", "target_parameter": "dashboard_placement", "transform": "criticality_to_placement"},
+      {"source_field": "spec.requirements.latencyP99", "target_parameter": "latency_threshold", "transform": "identity"}
+    ],
+    "prometheus_rule": [
+      {"source_field": "spec.business.criticality", "target_parameter": "alert_severity", "transform": "criticality_to_severity"}
+    ]
+  }
+}
+```
+
+### Example: expected_output_contracts
+
+```json
+{
+  "expected_output_contracts": {
+    "dashboard": {"expected_depth": "comprehensive", "max_lines": 500, "completeness_markers": ["panels", "templating", "annotations"]},
+    "service_monitor": {"expected_depth": "brief", "max_lines": 30, "completeness_markers": ["endpoints", "selector"]}
+  }
+}
+```
+
 ## Optional Fields
 
 | Field | Type | Description |
@@ -107,3 +148,20 @@ Ensure `project_id` is set consistently across:
 - Artifact manifest: `metadata.projectId`
 - Onboarding metadata: `project_id`
 - Seed (artisan-context-seed.json): propagate from onboarding or config
+
+## A2A Governance Integration
+
+The onboarding metadata is the primary input for A2A governance validation:
+
+- **`contextcore contract a2a-check-pipeline`** reads onboarding metadata to validate enrichment field population, checksum chain integrity, and design calibration alignment
+- **`contextcore contract a2a-diagnose`** uses onboarding metadata to answer "Is the contract complete?" (Q1)
+- Enrichment fields (`derivation_rules`, `expected_output_contracts`, `artifact_dependency_graph`) are checked as part of Gate 1 validation
+
+To ensure A2A gate readiness, export with `--emit-provenance`:
+
+```bash
+contextcore manifest export -p .contextcore.yaml -o ./output --emit-provenance
+contextcore contract a2a-check-pipeline ./output
+```
+
+See `docs/EXPORT_PIPELINE_ANALYSIS_GUIDE.md` for the full 7-step pipeline and `docs/design/contextcore-a2a-comms-design.md` for A2A architecture.

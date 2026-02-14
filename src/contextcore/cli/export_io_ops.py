@@ -291,6 +291,9 @@ def print_export_success(
 
     click.echo("\nNext steps:")
     click.echo("  1. Review the artifact manifest for accuracy")
-    click.echo("  2. Pass both files to your Wayfinder implementation")
-    click.echo("  3. Wayfinder will generate the observability artifacts")
-    click.echo("  4. Re-run with --scan-existing to update coverage")
+    if not provenance_file:
+        click.echo("  2. (Recommended) Re-run with --emit-provenance for checksum chain integrity")
+    click.echo(f"  {'2' if provenance_file else '3'}. Run: contextcore contract a2a-check-pipeline {output_path}  (Gate 1: pipeline integrity)")
+    click.echo(f"  {'3' if provenance_file else '4'}. Pass both files to your Wayfinder implementation (startd8 workflow run plan-ingestion)")
+    click.echo(f"  {'4' if provenance_file else '5'}. Run: contextcore contract a2a-diagnose  (Gate 2: Three Questions diagnostic)")
+    click.echo(f"  {'5' if provenance_file else '6'}. Re-run with --scan-existing to update coverage after artifact generation")
