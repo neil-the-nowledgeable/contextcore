@@ -101,7 +101,7 @@ This checklist is scoped to current command entrypoints and helper modules:
 
 ### 1. `manifest init` in-place strategy
 
-- [ ] **Add write strategy to `init`**
+- [x] **Add write strategy to `init`**
   - **File:** `src/contextcore/cli/manifest.py`
   - **Insertion point:** `init(...)` options and function args.
   - **Action:**
@@ -111,7 +111,7 @@ This checklist is scoped to current command entrypoints and helper modules:
 
 ### 2. `init` run provenance
 
-- [ ] **Emit `init-run-provenance.json`**
+- [x] **Emit `init-run-provenance.json`**
   - **File:** `src/contextcore/cli/manifest.py`
   - **Insertion point:** after successful write/validation in `init(...)`.
   - **Action:** capture inputs (template version, CLI opts), output file fingerprint, and timing.
@@ -119,7 +119,7 @@ This checklist is scoped to current command entrypoints and helper modules:
 
 ### 3. `init-from-plan` run provenance
 
-- [ ] **Emit provenance with inference evidence**
+- [x] **Emit provenance with inference evidence**
   - **File:** `src/contextcore/cli/manifest.py`
   - **Insertion point:** inside `init_from_plan(...)` around report writing.
   - **Action:**

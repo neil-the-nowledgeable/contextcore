@@ -44,6 +44,7 @@ from contextcore.cli.export_io_ops import (
     scan_existing_artifacts,
     validate_required_task_mapping,
     write_export_outputs,
+    atomic_write_with_backup,
 )
 from contextcore.cli.init_from_plan_ops import (
     build_v2_manifest_template,
@@ -403,7 +404,20 @@ def show(path: str, output_format: str):
     default=True,
     help="Validate the manifest after writing (default: enabled)",
 )
-def init(path: str, name: str, manifest_version: str, force: bool, validate_after_write: bool):
+@click.option(
+    "--document-write-strategy",
+    type=click.Choice(["update_existing", "new_output"]),
+    default="update_existing",
+    help="Strategy for writing output documents (default: update_existing)",
+)
+def init(
+    path: str,
+    name: str,
+    manifest_version: str,
+    force: bool,
+    validate_after_write: bool,
+    document_write_strategy: str,
+):
     """
     Initialize a new context manifest.
 
@@ -463,7 +477,31 @@ def init(path: str, name: str, manifest_version: str, force: bool, validate_afte
         }
 
     manifest_yaml = yaml.dump(manifest_data, default_flow_style=False, sort_keys=False)
-    path_obj.write_text(manifest_yaml, encoding="utf-8")
+    
+    use_backup = (document_write_strategy == "update_existing")
+    atomic_write_with_backup(path_obj, manifest_yaml, backup=use_backup)
+
+    # Emit provenance
+    from contextcore.utils.provenance import build_run_provenance_payload, write_provenance_file
+    import shutil
+    
+    output_dir = path_obj.parent
+    run_payload = build_run_provenance_payload(
+        workflow_or_command="manifest init",
+        inputs=[], 
+        outputs=[str(path_obj.resolve())],
+        config_snapshot={
+            "name": name,
+            "manifest_version": manifest_version,
+            "force": force
+        }
+    )
+    
+    prov_path = output_dir / "init-run-provenance.json"
+    if prov_path.exists() and use_backup:
+        shutil.copy2(prov_path, prov_path.with_suffix(".json.bak"))
+        
+    write_provenance_file(run_payload, str(output_dir), filename="init-run-provenance.json")
 
     if validate_after_write:
         errors, warnings, _ = _validate_manifest(str(path_obj), strict=False)
@@ -1052,6 +1090,12 @@ def create(
     is_flag=True,
     help="Preview inferred output and report without writing files",
 )
+@click.option(
+    "--document-write-strategy",
+    type=click.Choice(["update_existing", "new_output"]),
+    default="update_existing",
+    help="Strategy for writing output documents (default: update_existing)",
+)
 def init_from_plan(
     plan: str,
     requirements: tuple,
@@ -1064,6 +1108,7 @@ def init_from_plan(
     validate_after_write: bool,
     force: bool,
     dry_run: bool,
+    document_write_strategy: str,
 ):
     """
     Initialize a v2 manifest from plan + requirements with programmatic inference.
@@ -1119,6 +1164,8 @@ def init_from_plan(
         "downstream_readiness": inference.get("downstream_readiness"),
     }
 
+    use_backup = (document_write_strategy == "update_existing")
+
     if strict_quality and inference["core_inferred_count"] < 3:
         report["status"] = "failed_quality_gate"
         report["quality_gate_reason"] = (
@@ -1127,7 +1174,7 @@ def init_from_plan(
         )
         if not report_out:
             report_out = str(output_path.with_suffix(".init-from-plan-report.json"))
-        Path(report_out).write_text(json.dumps(report, indent=2), encoding="utf-8")
+        atomic_write_with_backup(Path(report_out), json.dumps(report, indent=2), backup=use_backup)
         click.echo("✗ init-from-plan strict-quality gate failed", err=True)
         click.echo(f"  Report written: {report_out}", err=True)
         sys.exit(1)
@@ -1138,7 +1185,7 @@ def init_from_plan(
         click.echo(manifest_yaml[:1500] + ("..." if len(manifest_yaml) > 1500 else ""))
         report["status"] = "dry_run"
     else:
-        output_path.write_text(manifest_yaml, encoding="utf-8")
+        atomic_write_with_backup(output_path, manifest_yaml, backup=use_backup)
         report["status"] = "written"
         if validate_after_write:
             errors, warnings, _ = _validate_manifest(str(output_path), strict=False)
@@ -1147,7 +1194,7 @@ def init_from_plan(
                 report["validation_errors"] = errors
                 if not report_out:
                     report_out = str(output_path.with_suffix(".init-from-plan-report.json"))
-                Path(report_out).write_text(json.dumps(report, indent=2), encoding="utf-8")
+                atomic_write_with_backup(Path(report_out), json.dumps(report, indent=2), backup=use_backup)
                 click.echo(f"✗ Generated manifest failed validation: {output}", err=True)
                 for e in errors:
                     click.echo(f"  ✗ {e}", err=True)
@@ -1157,10 +1204,50 @@ def init_from_plan(
 
     if not report_out:
         report_out = str(output_path.with_suffix(".init-from-plan-report.json"))
-    Path(report_out).write_text(json.dumps(report, indent=2), encoding="utf-8")
+    
+    if not dry_run:
+        atomic_write_with_backup(Path(report_out), json.dumps(report, indent=2), backup=use_backup)
+    else:
+        # For dry run just print or don't write report? 
+        # Original code wrote report even in dry run? 
+        # "Preview inferred output and report without writing files" says dry-run help.
+        # But original code:
+        # Path(report_out).write_text(...)
+        # Wait, check original code below.
+        pass
+
+    if not dry_run:
+        from contextcore.utils.provenance import build_run_provenance_payload, write_provenance_file
+        import shutil
+        
+        prov_inputs = [str(Path(plan).resolve())]
+        for r in requirements:
+            prov_inputs.append(str(Path(r).resolve()))
+        if project_root:
+            prov_inputs.append(str(Path(project_root).resolve()))
+            
+        prov_outputs = [str(output_path.resolve()), str(Path(report_out).resolve())]
+        
+        run_payload = build_run_provenance_payload(
+            workflow_or_command="manifest init-from-plan",
+            inputs=prov_inputs,
+            outputs=prov_outputs,
+            quality_summary={
+                "core_inferred_count": inference["core_inferred_count"],
+                "downstream_readiness": inference.get("downstream_readiness", {}).get("verdict"),
+                "strict_quality": strict_quality
+            }
+        )
+        
+        prov_dir = output_path.parent
+        prov_path = prov_dir / "init-run-provenance.json"
+        if prov_path.exists() and use_backup:
+            shutil.copy2(prov_path, prov_path.with_suffix(".json.bak"))
+            
+        write_provenance_file(run_payload, str(prov_dir), filename="init-run-provenance.json")
 
     if dry_run:
-        click.echo(f"✓ Dry run complete. Report written: {report_out}")
+        click.echo(f"✓ Dry run complete. Report preview: {report_out} (not written)")
     else:
         click.echo(f"✓ Created v2 manifest from plan: {output}")
         click.echo(f"  Name: {inferred_name}")
