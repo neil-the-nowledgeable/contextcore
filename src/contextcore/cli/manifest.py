@@ -486,7 +486,7 @@ def init(path: str, name: str, manifest_version: str, force: bool, validate_afte
     click.echo(f"  3. Run: contextcore install init")
     click.echo(f"  4. Run: contextcore manifest export -p {path} -o ./out/export --emit-provenance")
     click.echo(f"  5. Run: contextcore contract a2a-check-pipeline ./out/export")
-    click.echo(f"  6. Run: startd8 workflow run plan-ingestion (or contextcore contract a2a-diagnose)")
+    click.echo(f"  6. Run: startd8 workflow run plan-ingestion, then contextcore contract a2a-diagnose")
 
 
 def _extract_requirement_ids(requirements_text: str) -> Dict[str, List[str]]:
@@ -1189,6 +1189,7 @@ def init_from_plan(
         click.echo(f"    3. Run: contextcore install init")
         click.echo(f"    4. Run: contextcore manifest export -p {output} -o ./out/export --emit-provenance")
         click.echo(f"    5. Run: contextcore contract a2a-check-pipeline ./out/export")
+        click.echo(f"    6. Run: startd8 workflow run plan-ingestion, then contextcore contract a2a-diagnose")
 
 
 @manifest.command()
@@ -1280,6 +1281,23 @@ def init_from_plan(
     default=None,
     help="Write export-quality-report.json with strict-quality gate outcomes",
 )
+@click.option(
+    "--verify",
+    is_flag=True,
+    help="Run a2a-check-pipeline (Gate 1) on output after export. "
+    "Fails with non-zero exit if any blocking gate fails.",
+)
+@click.option(
+    "--emit-tasks",
+    is_flag=True,
+    help="Emit OTel task spans for each artifact in coverage gaps. "
+    "Creates epic/story/task hierarchy and records task_trace_id in onboarding metadata.",
+)
+@click.option(
+    "--project-id",
+    default=None,
+    help="Override project ID for task tracking (defaults to manifest project ID).",
+)
 @click.pass_context
 def export(
     ctx,
@@ -1298,6 +1316,9 @@ def export(
     min_coverage: Optional[float],
     task_mapping: Optional[str],
     emit_quality_report: Optional[bool],
+    verify: bool,
+    emit_tasks: bool,
+    project_id: Optional[str],
 ):
     """
     Export CRD and Artifact Manifest for Wayfinder implementations.
@@ -1315,7 +1336,7 @@ def export(
 
     Provenance tracking (recommended for A2A governance):
     - Use --emit-provenance to write provenance.json with full audit trail
-    - Required for A2A pipeline checker (Gate 1) checksum-chain validation
+    - Required for A2A pipeline checker provenance-consistency gate (gate 3 of 6)
     - Provenance includes: git context, timestamps, checksums, CLI args
 
     Programmatic onboarding:
@@ -1602,6 +1623,66 @@ def export(
         if coverage_error:
             click.echo(coverage_error, err=True)
             sys.exit(1)
+
+        # --emit-tasks: create OTel task spans for coverage gaps
+        if emit_tasks and not dry_run:
+            click.echo("\n--- Emit Tasks: creating OTel task spans ---")
+            try:
+                from contextcore.cli.export_task_emitter import emit_export_tasks
+
+                task_result = emit_export_tasks(
+                    artifact_manifest=artifact_manifest,
+                    onboarding_metadata=onboarding_metadata,
+                    project_id=project_id,
+                    dry_run=False,
+                )
+
+                if task_result.errors:
+                    click.echo(f"⚠ Task emission completed with errors (best-effort):")
+                    for err in task_result.errors:
+                        click.echo(f"  - {err}")
+                else:
+                    click.echo(f"✓ Emitted {task_result.total_tasks_emitted} task spans")
+                    click.echo(f"  Stories: {task_result.stories_emitted}")
+                    click.echo(f"  Tasks by status: {task_result.tasks_by_status}")
+                    click.echo(f"  Trace ID: {task_result.task_trace_id}")
+
+                # Re-write onboarding metadata with task_trace_id if it was updated
+                if task_result.task_trace_id and emit_onboarding:
+                    onboarding_path = output_path / "onboarding-metadata.json"
+                    onboarding_path.write_text(
+                        json.dumps(onboarding_metadata, indent=2, default=str),
+                        encoding="utf-8",
+                    )
+                    click.echo(f"  Updated onboarding-metadata.json with task_trace_id")
+            except Exception as te:
+                # Task emission failure does not fail the export (R7.2)
+                click.echo(f"⚠ Task emission failed (non-blocking): {te}")
+
+        # --verify: run Gate 1 (a2a-check-pipeline) on the export output
+        if verify:
+            click.echo("\n--- Verify: running a2a-check-pipeline (Gate 1) ---")
+            try:
+                from contextcore.contracts.a2a.pipeline_checker import PipelineChecker
+
+                checker = PipelineChecker(str(output_path))
+                report = checker.run()
+                click.echo(report.to_text())
+
+                if not report.is_healthy:
+                    click.echo(
+                        "✗ --verify failed: pipeline integrity check is UNHEALTHY",
+                        err=True,
+                    )
+                    sys.exit(1)
+                else:
+                    click.echo("✓ --verify passed: pipeline integrity HEALTHY")
+            except Exception as ve:
+                click.echo(
+                    f"✗ --verify error: {ve}",
+                    err=True,
+                )
+                sys.exit(1)
 
     except Exception as e:
         click.echo(f"✗ Error: {e}", err=True)

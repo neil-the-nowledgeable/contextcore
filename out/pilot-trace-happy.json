@@ -1,0 +1,855 @@
+{
+  "trace_id": "PI-101-002",
+  "project_id": "contextcore",
+  "started_at": "2026-02-14T01:17:56.330468+00:00",
+  "ended_at": "2026-02-14T01:17:56.344013+00:00",
+  "final_status": "completed",
+  "summary": {
+    "trace_id": "PI-101-002",
+    "final_status": "completed",
+    "total_spans": 10,
+    "completed_spans": 10,
+    "blocked_spans": [],
+    "total_gates": 9,
+    "gates_passed": 9,
+    "gates_failed": 0,
+    "errors": [],
+    "is_success": true
+  },
+  "spans": [
+    {
+      "span_id": "PI-101-002-S1",
+      "parent_id": "PI-101-002",
+      "phase": "INIT_BASELINE",
+      "status": "completed",
+      "started_at": "2026-02-14T01:17:56.330720+00:00",
+      "ended_at": "2026-02-14T01:17:56.337423+00:00",
+      "contract": {
+        "schema_version": "v1",
+        "project_id": "contextcore",
+        "trace_id": "PI-101-002",
+        "task_id": "PI-101-002-S1",
+        "parent_task_id": "PI-101-002",
+        "phase": "INIT_BASELINE",
+        "status": "in_progress",
+        "timestamp": "2026-02-14T01:17:56.330733Z"
+      },
+      "gate_results": [],
+      "events": [
+        {
+          "event_type": "span.started",
+          "timestamp": "2026-02-14T01:17:56.337403+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S1",
+            "phase": "INIT_BASELINE"
+          }
+        },
+        {
+          "event_type": "baseline.verified",
+          "timestamp": "2026-02-14T01:17:56.337419+00:00",
+          "detail": {
+            "endpoint": "localhost:4317"
+          }
+        },
+        {
+          "event_type": "span.completed",
+          "timestamp": "2026-02-14T01:17:56.337422+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S1"
+          }
+        }
+      ],
+      "blocked_reason": null,
+      "next_action": null
+    },
+    {
+      "span_id": "PI-101-002-S2",
+      "parent_id": "PI-101-002",
+      "phase": "EXPORT_CONTRACT",
+      "status": "completed",
+      "started_at": "2026-02-14T01:17:56.337430+00:00",
+      "ended_at": "2026-02-14T01:17:56.341966+00:00",
+      "contract": {
+        "schema_version": "v1",
+        "project_id": "contextcore",
+        "trace_id": "PI-101-002",
+        "task_id": "PI-101-002-S2",
+        "parent_task_id": "PI-101-002",
+        "phase": "EXPORT_CONTRACT",
+        "status": "in_progress",
+        "timestamp": "2026-02-14T01:17:56.337435Z"
+      },
+      "gate_results": [
+        {
+          "schema_version": "v1",
+          "gate_id": "PI-101-002-S2-C1",
+          "trace_id": "PI-101-002",
+          "task_id": "PI-101-002-S2",
+          "phase": "EXPORT_CONTRACT",
+          "result": "pass",
+          "severity": "info",
+          "reason": "Coverage 85.0% meets threshold.",
+          "next_action": "Proceed to CONTRACT_INTEGRITY.",
+          "blocking": false,
+          "checked_at": "2026-02-14T01:17:56.337616Z"
+        }
+      ],
+      "events": [
+        {
+          "event_type": "span.started",
+          "timestamp": "2026-02-14T01:17:56.337596+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S2",
+            "phase": "EXPORT_CONTRACT"
+          }
+        },
+        {
+          "event_type": "coverage.checked",
+          "timestamp": "2026-02-14T01:17:56.337601+00:00",
+          "detail": {
+            "coverage_percent": 85.0
+          }
+        },
+        {
+          "event_type": "gate.check.passed",
+          "timestamp": "2026-02-14T01:17:56.341951+00:00",
+          "detail": {
+            "gate_id": "PI-101-002-S2-C1"
+          }
+        },
+        {
+          "event_type": "span.completed",
+          "timestamp": "2026-02-14T01:17:56.341963+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S2"
+          }
+        }
+      ],
+      "blocked_reason": null,
+      "next_action": null
+    },
+    {
+      "span_id": "PI-101-002-S3",
+      "parent_id": "PI-101-002",
+      "phase": "CONTRACT_INTEGRITY",
+      "status": "completed",
+      "started_at": "2026-02-14T01:17:56.341974+00:00",
+      "ended_at": "2026-02-14T01:17:56.342487+00:00",
+      "contract": {
+        "schema_version": "v1",
+        "project_id": "contextcore",
+        "trace_id": "PI-101-002",
+        "task_id": "PI-101-002-S3",
+        "parent_task_id": "PI-101-002",
+        "phase": "CONTRACT_INTEGRITY",
+        "status": "in_progress",
+        "timestamp": "2026-02-14T01:17:56.341978Z"
+      },
+      "gate_results": [
+        {
+          "schema_version": "v1",
+          "gate_id": "PI-101-002-S3-C1",
+          "trace_id": "PI-101-002",
+          "task_id": "PI-101-002-S3",
+          "phase": "CONTRACT_INTEGRITY",
+          "result": "pass",
+          "severity": "info",
+          "reason": "All 3 artifact(s) mapped to tasks.",
+          "next_action": "Proceed to next phase after CONTRACT_INTEGRITY.",
+          "blocking": false,
+          "evidence": [
+            {
+              "type": "mapping_complete",
+              "ref": "artifact_task_mapping",
+              "description": "Verified 3 mapping(s)."
+            }
+          ],
+          "checked_at": "2026-02-14T01:17:56.342182Z"
+        },
+        {
+          "schema_version": "v1",
+          "gate_id": "PI-101-002-S3-C2",
+          "trace_id": "PI-101-002",
+          "task_id": "PI-101-002-S3",
+          "phase": "CONTRACT_INTEGRITY",
+          "result": "pass",
+          "severity": "info",
+          "reason": "All checksums match expected chain.",
+          "next_action": "Proceed to next phase after CONTRACT_INTEGRITY.",
+          "blocking": false,
+          "evidence": [
+            {
+              "type": "checksum_verified",
+              "ref": "all",
+              "description": "Verified 3 checksum(s)."
+            }
+          ],
+          "checked_at": "2026-02-14T01:17:56.342211Z"
+        }
+      ],
+      "events": [
+        {
+          "event_type": "span.started",
+          "timestamp": "2026-02-14T01:17:56.342154+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S3",
+            "phase": "CONTRACT_INTEGRITY"
+          }
+        },
+        {
+          "event_type": "gate.check.passed",
+          "timestamp": "2026-02-14T01:17:56.342360+00:00",
+          "detail": {
+            "gate_id": "PI-101-002-S3-C1"
+          }
+        },
+        {
+          "event_type": "gate.check.passed",
+          "timestamp": "2026-02-14T01:17:56.342484+00:00",
+          "detail": {
+            "gate_id": "PI-101-002-S3-C2"
+          }
+        },
+        {
+          "event_type": "span.completed",
+          "timestamp": "2026-02-14T01:17:56.342486+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S3"
+          }
+        }
+      ],
+      "blocked_reason": null,
+      "next_action": null
+    },
+    {
+      "span_id": "PI-101-002-S4",
+      "parent_id": "PI-101-002",
+      "phase": "INGEST_PARSE_ASSESS",
+      "status": "completed",
+      "started_at": "2026-02-14T01:17:56.342490+00:00",
+      "ended_at": "2026-02-14T01:17:56.342770+00:00",
+      "contract": {
+        "schema_version": "v1",
+        "project_id": "contextcore",
+        "trace_id": "PI-101-002",
+        "task_id": "PI-101-002-S4",
+        "parent_task_id": "PI-101-002",
+        "phase": "INGEST_PARSE_ASSESS",
+        "status": "in_progress",
+        "timestamp": "2026-02-14T01:17:56.342493Z"
+      },
+      "gate_results": [
+        {
+          "schema_version": "v1",
+          "gate_id": "PI-101-002-S4-C1",
+          "trace_id": "PI-101-002",
+          "task_id": "PI-101-002-S4",
+          "phase": "INGEST_PARSE_ASSESS",
+          "result": "pass",
+          "severity": "info",
+          "reason": "Gap parity verified: 3 gap(s) \u2194 3 feature(s).",
+          "next_action": "Proceed to next phase after INGEST_PARSE_ASSESS.",
+          "blocking": false,
+          "evidence": [
+            {
+              "type": "gap_parity_verified",
+              "ref": "coverage",
+              "description": "All 3 gap(s) have matching features."
+            }
+          ],
+          "checked_at": "2026-02-14T01:17:56.342624Z"
+        }
+      ],
+      "events": [
+        {
+          "event_type": "span.started",
+          "timestamp": "2026-02-14T01:17:56.342611+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S4",
+            "phase": "INGEST_PARSE_ASSESS"
+          }
+        },
+        {
+          "event_type": "gate.check.passed",
+          "timestamp": "2026-02-14T01:17:56.342767+00:00",
+          "detail": {
+            "gate_id": "PI-101-002-S4-C1"
+          }
+        },
+        {
+          "event_type": "span.completed",
+          "timestamp": "2026-02-14T01:17:56.342769+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S4"
+          }
+        }
+      ],
+      "blocked_reason": null,
+      "next_action": null
+    },
+    {
+      "span_id": "PI-101-002-S5",
+      "parent_id": "PI-101-002",
+      "phase": "ROUTING_DECISION",
+      "status": "completed",
+      "started_at": "2026-02-14T01:17:56.342773+00:00",
+      "ended_at": "2026-02-14T01:17:56.342894+00:00",
+      "contract": {
+        "schema_version": "v1",
+        "project_id": "contextcore",
+        "trace_id": "PI-101-002",
+        "task_id": "PI-101-002-S5",
+        "parent_task_id": "PI-101-002",
+        "phase": "ROUTING_DECISION",
+        "status": "in_progress",
+        "timestamp": "2026-02-14T01:17:56.342776Z"
+      },
+      "gate_results": [],
+      "events": [
+        {
+          "event_type": "span.started",
+          "timestamp": "2026-02-14T01:17:56.342887+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S5",
+            "phase": "ROUTING_DECISION"
+          }
+        },
+        {
+          "event_type": "routing.decided",
+          "timestamp": "2026-02-14T01:17:56.342891+00:00",
+          "detail": {
+            "complexity_score": 44.0,
+            "selected_path": "artisan"
+          }
+        },
+        {
+          "event_type": "span.completed",
+          "timestamp": "2026-02-14T01:17:56.342893+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S5"
+          }
+        }
+      ],
+      "blocked_reason": null,
+      "next_action": null
+    },
+    {
+      "span_id": "PI-101-002-S6",
+      "parent_id": "PI-101-002",
+      "phase": "ARTISAN_DESIGN",
+      "status": "completed",
+      "started_at": "2026-02-14T01:17:56.342897+00:00",
+      "ended_at": "2026-02-14T01:17:56.343127+00:00",
+      "contract": {
+        "schema_version": "v1",
+        "project_id": "contextcore",
+        "trace_id": "PI-101-002",
+        "task_id": "PI-101-002-S6",
+        "parent_task_id": "PI-101-002",
+        "phase": "ARTISAN_DESIGN",
+        "status": "in_progress",
+        "timestamp": "2026-02-14T01:17:56.342899Z"
+      },
+      "gate_results": [
+        {
+          "schema_version": "v1",
+          "gate_id": "PI-101-002-S6-C1",
+          "trace_id": "PI-101-002",
+          "task_id": "PI-101-002-S6",
+          "phase": "ARTISAN_DESIGN",
+          "result": "pass",
+          "severity": "info",
+          "reason": "design-handoff.json schema valid, task set complete.",
+          "next_action": "Proceed to ARTISAN_IMPLEMENT.",
+          "blocking": false,
+          "evidence": [
+            {
+              "type": "schema_validation",
+              "ref": "design-handoff.json",
+              "description": "Schema and version validated."
+            }
+          ],
+          "checked_at": "2026-02-14T01:17:56.343005Z"
+        }
+      ],
+      "events": [
+        {
+          "event_type": "span.started",
+          "timestamp": "2026-02-14T01:17:56.342994+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S6",
+            "phase": "ARTISAN_DESIGN"
+          }
+        },
+        {
+          "event_type": "gate.check.passed",
+          "timestamp": "2026-02-14T01:17:56.343124+00:00",
+          "detail": {
+            "gate_id": "PI-101-002-S6-C1"
+          }
+        },
+        {
+          "event_type": "span.completed",
+          "timestamp": "2026-02-14T01:17:56.343126+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S6"
+          }
+        }
+      ],
+      "blocked_reason": null,
+      "next_action": null
+    },
+    {
+      "span_id": "PI-101-002-S7",
+      "parent_id": "PI-101-002",
+      "phase": "ARTISAN_IMPLEMENT",
+      "status": "completed",
+      "started_at": "2026-02-14T01:17:56.343130+00:00",
+      "ended_at": "2026-02-14T01:17:56.343397+00:00",
+      "contract": {
+        "schema_version": "v1",
+        "project_id": "contextcore",
+        "trace_id": "PI-101-002",
+        "task_id": "PI-101-002-S7",
+        "parent_task_id": "PI-101-002",
+        "phase": "ARTISAN_IMPLEMENT",
+        "status": "in_progress",
+        "timestamp": "2026-02-14T01:17:56.343132Z"
+      },
+      "gate_results": [
+        {
+          "schema_version": "v1",
+          "gate_id": "PI-101-002-S7-C1",
+          "trace_id": "PI-101-002",
+          "task_id": "PI-101-002-S7",
+          "phase": "ARTISAN_IMPLEMENT",
+          "result": "pass",
+          "severity": "info",
+          "reason": "3 artifact(s) in correct paths.",
+          "next_action": "Proceed to TEST_VALIDATE.",
+          "blocking": false,
+          "evidence": [
+            {
+              "type": "path_compliance",
+              "ref": "grafana/provisioning/dashboards/json/checkout-api.json",
+              "description": "Output path matches convention."
+            },
+            {
+              "type": "path_compliance",
+              "ref": "k8s/observability/rules/checkout-api-alerts.yaml",
+              "description": "Output path matches convention."
+            },
+            {
+              "type": "path_compliance",
+              "ref": "k8s/observability/rules/checkout-api-recording.yaml",
+              "description": "Output path matches convention."
+            }
+          ],
+          "checked_at": "2026-02-14T01:17:56.343247Z"
+        }
+      ],
+      "events": [
+        {
+          "event_type": "span.started",
+          "timestamp": "2026-02-14T01:17:56.343230+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S7",
+            "phase": "ARTISAN_IMPLEMENT"
+          }
+        },
+        {
+          "event_type": "artifacts.generated",
+          "timestamp": "2026-02-14T01:17:56.343235+00:00",
+          "detail": {
+            "artifact_count": 3,
+            "paths": [
+              "grafana/provisioning/dashboards/json/checkout-api.json",
+              "k8s/observability/rules/checkout-api-alerts.yaml",
+              "k8s/observability/rules/checkout-api-recording.yaml"
+            ]
+          }
+        },
+        {
+          "event_type": "gate.check.passed",
+          "timestamp": "2026-02-14T01:17:56.343393+00:00",
+          "detail": {
+            "gate_id": "PI-101-002-S7-C1"
+          }
+        },
+        {
+          "event_type": "span.completed",
+          "timestamp": "2026-02-14T01:17:56.343395+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S7"
+          }
+        }
+      ],
+      "blocked_reason": null,
+      "next_action": null
+    },
+    {
+      "span_id": "PI-101-002-S8",
+      "parent_id": "PI-101-002",
+      "phase": "TEST_VALIDATE",
+      "status": "completed",
+      "started_at": "2026-02-14T01:17:56.343400+00:00",
+      "ended_at": "2026-02-14T01:17:56.343590+00:00",
+      "contract": {
+        "schema_version": "v1",
+        "project_id": "contextcore",
+        "trace_id": "PI-101-002",
+        "task_id": "PI-101-002-S8",
+        "parent_task_id": "PI-101-002",
+        "phase": "TEST_VALIDATE",
+        "status": "in_progress",
+        "timestamp": "2026-02-14T01:17:56.343402Z"
+      },
+      "gate_results": [
+        {
+          "schema_version": "v1",
+          "gate_id": "PI-101-002-S8-G1",
+          "trace_id": "PI-101-002",
+          "task_id": "PI-101-002-S8",
+          "phase": "TEST_VALIDATE",
+          "result": "pass",
+          "severity": "info",
+          "reason": "Validation suite passed with zero critical failures.",
+          "next_action": "Proceed to REVIEW_CALIBRATE.",
+          "blocking": false,
+          "checked_at": "2026-02-14T01:17:56.343490Z"
+        }
+      ],
+      "events": [
+        {
+          "event_type": "span.started",
+          "timestamp": "2026-02-14T01:17:56.343485+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S8",
+            "phase": "TEST_VALIDATE"
+          }
+        },
+        {
+          "event_type": "gate.check.passed",
+          "timestamp": "2026-02-14T01:17:56.343586+00:00",
+          "detail": {
+            "gate_id": "PI-101-002-S8-G1"
+          }
+        },
+        {
+          "event_type": "span.completed",
+          "timestamp": "2026-02-14T01:17:56.343588+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S8"
+          }
+        }
+      ],
+      "blocked_reason": null,
+      "next_action": null
+    },
+    {
+      "span_id": "PI-101-002-S9",
+      "parent_id": "PI-101-002",
+      "phase": "REVIEW_CALIBRATE",
+      "status": "completed",
+      "started_at": "2026-02-14T01:17:56.343592+00:00",
+      "ended_at": "2026-02-14T01:17:56.343779+00:00",
+      "contract": {
+        "schema_version": "v1",
+        "project_id": "contextcore",
+        "trace_id": "PI-101-002",
+        "task_id": "PI-101-002-S9",
+        "parent_task_id": "PI-101-002",
+        "phase": "REVIEW_CALIBRATE",
+        "status": "in_progress",
+        "timestamp": "2026-02-14T01:17:56.343594Z"
+      },
+      "gate_results": [
+        {
+          "schema_version": "v1",
+          "gate_id": "PI-101-002-S9-G1",
+          "trace_id": "PI-101-002",
+          "task_id": "PI-101-002-S9",
+          "phase": "REVIEW_CALIBRATE",
+          "result": "pass",
+          "severity": "info",
+          "reason": "Review findings triaged, no blocking issues.",
+          "next_action": "Proceed to FINALIZE_VERIFY.",
+          "blocking": false,
+          "checked_at": "2026-02-14T01:17:56.343686Z"
+        }
+      ],
+      "events": [
+        {
+          "event_type": "span.started",
+          "timestamp": "2026-02-14T01:17:56.343681+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S9",
+            "phase": "REVIEW_CALIBRATE"
+          }
+        },
+        {
+          "event_type": "gate.check.passed",
+          "timestamp": "2026-02-14T01:17:56.343776+00:00",
+          "detail": {
+            "gate_id": "PI-101-002-S9-G1"
+          }
+        },
+        {
+          "event_type": "span.completed",
+          "timestamp": "2026-02-14T01:17:56.343778+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S9"
+          }
+        }
+      ],
+      "blocked_reason": null,
+      "next_action": null
+    },
+    {
+      "span_id": "PI-101-002-S10",
+      "parent_id": "PI-101-002",
+      "phase": "FINALIZE_VERIFY",
+      "status": "completed",
+      "started_at": "2026-02-14T01:17:56.343782+00:00",
+      "ended_at": "2026-02-14T01:17:56.344011+00:00",
+      "contract": {
+        "schema_version": "v1",
+        "project_id": "contextcore",
+        "trace_id": "PI-101-002",
+        "task_id": "PI-101-002-S10",
+        "parent_task_id": "PI-101-002",
+        "phase": "FINALIZE_VERIFY",
+        "status": "in_progress",
+        "timestamp": "2026-02-14T01:17:56.343784Z"
+      },
+      "gate_results": [
+        {
+          "schema_version": "v1",
+          "gate_id": "PI-101-002-S10-C1",
+          "trace_id": "PI-101-002",
+          "task_id": "PI-101-002-S10",
+          "phase": "FINALIZE_VERIFY",
+          "result": "pass",
+          "severity": "info",
+          "reason": "Final reconciliation: 3 artifact(s) cover 3 gap(s). Provenance intact.",
+          "next_action": "Trace complete. Archive evidence.",
+          "blocking": false,
+          "evidence": [
+            {
+              "type": "reconciliation",
+              "ref": "final_artifact_set",
+              "description": "Artifacts: 3, Gaps: 3, Checksums verified."
+            }
+          ],
+          "checked_at": "2026-02-14T01:17:56.343884Z"
+        }
+      ],
+      "events": [
+        {
+          "event_type": "span.started",
+          "timestamp": "2026-02-14T01:17:56.343876+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S10",
+            "phase": "FINALIZE_VERIFY"
+          }
+        },
+        {
+          "event_type": "finalize.complete",
+          "timestamp": "2026-02-14T01:17:56.343889+00:00",
+          "detail": {
+            "artifact_count": 3,
+            "gap_count": 3,
+            "finalize_status": "complete"
+          }
+        },
+        {
+          "event_type": "gate.check.passed",
+          "timestamp": "2026-02-14T01:17:56.344008+00:00",
+          "detail": {
+            "gate_id": "PI-101-002-S10-C1"
+          }
+        },
+        {
+          "event_type": "span.completed",
+          "timestamp": "2026-02-14T01:17:56.344010+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S10"
+          }
+        }
+      ],
+      "blocked_reason": null,
+      "next_action": null
+    }
+  ],
+  "gate_results": [
+    {
+      "schema_version": "v1",
+      "gate_id": "PI-101-002-S2-C1",
+      "trace_id": "PI-101-002",
+      "task_id": "PI-101-002-S2",
+      "phase": "EXPORT_CONTRACT",
+      "result": "pass",
+      "severity": "info",
+      "reason": "Coverage 85.0% meets threshold.",
+      "next_action": "Proceed to CONTRACT_INTEGRITY.",
+      "blocking": false,
+      "checked_at": "2026-02-14T01:17:56.337616Z"
+    },
+    {
+      "schema_version": "v1",
+      "gate_id": "PI-101-002-S3-C1",
+      "trace_id": "PI-101-002",
+      "task_id": "PI-101-002-S3",
+      "phase": "CONTRACT_INTEGRITY",
+      "result": "pass",
+      "severity": "info",
+      "reason": "All 3 artifact(s) mapped to tasks.",
+      "next_action": "Proceed to next phase after CONTRACT_INTEGRITY.",
+      "blocking": false,
+      "evidence": [
+        {
+          "type": "mapping_complete",
+          "ref": "artifact_task_mapping",
+          "description": "Verified 3 mapping(s)."
+        }
+      ],
+      "checked_at": "2026-02-14T01:17:56.342182Z"
+    },
+    {
+      "schema_version": "v1",
+      "gate_id": "PI-101-002-S3-C2",
+      "trace_id": "PI-101-002",
+      "task_id": "PI-101-002-S3",
+      "phase": "CONTRACT_INTEGRITY",
+      "result": "pass",
+      "severity": "info",
+      "reason": "All checksums match expected chain.",
+      "next_action": "Proceed to next phase after CONTRACT_INTEGRITY.",
+      "blocking": false,
+      "evidence": [
+        {
+          "type": "checksum_verified",
+          "ref": "all",
+          "description": "Verified 3 checksum(s)."
+        }
+      ],
+      "checked_at": "2026-02-14T01:17:56.342211Z"
+    },
+    {
+      "schema_version": "v1",
+      "gate_id": "PI-101-002-S4-C1",
+      "trace_id": "PI-101-002",
+      "task_id": "PI-101-002-S4",
+      "phase": "INGEST_PARSE_ASSESS",
+      "result": "pass",
+      "severity": "info",
+      "reason": "Gap parity verified: 3 gap(s) \u2194 3 feature(s).",
+      "next_action": "Proceed to next phase after INGEST_PARSE_ASSESS.",
+      "blocking": false,
+      "evidence": [
+        {
+          "type": "gap_parity_verified",
+          "ref": "coverage",
+          "description": "All 3 gap(s) have matching features."
+        }
+      ],
+      "checked_at": "2026-02-14T01:17:56.342624Z"
+    },
+    {
+      "schema_version": "v1",
+      "gate_id": "PI-101-002-S6-C1",
+      "trace_id": "PI-101-002",
+      "task_id": "PI-101-002-S6",
+      "phase": "ARTISAN_DESIGN",
+      "result": "pass",
+      "severity": "info",
+      "reason": "design-handoff.json schema valid, task set complete.",
+      "next_action": "Proceed to ARTISAN_IMPLEMENT.",
+      "blocking": false,
+      "evidence": [
+        {
+          "type": "schema_validation",
+          "ref": "design-handoff.json",
+          "description": "Schema and version validated."
+        }
+      ],
+      "checked_at": "2026-02-14T01:17:56.343005Z"
+    },
+    {
+      "schema_version": "v1",
+      "gate_id": "PI-101-002-S7-C1",
+      "trace_id": "PI-101-002",
+      "task_id": "PI-101-002-S7",
+      "phase": "ARTISAN_IMPLEMENT",
+      "result": "pass",
+      "severity": "info",
+      "reason": "3 artifact(s) in correct paths.",
+      "next_action": "Proceed to TEST_VALIDATE.",
+      "blocking": false,
+      "evidence": [
+        {
+          "type": "path_compliance",
+          "ref": "grafana/provisioning/dashboards/json/checkout-api.json",
+          "description": "Output path matches convention."
+        },
+        {
+          "type": "path_compliance",
+          "ref": "k8s/observability/rules/checkout-api-alerts.yaml",
+          "description": "Output path matches convention."
+        },
+        {
+          "type": "path_compliance",
+          "ref": "k8s/observability/rules/checkout-api-recording.yaml",
+          "description": "Output path matches convention."
+        }
+      ],
+      "checked_at": "2026-02-14T01:17:56.343247Z"
+    },
+    {
+      "schema_version": "v1",
+      "gate_id": "PI-101-002-S8-G1",
+      "trace_id": "PI-101-002",
+      "task_id": "PI-101-002-S8",
+      "phase": "TEST_VALIDATE",
+      "result": "pass",
+      "severity": "info",
+      "reason": "Validation suite passed with zero critical failures.",
+      "next_action": "Proceed to REVIEW_CALIBRATE.",
+      "blocking": false,
+      "checked_at": "2026-02-14T01:17:56.343490Z"
+    },
+    {
+      "schema_version": "v1",
+      "gate_id": "PI-101-002-S9-G1",
+      "trace_id": "PI-101-002",
+      "task_id": "PI-101-002-S9",
+      "phase": "REVIEW_CALIBRATE",
+      "result": "pass",
+      "severity": "info",
+      "reason": "Review findings triaged, no blocking issues.",
+      "next_action": "Proceed to FINALIZE_VERIFY.",
+      "blocking": false,
+      "checked_at": "2026-02-14T01:17:56.343686Z"
+    },
+    {
+      "schema_version": "v1",
+      "gate_id": "PI-101-002-S10-C1",
+      "trace_id": "PI-101-002",
+      "task_id": "PI-101-002-S10",
+      "phase": "FINALIZE_VERIFY",
+      "result": "pass",
+      "severity": "info",
+      "reason": "Final reconciliation: 3 artifact(s) cover 3 gap(s). Provenance intact.",
+      "next_action": "Trace complete. Archive evidence.",
+      "blocking": false,
+      "evidence": [
+        {
+          "type": "reconciliation",
+          "ref": "final_artifact_set",
+          "description": "Artifacts: 3, Gaps: 3, Checksums verified."
+        }
+      ],
+      "checked_at": "2026-02-14T01:17:56.343884Z"
+    }
+  ]
+}

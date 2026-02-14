@@ -61,91 +61,114 @@ def contract():
 
 
 @contract.command("check")
-@click.option("--project", "-p", required=True, help="Project ID or path to ProjectContext YAML")
-@click.option("--service-url", "-s", help="Service URL (auto-detect from targets if not provided)")
-@click.option("--contract-url", "-c", help="OpenAPI spec URL/path (auto-detect from design.apiContract if not provided)")
+@click.option("--project", "-p", default="contextcore", help="Project ID or path to ProjectContext YAML")
+@click.option("--scope", type=click.Choice(["a2a", "openapi", "all"]), default="a2a",
+              help="Drift scope: a2a (schema vs model), openapi (spec vs service), all")
+@click.option("--schemas-dir", default="schemas/contracts/", help="Path to JSON schemas (a2a scope)")
+@click.option("--output-dir", type=click.Path(exists=True), default=None,
+              help="Scan actual output files for drift (a2a scope)")
+@click.option("--service-url", "-s", help="Service URL (openapi scope)")
+@click.option("--contract-url", "-c", help="OpenAPI spec URL/path (openapi scope)")
 @click.option("--output", "-o", type=click.Path(), help="Output report file")
-@click.option("--fail-on-drift", is_flag=True, help="Exit with error if drift detected")
+@click.option("--format", "-f", "output_format", type=click.Choice(["text", "json"]), default="text",
+              help="Output format")
+@click.option("--fail-on-drift", is_flag=True, help="Exit with error if critical drift detected")
 @click.option("--namespace", "-n", default="default", help="Kubernetes namespace")
 def contract_check_cmd(
     project: str,
+    scope: str,
+    schemas_dir: str,
+    output_dir: Optional[str],
     service_url: Optional[str],
     contract_url: Optional[str],
     output: Optional[str],
+    output_format: str,
     fail_on_drift: bool,
     namespace: str,
 ):
-    """Check for API contract drift.
+    """Check for contract drift (A2A schema drift or OpenAPI drift).
 
-    Compares OpenAPI specification against live service responses to detect
-    contract drift. Reports:
-    - Missing endpoints (critical)
-    - Schema mismatches (warning)
-    - Unexpected properties (info)
+    A2A scope (default): Compares JSON schema files against Pydantic models
+    and Python enums. Detects field mismatches, enum drift, and structural
+    divergence. Runs entirely offline.
 
-    Example:
-        contextcore contract check --project checkout-service \\
+    OpenAPI scope: Compares OpenAPI specification against live service
+    responses. Requires --service-url and --contract-url.
+
+    Examples:
+        # A2A schema drift (default, offline)
+        contextcore contract check
+
+        # A2A drift with output file scanning
+        contextcore contract check --output-dir ./out/export
+
+        # OpenAPI drift (requires network)
+        contextcore contract check --scope openapi \\
             --service-url http://localhost:8080 \\
             --contract-url ./openapi.yaml
 
-    Or auto-detect from ProjectContext:
-        contextcore contract check --project checkout-service
+        # All drift checks
+        contextcore contract check --scope all \\
+            --service-url http://localhost:8080 \\
+            --contract-url ./openapi.yaml
     """
     from contextcore.integrations.contract_drift import ContractDriftDetector
 
-    spec = _get_project_context_spec(project, namespace)
-    if not spec:
-        click.echo(f"Error: ProjectContext '{project}' not found", err=True)
-        sys.exit(1)
+    # For openapi scope, resolve URLs from ProjectContext if not provided
+    if scope in ("openapi", "all"):
+        if not contract_url or not service_url:
+            spec = _get_project_context_spec(project, namespace)
+            if spec:
+                if not contract_url:
+                    design = spec.get("design", {})
+                    contract_url = design.get("apiContract")
+                if not service_url:
+                    service_url = _derive_service_url(spec.get("targets", []))
 
-    # Get contract URL
-    if not contract_url:
-        design = spec.get("design", {})
-        contract_url = design.get("apiContract")
-        if not contract_url:
-            click.echo("Error: No apiContract specified. Use --contract-url or set design.apiContract in ProjectContext", err=True)
+        if scope == "openapi" and (not contract_url or not service_url):
+            click.echo(
+                "Error: OpenAPI scope requires --service-url and --contract-url "
+                "(or a ProjectContext with design.apiContract and targets).",
+                err=True,
+            )
             sys.exit(1)
 
-    # Get service URL
-    if not service_url:
-        service_url = _derive_service_url(spec.get("targets", []))
-        if not service_url:
-            click.echo("Error: Could not derive service URL. Use --service-url or specify targets in ProjectContext", err=True)
-            sys.exit(1)
-
-    # Get project ID
-    project_info = spec.get("project", {})
-    if isinstance(project_info, dict):
-        project_id = project_info.get("id", project)
-    else:
-        project_id = str(project_info) if project_info else project
-
-    # Run drift detection
-    click.echo(f"Checking contract drift...")
-    click.echo(f"  Contract: {contract_url}")
-    click.echo(f"  Service:  {service_url}")
+    click.echo(f"Checking contract drift (scope: {scope})...")
+    if scope in ("a2a", "all"):
+        click.echo(f"  Schemas: {schemas_dir}")
+        if output_dir:
+            click.echo(f"  Output:  {output_dir}")
+    if scope in ("openapi", "all") and contract_url:
+        click.echo(f"  Contract: {contract_url}")
+        click.echo(f"  Service:  {service_url}")
 
     detector = ContractDriftDetector()
-    report = detector.detect(project_id, contract_url, service_url)
+    report = detector.detect(
+        project_id=project,
+        contract_url=contract_url,
+        service_url=service_url,
+        schemas_dir=schemas_dir,
+        output_dir=output_dir,
+        scope=scope,
+    )
 
     # Output report
-    markdown = report.to_markdown()
+    if output_format == "json":
+        report_text = report.to_json()
+    else:
+        report_text = report.to_markdown()
+
     if output:
         with open(output, "w") as f:
-            f.write(markdown)
+            f.write(report_text)
         click.echo(f"\nReport written to {output}")
     else:
-        click.echo("\n" + markdown)
+        click.echo("\n" + report_text)
 
     # Summary
-    click.echo(f"\nEndpoints checked: {report.endpoints_checked}")
-    click.echo(f"Endpoints passed:  {report.endpoints_passed}")
-    click.echo(f"Issues found:      {len(report.issues)}")
+    click.echo(f"\n{report.summary()}")
 
-    if report.critical_issues:
-        click.echo(f"Critical issues:   {len(report.critical_issues)}")
-
-    if fail_on_drift and report.has_drift:
+    if fail_on_drift and report.critical_issues:
         sys.exit(1)
 
 
@@ -407,6 +430,8 @@ def a2a_pilot_cmd(
               help="Output format (default: text)")
 @click.option("--fail-on-unhealthy", is_flag=True,
               help="Exit with code 1 if any blocking gate fails")
+@click.option("--min-coverage", type=float, default=None,
+              help="Minimum coverage threshold (0.0-1.0). Fails if below.")
 def a2a_check_pipeline_cmd(
     output_dir: str,
     task_id: Optional[str],
@@ -414,11 +439,12 @@ def a2a_check_pipeline_cmd(
     report: Optional[str],
     output_format: str,
     fail_on_unhealthy: bool,
+    min_coverage: Optional[float],
 ):
     """Run A2A governance checks on a real export output directory.
 
     Reads onboarding-metadata.json (and optionally provenance.json) from
-    OUTPUT_DIR and runs the full 6-gate suite:
+    OUTPUT_DIR and runs the full gate suite:
 
     \b
     1. Structural integrity — required fields exist and are parseable
@@ -427,23 +453,29 @@ def a2a_check_pipeline_cmd(
     4. Mapping completeness — every target has corresponding artifacts
     5. Gap parity — coverage gaps match artifact features
     6. Design calibration — artifact depth tiers match type expectations
+    7. Parameter resolvability — parameter_sources reference valid fields
 
     Gates 1-2 always run. Gate 3 is skipped without provenance.json.
-    Gates 4-6 are skipped when their input data is absent.
+    Gates 4-7 are skipped when their input data is absent.
+
+    Use --min-coverage to enforce a minimum coverage threshold (e.g. 0.5 for 50%).
 
     Example:
 
     \b
-        contextcore contract a2a-check-pipeline out/enrichment-validation
+        contextcore contract a2a-check-pipeline out/export
 
     \b
-        contextcore contract a2a-check-pipeline out/enrichment-validation \\
-            --fail-on-unhealthy --report pipeline-report.json
+        contextcore contract a2a-check-pipeline out/export \\
+            --fail-on-unhealthy --min-coverage 0.5 --report pipeline-report.json
     """
     from contextcore.contracts.a2a.pipeline_checker import PipelineChecker
 
     try:
-        checker = PipelineChecker(output_dir, task_id=task_id, trace_id=trace_id)
+        checker = PipelineChecker(
+            output_dir, task_id=task_id, trace_id=trace_id,
+            min_coverage=min_coverage,
+        )
         result = checker.run()
     except FileNotFoundError as exc:
         click.echo(f"Error: {exc}", err=True)

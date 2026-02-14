@@ -1,0 +1,466 @@
+apiVersion: contextcore.io/v1
+kind: ArtifactManifest
+metadata:
+  schemaVersion: 1.0.0
+  generatedAt: '2026-02-13T11:59:36.857779'
+  generatedFrom: examples/context_manifest_v2_example.yaml
+  contextcoreVersion: 2.0.0
+  projectId: checkout-service
+artifacts:
+- id: checkout_api-dashboard
+  type: dashboard
+  name: checkout-api Service Dashboard
+  target: checkout-api
+  priority: required
+  status: needed
+  derivedFrom:
+  - property: title
+    sourceField: spec.targets[].name
+    transformation: '''{name} Service Dashboard'''
+  - property: panels.availability
+    sourceField: spec.requirements.availability
+    transformation: 'SLO threshold: 99.95%'
+    rationale: Dashboard shows availability against SLO target
+  parameters:
+    criticality: critical
+    dashboardPlacement: standard
+    datasources:
+    - Tempo
+    - Loki
+    - mimir
+    risks: []
+  dependsOn: []
+  validationErrors: []
+- id: checkout_api-prometheus-rules
+  type: prometheus_rule
+  name: checkout-api Alerting Rules
+  target: checkout-api
+  priority: required
+  status: needed
+  derivedFrom:
+  - property: severity
+    sourceField: spec.business.criticality
+    transformation: "critical \u2192 P1"
+    rationale: Alert severity is derived from business criticality
+  - property: threshold
+    sourceField: spec.requirements.availability
+    transformation: 'Target: 99.95%'
+  parameters:
+    alertSeverity: P1
+    availabilityThreshold: '99.95'
+    latencyThreshold: 200ms
+    latencyP50Threshold: null
+    throughput: 5000rps
+  dependsOn:
+  - checkout_api-service-monitor
+  validationErrors: []
+- id: checkout_api-slo
+  type: slo_definition
+  name: checkout-api SLO Definition
+  target: checkout-api
+  priority: required
+  status: needed
+  derivedFrom:
+  - property: objective
+    sourceField: spec.requirements.availability
+    transformation: 'Availability SLO: 99.95%'
+  - property: errorBudget
+    sourceField: spec.requirements.errorBudget
+    transformation: 'Error budget: None%'
+  parameters:
+    availability: '99.95'
+    latencyP99: 200ms
+    errorBudget: null
+    throughput: 5000rps
+  dependsOn:
+  - checkout_api-service-monitor
+  validationErrors: []
+- id: checkout_api-service-monitor
+  type: service_monitor
+  name: checkout-api Service Monitor
+  target: checkout-api
+  priority: required
+  status: needed
+  derivedFrom:
+  - property: scrapeInterval
+    sourceField: spec.observability.metricsInterval
+    transformation: 'Interval: 30s'
+  parameters:
+    metricsInterval: 30s
+    namespace: commerce
+  dependsOn: []
+  validationErrors: []
+- id: checkout_api-loki-rules
+  type: loki_rule
+  name: checkout-api Log Recording Rules
+  target: checkout-api
+  priority: recommended
+  status: needed
+  derivedFrom:
+  - property: logSelectors
+    sourceField: spec.targets[].name
+    transformation: '{job="checkout-api"}'
+    rationale: Log selectors derived from service target name
+  - property: logFormat
+    sourceField: spec.observability.logLevel
+    transformation: otel
+    rationale: Log format aligned with OTel log bridge conventions
+  parameters:
+    logSelectors:
+    - '{app="checkout-api"}'
+    recordingRules:
+    - checkout-api_error_rate_5m
+    - checkout-api_request_rate_5m
+    labelExtractors:
+    - level
+    - status_code
+    - method
+    - path
+    logFormat: otel
+  dependsOn: []
+  validationErrors: []
+- id: checkout_api-notification
+  type: notification_policy
+  name: checkout-api Notification Policy
+  target: checkout-api
+  priority: required
+  status: needed
+  derivedFrom:
+  - property: channels
+    sourceField: spec.observability.alertChannels
+    transformation: 'Channels: []'
+  parameters:
+    alertChannels: []
+    owner: commerce-platform
+    owners:
+    - team: commerce-platform
+      slack: '#commerce-oncall'
+      email: commerce@example.com
+      oncall: commerce-platform
+  dependsOn:
+  - checkout_api-prometheus-rules
+  validationErrors: []
+- id: checkout_api-runbook
+  type: runbook
+  name: checkout-api Incident Runbook
+  target: checkout-api
+  priority: required
+  status: needed
+  derivedFrom:
+  - property: risks
+    sourceField: spec.risks[]
+    transformation: 'Risk count: 0'
+    rationale: Runbook should address documented risks
+  parameters:
+    risks: []
+    escalationContacts:
+    - team: commerce-platform
+      slack: '#commerce-oncall'
+      email: commerce@example.com
+      oncall: commerce-platform
+  dependsOn:
+  - checkout_api-prometheus-rules
+  - checkout_api-notification
+  validationErrors: []
+- id: checkout_worker-dashboard
+  type: dashboard
+  name: checkout-worker Service Dashboard
+  target: checkout-worker
+  priority: required
+  status: needed
+  derivedFrom:
+  - property: title
+    sourceField: spec.targets[].name
+    transformation: '''{name} Service Dashboard'''
+  - property: panels.availability
+    sourceField: spec.requirements.availability
+    transformation: 'SLO threshold: 99.95%'
+    rationale: Dashboard shows availability against SLO target
+  parameters:
+    criticality: critical
+    dashboardPlacement: standard
+    datasources:
+    - Tempo
+    - Loki
+    - mimir
+    risks: []
+  dependsOn: []
+  validationErrors: []
+- id: checkout_worker-prometheus-rules
+  type: prometheus_rule
+  name: checkout-worker Alerting Rules
+  target: checkout-worker
+  priority: required
+  status: needed
+  derivedFrom:
+  - property: severity
+    sourceField: spec.business.criticality
+    transformation: "critical \u2192 P1"
+    rationale: Alert severity is derived from business criticality
+  - property: threshold
+    sourceField: spec.requirements.availability
+    transformation: 'Target: 99.95%'
+  parameters:
+    alertSeverity: P1
+    availabilityThreshold: '99.95'
+    latencyThreshold: 200ms
+    latencyP50Threshold: null
+    throughput: 5000rps
+  dependsOn:
+  - checkout_worker-service-monitor
+  validationErrors: []
+- id: checkout_worker-slo
+  type: slo_definition
+  name: checkout-worker SLO Definition
+  target: checkout-worker
+  priority: required
+  status: needed
+  derivedFrom:
+  - property: objective
+    sourceField: spec.requirements.availability
+    transformation: 'Availability SLO: 99.95%'
+  - property: errorBudget
+    sourceField: spec.requirements.errorBudget
+    transformation: 'Error budget: None%'
+  parameters:
+    availability: '99.95'
+    latencyP99: 200ms
+    errorBudget: null
+    throughput: 5000rps
+  dependsOn:
+  - checkout_worker-service-monitor
+  validationErrors: []
+- id: checkout_worker-service-monitor
+  type: service_monitor
+  name: checkout-worker Service Monitor
+  target: checkout-worker
+  priority: required
+  status: needed
+  derivedFrom:
+  - property: scrapeInterval
+    sourceField: spec.observability.metricsInterval
+    transformation: 'Interval: 30s'
+  parameters:
+    metricsInterval: 30s
+    namespace: commerce
+  dependsOn: []
+  validationErrors: []
+- id: checkout_worker-loki-rules
+  type: loki_rule
+  name: checkout-worker Log Recording Rules
+  target: checkout-worker
+  priority: recommended
+  status: needed
+  derivedFrom:
+  - property: logSelectors
+    sourceField: spec.targets[].name
+    transformation: '{job="checkout-worker"}'
+    rationale: Log selectors derived from service target name
+  - property: logFormat
+    sourceField: spec.observability.logLevel
+    transformation: otel
+    rationale: Log format aligned with OTel log bridge conventions
+  parameters:
+    logSelectors:
+    - '{app="checkout-worker"}'
+    recordingRules:
+    - checkout-worker_error_rate_5m
+    - checkout-worker_request_rate_5m
+    labelExtractors:
+    - level
+    - status_code
+    - method
+    - path
+    logFormat: otel
+  dependsOn: []
+  validationErrors: []
+- id: checkout_worker-notification
+  type: notification_policy
+  name: checkout-worker Notification Policy
+  target: checkout-worker
+  priority: required
+  status: needed
+  derivedFrom:
+  - property: channels
+    sourceField: spec.observability.alertChannels
+    transformation: 'Channels: []'
+  parameters:
+    alertChannels: []
+    owner: commerce-platform
+    owners:
+    - team: commerce-platform
+      slack: '#commerce-oncall'
+      email: commerce@example.com
+      oncall: commerce-platform
+  dependsOn:
+  - checkout_worker-prometheus-rules
+  validationErrors: []
+- id: checkout_worker-runbook
+  type: runbook
+  name: checkout-worker Incident Runbook
+  target: checkout-worker
+  priority: required
+  status: needed
+  derivedFrom:
+  - property: risks
+    sourceField: spec.risks[]
+    transformation: 'Risk count: 0'
+    rationale: Runbook should address documented risks
+  parameters:
+    risks: []
+    escalationContacts:
+    - team: commerce-platform
+      slack: '#commerce-oncall'
+      email: commerce@example.com
+      oncall: commerce-platform
+  dependsOn:
+  - checkout_worker-prometheus-rules
+  - checkout_worker-notification
+  validationErrors: []
+projectContext:
+  name: checkout-service
+  owner: commerce-platform
+  value: revenue-primary
+  links:
+    repository: https://github.com/example/checkout-service
+    wiki: https://wiki.example.com/commerce/checkout
+    dashboard: https://grafana.example.com/d/checkout-overview
+owners:
+- team: commerce-platform
+  slack: '#commerce-oncall'
+  email: commerce@example.com
+  oncall: commerce-platform
+guidance:
+  focus:
+    areas:
+    - reliability
+    - performance
+    - Black Friday preparation
+    reason: All work should prioritize Black Friday readiness (Nov 29)
+  constraints:
+  - id: C-NO-NEW-SYNC-DEPS
+    rule: Do not add new synchronous external service dependencies
+    severity: blocking
+    rationale: Sync dependencies increase latency and reduce fault tolerance
+    appliesTo:
+    - src/services/
+    - src/handlers/
+  - id: C-PAYMENT-IMMUTABLE
+    rule: Payment processing logic must not be modified without security review
+    severity: blocking
+    rationale: PCI-DSS compliance requirement
+    appliesTo:
+    - src/payment/
+  - id: C-PREFER-STRUCTURED-LOGGING
+    rule: Use structured logging (JSON) instead of string interpolation
+    severity: warning
+    rationale: Improves log searchability in Loki
+    appliesTo: []
+  preferences:
+  - id: PREF-CIRCUIT-BREAKER
+    description: Use resilience4j for circuit breakers over custom implementations
+    example: CircuitBreaker.ofDefaults('payment-gateway')
+  - id: PREF-METRICS-NAMING
+    description: Follow ContextCore semantic conventions for metric names
+    example: checkout.order.created.total, checkout.payment.duration.seconds
+  questions:
+  - id: Q-REDIS-CLUSTER
+    question: Should we use Redis Cluster or Redis Sentinel for the cache layer?
+    status: open
+    priority: high
+  - id: Q-CIRCUIT-BREAKER-CONFIG
+    question: What are the recommended failure thresholds for the payment gateway
+      circuit breaker?
+    status: answered
+    priority: medium
+    answer: 5 failures in 30 seconds with 60 second reset timeout
+    answeredBy: agent:claude
+  - id: Q-LOAD-TEST-RESULTS
+    question: What did the latest load test reveal about checkout throughput limits?
+    status: deferred
+    priority: low
+objectives:
+- id: OBJ-RELIABILITY
+  description: Achieve 99.99% availability for Black Friday
+  keyResults:
+  - metricKey: availability
+    unit: '%'
+    target: 99.99
+    targetOperator: gte
+    baseline: 99.95
+    window: 30d
+    dataSource: promql:avg_over_time(up{service='checkout'}[30d])
+- id: OBJ-LATENCY
+  description: Reduce P99 latency to under 150ms
+  keyResults:
+  - metricKey: latency.p99
+    unit: ms
+    target: 150.0
+    targetOperator: lte
+    baseline: 220.0
+    window: 7d
+    dataSource: promql:histogram_quantile(0.99, rate(checkout_duration_seconds_bucket[5m]))
+semanticConventions:
+  attributeNamespaces:
+  - gen_ai.*
+  - agent.*
+  - io.contextcore.*
+  metrics:
+    contextcore:
+    - contextcore_task_progress
+    - contextcore_task_status
+    - contextcore_install_completeness_percent
+    beaver:
+    - startd8_active_sessions
+    - startd8_requests_total
+    - startd8_tokens_total
+    - startd8_response_time_ms
+    - startd8_context_usage_ratio
+    - startd8_truncations_total
+    - startd8_cost_total
+  queryTemplates:
+    task_by_project: '{ span.io.contextcore.project.id = "$project" }'
+    agent_insights: '{ span.agent.insight.type = "$type" }'
+    gen_ai_operations: '{ span.gen_ai.operation.name = "$operation" }'
+    task_logs: '{job="contextcore"} | json | project_id="$project"'
+    task_metrics: contextcore_task_progress{project="$project"}
+  logFormat: otel
+coverage:
+  totalRequired: 12
+  totalExisting: 0
+  totalOutdated: 0
+  overallCoverage: 0.0
+  byTarget:
+  - target: checkout-api
+    namespace: default
+    requiredCount: 6
+    existingCount: 0
+    coveragePercent: 0.0
+    gaps:
+    - checkout_api-dashboard
+    - checkout_api-prometheus-rules
+    - checkout_api-slo
+    - checkout_api-service-monitor
+    - checkout_api-notification
+    - checkout_api-runbook
+  - target: checkout-worker
+    namespace: default
+    requiredCount: 6
+    existingCount: 0
+    coveragePercent: 0.0
+    gaps:
+    - checkout_worker-dashboard
+    - checkout_worker-prometheus-rules
+    - checkout_worker-slo
+    - checkout_worker-service-monitor
+    - checkout_worker-notification
+    - checkout_worker-runbook
+  byType:
+    dashboard: 2
+    prometheus_rule: 2
+    slo_definition: 2
+    service_monitor: 2
+    loki_rule: 2
+    notification_policy: 2
+    runbook: 2
+crdReference: checkout-service-projectcontext.yaml

@@ -31,6 +31,13 @@ from contextcore.contracts.a2a.validator import (
     ValidationReport,
 )
 
+try:
+    from opentelemetry import trace as otel_trace
+
+    _HAS_OTEL = True
+except ImportError:  # pragma: no cover
+    _HAS_OTEL = False
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -93,8 +100,9 @@ def _emit_failure_event(event: dict[str, Any]) -> None:
     """
     Emit a structured failure event.
 
-    Currently logs at WARNING level.  When an OTel span is active, callers
-    should also attach this as a span event.
+    Logs at WARNING level and, when an OTel span is active, attaches the
+    failure as a span event — making silent handoff failures impossible
+    in any instrumented code path.
     """
     logger.warning(
         "Boundary enforcement failure: %s %s — %d error(s)",
@@ -102,6 +110,26 @@ def _emit_failure_event(event: dict[str, Any]) -> None:
         event.get("contract_name"),
         event.get("error_count"),
     )
+
+    # Attach to active OTel span if available
+    if _HAS_OTEL:
+        span = otel_trace.get_current_span()
+        if span and span.is_recording():
+            # Flatten error details for span event attributes
+            attrs: dict[str, str | int] = {
+                "contract_name": event.get("contract_name", ""),
+                "direction": event.get("direction", ""),
+                "error_count": event.get("error_count", 0),
+            }
+            # Include first 3 error codes for quick filtering
+            errors = event.get("errors", [])
+            for i, err in enumerate(errors[:3]):
+                attrs[f"error.{i}.code"] = err.get("error_code", "")
+                attrs[f"error.{i}.path"] = err.get("failed_path", "")
+            span.add_event(
+                name=event.get("event_type", "handoff.validation.failed"),
+                attributes=attrs,
+            )
 
 
 def _enforce(

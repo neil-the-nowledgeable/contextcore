@@ -1,0 +1,611 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "uid": "contextcore-tasks",
+  "title": "Project Tasks",
+  "description": "View project tasks as OpenTelemetry spans from Tempo. Core ContextCore dashboard for task tracking and workflow history.",
+  "tags": [
+    "contextcore",
+    "core",
+    "tasks"
+  ],
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "version": 1,
+  "weekStart": "",
+  "templating": {
+    "list": [
+      {
+        "name": "project",
+        "label": "Project",
+        "type": "custom",
+        "current": {
+          "text": "beaver-lead-contractor",
+          "value": "beaver-lead-contractor"
+        },
+        "options": [
+          {
+            "text": "beaver-lead-contractor",
+            "value": "beaver-lead-contractor",
+            "selected": true
+          },
+          {
+            "text": "dashboard-persistence",
+            "value": "dashboard-persistence"
+          },
+          {
+            "text": "ajidamoo-squirrel",
+            "value": "ajidamoo-squirrel"
+          },
+          {
+            "text": "asabikeshiinh-localization",
+            "value": "asabikeshiinh-localization"
+          },
+          {
+            "text": "contextcore-tui-fixes",
+            "value": "contextcore-tui-fixes"
+          },
+          {
+            "text": "demo-project",
+            "value": "demo-project"
+          },
+          {
+            "text": "contextcore",
+            "value": "contextcore"
+          }
+        ],
+        "query": "beaver-lead-contractor,dashboard-persistence,ajidamoo-squirrel,asabikeshiinh-localization,contextcore-tui-fixes,demo-project,contextcore"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Project Overview",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 100,
+      "collapsed": false
+    },
+    {
+      "id": 1,
+      "title": "Project Health Overview",
+      "description": "High-level view of project status to help humans quickly identify what needs attention",
+      "type": "table",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false,
+            "filterable": true
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Project"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "View Project Details",
+                    "url": "/d/contextcore-tasks?var-project=${__value.raw}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 120
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "done": {
+                        "color": "green",
+                        "text": "✓ Done"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "in_progress": {
+                        "color": "blue",
+                        "text": "▶ Active"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "blocked": {
+                        "color": "red",
+                        "text": "⚠ Blocked"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "pending": {
+                        "color": "yellow",
+                        "text": "◯ Pending"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Type"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "epic": {
+                        "text": "📋 Epic"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "story": {
+                        "text": "📖 Story"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "task": {
+                        "text": "✅ Task"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "bug": {
+                        "text": "🐛 Bug"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "feature": {
+                        "text": "✨ Feature"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Owner"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 140
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Last Activity"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsLocal"
+              },
+              {
+                "id": "custom.width",
+                "value": 160
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Duration"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "md",
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Last Activity"
+          }
+        ],
+        "footer": {
+          "show": true,
+          "reducer": ["count"],
+          "countRows": true
+        }
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "resource.project.id": "Project",
+              "span.task.status": "Status",
+              "span.task.type": "Type",
+              "span.task.title": "Current Task",
+              "span.task.owner": "Owner",
+              "intrinsic:duration": "Duration"
+            },
+            "indexByName": {
+              "Project": 0,
+              "Current Task": 1,
+              "Status": 2,
+              "Type": 3,
+              "Owner": 4,
+              "Duration": 5
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{resource.project.id != \"\" && span.task.id != \"\"} | select(resource.project.id, span.task.title, span.task.status, span.task.type, span.task.owner, duration)",
+          "limit": 50,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Tasks for ${project}",
+      "description": "Detailed task list for selected project - click a task to see full trace",
+      "type": "table",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 11
+      },
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "task.status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "pending": {
+                        "color": "yellow",
+                        "text": "PENDING"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "in_progress": {
+                        "color": "blue",
+                        "text": "IN PROGRESS"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "done": {
+                        "color": "green",
+                        "text": "DONE"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "blocked": {
+                        "color": "red",
+                        "text": "BLOCKED"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{resource.project.id = \"$project\"} | select(span.task.id, span.task.title, span.task.status, span.task.type)",
+          "limit": 50,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Workflow Runs",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "id": 101,
+      "collapsed": false
+    },
+    {
+      "id": 3,
+      "title": "Workflow Executions",
+      "type": "table",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "workflow.status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "running": {
+                        "color": "blue",
+                        "text": "RUNNING"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "completed": {
+                        "color": "green",
+                        "text": "COMPLETED"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "failed": {
+                        "color": "red",
+                        "text": "FAILED"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Duration"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{name =~ \"workflow.*\"} | select(resource.project.id, span.workflow.id, span.workflow.status, span.workflow.type, duration)",
+          "limit": 50,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Workflow Trigger",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      },
+      "id": 102,
+      "collapsed": false
+    },
+    {
+      "id": 12,
+      "title": "Trigger Workflow - ${project}",
+      "type": "contextcore-workflow-panel",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 29
+      },
+      "options": {
+        "apiUrl": "http://localhost:8082",
+        "projectId": "$project",
+        "showDryRun": true,
+        "showExecute": true,
+        "confirmExecution": true,
+        "refreshInterval": 10
+      }
+    },
+    {
+      "id": 13,
+      "title": "CLI Commands (Fallback)",
+      "type": "text",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 29
+      },
+      "options": {
+        "content": "### Run Workflows via CLI\n\nIf the workflow panel is not available, use the CLI:\n\n```bash\n# Dry run (preview without executing)\ncontextcore workflow run --project ${project} --dry-run\n\n# Execute workflow\ncontextcore workflow run --project ${project}\n\n# Check workflow status\ncontextcore workflow status --id <workflow-id>\n```\n\n### Plugin Installation\n\nTo enable the workflow trigger panel:\n\n```bash\ncd contextcore-owl\nnpm install && npm run build\ndocker compose restart grafana\n```",
+        "mode": "markdown"
+      }
+    }
+  ]
+}

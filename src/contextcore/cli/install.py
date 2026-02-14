@@ -533,7 +533,7 @@ def install_init(endpoint, skip_verify):
     click.echo("  2. contextcore manifest validate --path .contextcore.yaml")
     click.echo("  3. contextcore manifest export -p .contextcore.yaml -o ./out/export --emit-provenance")
     click.echo("  4. contextcore contract a2a-check-pipeline ./out/export")
-    click.echo("  5. startd8 workflow run plan-ingestion (or contextcore contract a2a-diagnose)")
+    click.echo("  5. startd8 workflow run plan-ingestion, then contextcore contract a2a-diagnose")
     click.echo()
     click.echo("Documentation:")
     click.echo("  https://github.com/contextcore/contextcore#readme")

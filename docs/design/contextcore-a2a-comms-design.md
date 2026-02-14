@@ -562,6 +562,18 @@ The universal pattern follows 4 steps:
 | A2A Truncation Prevention | `docs/A2A_TRUNCATION_PREVENTION.md` |
 | Artifact Manifest Contract | `docs/ARTIFACT_MANIFEST_CONTRACT.md` |
 
+### Extension Requirements (Planned)
+
+| Document | Path | Extension |
+| -------- | ---- | --------- |
+| Manifest Export Requirements | `docs/design/MANIFEST_EXPORT_REQUIREMENTS.md` | §17 --verify, §18 --emit-tasks |
+| A2A Gate Requirements | `docs/design/A2A_GATE_REQUIREMENTS.md` | Gate 1/2 behavioral spec |
+| Export Task Tracking Requirements | `docs/plans/EXPORT_TASK_TRACKING_REQUIREMENTS.md` | Extension 2 |
+| Agent Insights CLI Requirements | `docs/design/AGENT_INSIGHTS_CLI_REQUIREMENTS.md` | Extension 3 |
+| Contract Drift Detection Requirements | `docs/design/CONTRACT_DRIFT_DETECTION_REQUIREMENTS.md` | Extension 4 |
+| Status Report Requirements | `docs/design/STATUS_REPORT_REQUIREMENTS.md` | Extension 5 |
+| Weaver Registry Requirements | `docs/plans/WEAVER_REGISTRY_REQUIREMENTS.md` | Extension 6 |
+
 ### Rollout and Adoption
 
 | Document | Path |
@@ -612,6 +624,86 @@ The universal pattern follows 4 steps:
 | Queries | `src/contextcore/contracts/a2a/queries.py` | TraceQL/LogQL query builders |
 | CLI | `src/contextcore/cli/contract.py` | All A2A CLI commands |
 | Dashboard | `k8s/observability/dashboards/a2a-governance.json` | Grafana governance dashboard |
+
+---
+
+## Planned Extensions
+
+The following extensions are planned, ordered by value-to-effort ratio. Each builds directly on the implemented A2A governance layer and pipeline infrastructure documented above.
+
+### Extension 1: Export `--verify` Flag
+
+**Status**: Planned (roadmap item `pipeline.governance_gates`, timeline: Feb 2026)
+**Effort**: Small (1–2 hours)
+**Requirements**: [MANIFEST_EXPORT_REQUIREMENTS.md](MANIFEST_EXPORT_REQUIREMENTS.md) §17
+
+Adds a `--verify` flag to `contextcore manifest export` that automatically runs Gate 1 (`a2a-check-pipeline`) on its own output after writing files. Chains steps 2 and 3 of the 7-step pipeline into a single invocation. Fails with non-zero exit if any blocking gate fails.
+
+**Implementation surface**: ~30 lines in `src/contextcore/cli/manifest.py` — import `PipelineChecker`, add flag, call `checker.run()` after file write.
+
+### Extension 2: Export Task Tracking (`--emit-tasks`)
+
+**Status**: Planned (full requirements complete)
+**Effort**: Medium (3–5 days, 4 phases)
+**Requirements**: [EXPORT_TASK_TRACKING_REQUIREMENTS.md](../plans/EXPORT_TASK_TRACKING_REQUIREMENTS.md) (28 requirements, 8 open questions)
+
+Adds `--emit-tasks` flag to `manifest export` that emits OTel task spans for each artifact in `coverage.gaps` before downstream execution begins. Creates epic → story → task span hierarchy using existing `TaskTracker`, records `task_trace_id` in `onboarding-metadata.json` for downstream correlation.
+
+**Key integration**: Task spans use `TaskSpanContract` and `ArtifactIntent` models from the A2A governance layer. Gate results can be attached as events on the relevant task spans via `task_trace_id`.
+
+### Extension 3: Agent Insights CLI
+
+**Status**: Planned (roadmap item `visibility.agent_insights` — 1/2 phases done)
+**Effort**: Small (1–2 days)
+**Requirements**: [AGENT_INSIGHTS_CLI_REQUIREMENTS.md](AGENT_INSIGHTS_CLI_REQUIREMENTS.md)
+
+Adds `contextcore insight list` and `contextcore insight search` commands wrapping the existing `InsightQuerier` from `src/contextcore/agent/insights.py`. Completes the agent visibility story: dashboard (done) + CLI (this extension).
+
+### Extension 4: Contract Drift Detection
+
+**Status**: Planned (stub exists: `contract check` CLI command references `ContractDriftDetector` that doesn't exist)
+**Effort**: Medium (2–3 days)
+**Requirements**: [CONTRACT_DRIFT_DETECTION_REQUIREMENTS.md](CONTRACT_DRIFT_DETECTION_REQUIREMENTS.md)
+
+Implements `ContractDriftDetector` to detect when actual output schemas (onboarding-metadata.json structure, provenance.json structure) drift from declared A2A contract schemas. Completes the existing `contract check` command in `src/contextcore/cli/contract.py`.
+
+**Distinction from boundary enforcement**: `boundary.py` catches runtime violations (wrong type, missing field on a specific payload). Drift detection catches structural evolution over time (field added to output but not to schema, enum value in code but not in contract).
+
+### Extension 5: Status Compilation Elimination
+
+**Status**: Planned (roadmap item `time.status_compilation_eliminated`, high priority, Feb 2026)
+**Effort**: Medium (3–5 days, 2 phases)
+**Requirements**: [STATUS_REPORT_REQUIREMENTS.md](STATUS_REPORT_REQUIREMENTS.md)
+
+Auto-generates project status reports from existing pipeline telemetry. Phase (a): status aggregation queries that roll up gate results, artifact progress, and blocked spans into a structured summary. Phase (b): report generation that produces human-readable status from aggregated data.
+
+**Dogfooding use case**: ContextCore's own telemetry becomes its status report — "ContextCore manages ContextCore."
+
+### Extension 6: Weaver Semantic Convention Registry
+
+**Status**: Planned (Phase 1 not started)
+**Effort**: Medium-large (5–7 days, 3 phases)
+**Requirements**: [WEAVER_REGISTRY_REQUIREMENTS.md](../plans/WEAVER_REGISTRY_REQUIREMENTS.md) (427 lines, 13 sections)
+
+Formalizes ~185 semantic convention attributes across 17+ namespaces as an OTel Weaver-compatible registry. Addresses attribute name drift between Python enums, JSON schemas, and prose documentation. Enables CI validation (`weaver registry check`) and eventually automated doc generation.
+
+### Extension Dependency Graph
+
+```text
+  [1. --verify flag] ──→ [2. --emit-tasks]
+         │                       │
+         └──→ [3. Insights CLI]  └──→ [5. Status Reports]
+                    │
+                    └──→ [4. Drift Detection]
+                                        └──→ [6. Weaver Registry]
+```
+
+### Recommended Execution Order
+
+- **Week 1**: Extensions 1 + 3 (small, close obvious gaps)
+- **Week 2–3**: Extension 2 (export task tracking — foundational for status reports)
+- **Week 3–4**: Extensions 4 + 5 (drift detection + status compilation)
+- **Month 2**: Extension 6 (Weaver registry — requires cross-repo coordination)
 
 ---
 

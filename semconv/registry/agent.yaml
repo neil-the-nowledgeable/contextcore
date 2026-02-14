@@ -1,0 +1,63 @@
+# agent.* attribute group — 6 attributes (all deprecated)
+#
+# These attributes are deprecated in favour of OTel gen_ai.* conventions.
+# The dual-emit layer in src/contextcore/compat/otel_genai.py supports
+# legacy, dual, and otel emission modes via CONTEXTCORE_EMIT_MODE.
+#
+# Canonical source: src/contextcore/compat/otel_genai.py (ATTRIBUTE_MAPPINGS)
+
+groups:
+  - id: registry.agent
+    type: attribute_group
+    brief: >
+      Legacy agent attributes. All deprecated in favour of gen_ai.* equivalents.
+    prefix: agent
+    attributes:
+      - id: agent.id
+        type: string
+        requirement_level: recommended
+        deprecated: Use gen_ai.agent.id instead.
+        brief: Agent identifier.
+
+      - id: agent.type
+        type:
+          members:
+            - id: code_assistant
+              value: code_assistant
+              brief: Code assistant agent.
+            - id: orchestrator
+              value: orchestrator
+              brief: Orchestrator agent.
+            - id: specialist
+              value: specialist
+              brief: Specialist agent.
+            - id: automation
+              value: automation
+              brief: Automation agent.
+        requirement_level: opt_in
+        deprecated: Use gen_ai.agent.type instead.
+        brief: Agent type from the AgentType enum.
+
+      - id: agent.session_id
+        type: string
+        requirement_level: opt_in
+        deprecated: Use gen_ai.conversation.id instead.
+        brief: Agent session identifier.
+
+      - id: agent.model
+        type: string
+        requirement_level: opt_in
+        deprecated: Use gen_ai.request.model instead.
+        brief: Model used by the agent.
+
+      - id: agent.name
+        type: string
+        requirement_level: opt_in
+        deprecated: Use gen_ai.agent.name instead.
+        brief: Human-readable agent name.
+
+      - id: agent.version
+        type: string
+        requirement_level: opt_in
+        deprecated: Use gen_ai.agent.version instead.
+        brief: Agent version string.

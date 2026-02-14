@@ -231,7 +231,7 @@ CI/CD pipelines should use the fail flags to enforce gates. Interactive use defa
 | Command | Relationship |
 |---------|-------------|
 | `manifest export` | Upstream — produces the output that gates validate |
-| `manifest export --verify` (proposed) | Inline invocation of Gate 1 within export |
+| `manifest export --verify` (planned) | Inline invocation of Gate 1 within export |
 | `a2a-check-pipeline` → `a2a-diagnose` | Gate 1 is a sub-check within Gate 2's Q1 |
 | `a2a-pilot` | End-to-end simulation of all gates with synthetic data |
 | `a2a-validate` | Schema-level validation of individual contract payloads (different scope) |

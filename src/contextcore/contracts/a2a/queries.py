@@ -69,7 +69,7 @@ class A2AQueries:
             'span.task.blocked_reason, span.task.next_action)'
         )
 
-    def gate_failures(self) -> str:
+    def gate_failure_rate(self) -> str:
         """
         Find all failed gate results.
 
@@ -225,9 +225,9 @@ class A2AQueries:
                 "description": "Blocked spans with reason and next action.",
                 "action": "Follow next_action to unblock.",
             },
-            "gate_failures": {
+            "gate_failure_rate": {
                 "datasource": "tempo",
-                "query": self.gate_failures(),
+                "query": self.gate_failure_rate(),
                 "description": "Failed gate results by phase and severity.",
                 "action": "Address critical/error gates before proceeding.",
             },

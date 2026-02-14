@@ -1145,14 +1145,21 @@ def run_curate(repo_root: Path, docs_index: dict,
                     "via_capabilities": [],
                 }
 
-        # --- Merge signals (max score wins) ---
+        # --- Merge signals (max score wins, but always merge via_capabilities) ---
         all_matched = {}
         for signals in [signal1_docs, signal2_docs, signal3_docs]:
             for doc_path, info in signals.items():
-                if doc_path not in all_matched or info["score"] > all_matched[doc_path]["score"]:
+                if doc_path not in all_matched:
                     all_matched[doc_path] = info
-                elif info["score"] == all_matched[doc_path]["score"]:
-                    # Merge via_capabilities
+                elif info["score"] > all_matched[doc_path]["score"]:
+                    # Higher score wins, but preserve via_capabilities from lower
+                    prev_caps = all_matched[doc_path]["via_capabilities"]
+                    all_matched[doc_path] = info
+                    for c in prev_caps:
+                        if c not in all_matched[doc_path]["via_capabilities"]:
+                            all_matched[doc_path]["via_capabilities"].append(c)
+                else:
+                    # Equal or lower score — just merge via_capabilities
                     for c in info["via_capabilities"]:
                         if c not in all_matched[doc_path]["via_capabilities"]:
                             all_matched[doc_path]["via_capabilities"].append(c)

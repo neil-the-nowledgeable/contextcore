@@ -1,0 +1,367 @@
+{
+  "trace_id": "PI-101-002",
+  "project_id": "contextcore",
+  "started_at": "2026-02-14T01:17:59.912567+00:00",
+  "ended_at": "2026-02-14T01:17:59.922078+00:00",
+  "final_status": "blocked",
+  "summary": {
+    "trace_id": "PI-101-002",
+    "final_status": "blocked",
+    "total_spans": 10,
+    "completed_spans": 2,
+    "blocked_spans": [
+      "PI-101-002-S3"
+    ],
+    "total_gates": 3,
+    "gates_passed": 2,
+    "gates_failed": 1,
+    "errors": [],
+    "is_success": false
+  },
+  "spans": [
+    {
+      "span_id": "PI-101-002-S1",
+      "parent_id": "PI-101-002",
+      "phase": "INIT_BASELINE",
+      "status": "completed",
+      "started_at": "2026-02-14T01:17:59.912797+00:00",
+      "ended_at": "2026-02-14T01:17:59.917960+00:00",
+      "contract": {
+        "schema_version": "v1",
+        "project_id": "contextcore",
+        "trace_id": "PI-101-002",
+        "task_id": "PI-101-002-S1",
+        "parent_task_id": "PI-101-002",
+        "phase": "INIT_BASELINE",
+        "status": "in_progress",
+        "timestamp": "2026-02-14T01:17:59.912805Z"
+      },
+      "gate_results": [],
+      "events": [
+        {
+          "event_type": "span.started",
+          "timestamp": "2026-02-14T01:17:59.917946+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S1",
+            "phase": "INIT_BASELINE"
+          }
+        },
+        {
+          "event_type": "baseline.verified",
+          "timestamp": "2026-02-14T01:17:59.917956+00:00",
+          "detail": {
+            "endpoint": "localhost:4317"
+          }
+        },
+        {
+          "event_type": "span.completed",
+          "timestamp": "2026-02-14T01:17:59.917958+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S1"
+          }
+        }
+      ],
+      "blocked_reason": null,
+      "next_action": null
+    },
+    {
+      "span_id": "PI-101-002-S2",
+      "parent_id": "PI-101-002",
+      "phase": "EXPORT_CONTRACT",
+      "status": "completed",
+      "started_at": "2026-02-14T01:17:59.917963+00:00",
+      "ended_at": "2026-02-14T01:17:59.921511+00:00",
+      "contract": {
+        "schema_version": "v1",
+        "project_id": "contextcore",
+        "trace_id": "PI-101-002",
+        "task_id": "PI-101-002-S2",
+        "parent_task_id": "PI-101-002",
+        "phase": "EXPORT_CONTRACT",
+        "status": "in_progress",
+        "timestamp": "2026-02-14T01:17:59.917968Z"
+      },
+      "gate_results": [
+        {
+          "schema_version": "v1",
+          "gate_id": "PI-101-002-S2-C1",
+          "trace_id": "PI-101-002",
+          "task_id": "PI-101-002-S2",
+          "phase": "EXPORT_CONTRACT",
+          "result": "pass",
+          "severity": "info",
+          "reason": "Coverage 85.0% meets threshold.",
+          "next_action": "Proceed to CONTRACT_INTEGRITY.",
+          "blocking": false,
+          "checked_at": "2026-02-14T01:17:59.918114Z"
+        }
+      ],
+      "events": [
+        {
+          "event_type": "span.started",
+          "timestamp": "2026-02-14T01:17:59.918102+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S2",
+            "phase": "EXPORT_CONTRACT"
+          }
+        },
+        {
+          "event_type": "coverage.checked",
+          "timestamp": "2026-02-14T01:17:59.918106+00:00",
+          "detail": {
+            "coverage_percent": 85.0
+          }
+        },
+        {
+          "event_type": "gate.check.passed",
+          "timestamp": "2026-02-14T01:17:59.921498+00:00",
+          "detail": {
+            "gate_id": "PI-101-002-S2-C1"
+          }
+        },
+        {
+          "event_type": "span.completed",
+          "timestamp": "2026-02-14T01:17:59.921509+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S2"
+          }
+        }
+      ],
+      "blocked_reason": null,
+      "next_action": null
+    },
+    {
+      "span_id": "PI-101-002-S3",
+      "parent_id": "PI-101-002",
+      "phase": "CONTRACT_INTEGRITY",
+      "status": "blocked",
+      "started_at": "2026-02-14T01:17:59.921518+00:00",
+      "ended_at": "2026-02-14T01:17:59.922069+00:00",
+      "contract": {
+        "schema_version": "v1",
+        "project_id": "contextcore",
+        "trace_id": "PI-101-002",
+        "task_id": "PI-101-002-S3",
+        "parent_task_id": "PI-101-002",
+        "phase": "CONTRACT_INTEGRITY",
+        "status": "in_progress",
+        "timestamp": "2026-02-14T01:17:59.921521Z"
+      },
+      "gate_results": [
+        {
+          "schema_version": "v1",
+          "gate_id": "PI-101-002-S3-C1",
+          "trace_id": "PI-101-002",
+          "task_id": "PI-101-002-S3",
+          "phase": "CONTRACT_INTEGRITY",
+          "result": "pass",
+          "severity": "info",
+          "reason": "All 3 artifact(s) mapped to tasks.",
+          "next_action": "Proceed to next phase after CONTRACT_INTEGRITY.",
+          "blocking": false,
+          "evidence": [
+            {
+              "type": "mapping_complete",
+              "ref": "artifact_task_mapping",
+              "description": "Verified 3 mapping(s)."
+            }
+          ],
+          "checked_at": "2026-02-14T01:17:59.921760Z"
+        },
+        {
+          "schema_version": "v1",
+          "gate_id": "PI-101-002-S3-C2",
+          "trace_id": "PI-101-002",
+          "task_id": "PI-101-002-S3",
+          "phase": "CONTRACT_INTEGRITY",
+          "result": "fail",
+          "severity": "error",
+          "reason": "Checksum chain broken \u2014 mismatched: source",
+          "next_action": "Regenerate upstream artifacts with matching checksums before proceeding.",
+          "blocking": true,
+          "evidence": [
+            {
+              "type": "checksum_mismatch",
+              "ref": "source",
+              "description": "Checksum mismatch for 'source': expected=sha256:abc123, actual=sha256:STALE"
+            }
+          ],
+          "checked_at": "2026-02-14T01:17:59.921784Z"
+        }
+      ],
+      "events": [
+        {
+          "event_type": "span.started",
+          "timestamp": "2026-02-14T01:17:59.921742+00:00",
+          "detail": {
+            "span_id": "PI-101-002-S3",
+            "phase": "CONTRACT_INTEGRITY"
+          }
+        },
+        {
+          "event_type": "gate.check.passed",
+          "timestamp": "2026-02-14T01:17:59.921931+00:00",
+          "detail": {
+            "gate_id": "PI-101-002-S3-C1"
+          }
+        },
+        {
+          "event_type": "gate.check.failed",
+          "timestamp": "2026-02-14T01:17:59.922066+00:00",
+          "detail": {
+            "gate_id": "PI-101-002-S3-C2",
+            "reason": "Checksum chain broken \u2014 mismatched: source"
+          }
+        }
+      ],
+      "blocked_reason": "Checksum chain broken \u2014 mismatched: source",
+      "next_action": "Regenerate upstream artifacts with matching checksums before proceeding."
+    },
+    {
+      "span_id": "PI-101-002-S4",
+      "parent_id": "PI-101-002",
+      "phase": "INGEST_PARSE_ASSESS",
+      "status": "not_started",
+      "started_at": null,
+      "ended_at": null,
+      "contract": null,
+      "gate_results": [],
+      "events": [],
+      "blocked_reason": null,
+      "next_action": null
+    },
+    {
+      "span_id": "PI-101-002-S5",
+      "parent_id": "PI-101-002",
+      "phase": "ROUTING_DECISION",
+      "status": "not_started",
+      "started_at": null,
+      "ended_at": null,
+      "contract": null,
+      "gate_results": [],
+      "events": [],
+      "blocked_reason": null,
+      "next_action": null
+    },
+    {
+      "span_id": "PI-101-002-S6",
+      "parent_id": "PI-101-002",
+      "phase": "ARTISAN_DESIGN",
+      "status": "not_started",
+      "started_at": null,
+      "ended_at": null,
+      "contract": null,
+      "gate_results": [],
+      "events": [],
+      "blocked_reason": null,
+      "next_action": null
+    },
+    {
+      "span_id": "PI-101-002-S7",
+      "parent_id": "PI-101-002",
+      "phase": "ARTISAN_IMPLEMENT",
+      "status": "not_started",
+      "started_at": null,
+      "ended_at": null,
+      "contract": null,
+      "gate_results": [],
+      "events": [],
+      "blocked_reason": null,
+      "next_action": null
+    },
+    {
+      "span_id": "PI-101-002-S8",
+      "parent_id": "PI-101-002",
+      "phase": "TEST_VALIDATE",
+      "status": "not_started",
+      "started_at": null,
+      "ended_at": null,
+      "contract": null,
+      "gate_results": [],
+      "events": [],
+      "blocked_reason": null,
+      "next_action": null
+    },
+    {
+      "span_id": "PI-101-002-S9",
+      "parent_id": "PI-101-002",
+      "phase": "REVIEW_CALIBRATE",
+      "status": "not_started",
+      "started_at": null,
+      "ended_at": null,
+      "contract": null,
+      "gate_results": [],
+      "events": [],
+      "blocked_reason": null,
+      "next_action": null
+    },
+    {
+      "span_id": "PI-101-002-S10",
+      "parent_id": "PI-101-002",
+      "phase": "FINALIZE_VERIFY",
+      "status": "not_started",
+      "started_at": null,
+      "ended_at": null,
+      "contract": null,
+      "gate_results": [],
+      "events": [],
+      "blocked_reason": null,
+      "next_action": null
+    }
+  ],
+  "gate_results": [
+    {
+      "schema_version": "v1",
+      "gate_id": "PI-101-002-S2-C1",
+      "trace_id": "PI-101-002",
+      "task_id": "PI-101-002-S2",
+      "phase": "EXPORT_CONTRACT",
+      "result": "pass",
+      "severity": "info",
+      "reason": "Coverage 85.0% meets threshold.",
+      "next_action": "Proceed to CONTRACT_INTEGRITY.",
+      "blocking": false,
+      "checked_at": "2026-02-14T01:17:59.918114Z"
+    },
+    {
+      "schema_version": "v1",
+      "gate_id": "PI-101-002-S3-C1",
+      "trace_id": "PI-101-002",
+      "task_id": "PI-101-002-S3",
+      "phase": "CONTRACT_INTEGRITY",
+      "result": "pass",
+      "severity": "info",
+      "reason": "All 3 artifact(s) mapped to tasks.",
+      "next_action": "Proceed to next phase after CONTRACT_INTEGRITY.",
+      "blocking": false,
+      "evidence": [
+        {
+          "type": "mapping_complete",
+          "ref": "artifact_task_mapping",
+          "description": "Verified 3 mapping(s)."
+        }
+      ],
+      "checked_at": "2026-02-14T01:17:59.921760Z"
+    },
+    {
+      "schema_version": "v1",
+      "gate_id": "PI-101-002-S3-C2",
+      "trace_id": "PI-101-002",
+      "task_id": "PI-101-002-S3",
+      "phase": "CONTRACT_INTEGRITY",
+      "result": "fail",
+      "severity": "error",
+      "reason": "Checksum chain broken \u2014 mismatched: source",
+      "next_action": "Regenerate upstream artifacts with matching checksums before proceeding.",
+      "blocking": true,
+      "evidence": [
+        {
+          "type": "checksum_mismatch",
+          "ref": "source",
+          "description": "Checksum mismatch for 'source': expected=sha256:abc123, actual=sha256:STALE"
+        }
+      ],
+      "checked_at": "2026-02-14T01:17:59.921784Z"
+    }
+  ]
+}

@@ -146,20 +146,22 @@ def _error_code_for(error: jsonschema.ValidationError) -> str:
     if validator == "additionalProperties":
         return "UNKNOWN_FIELD"
     if validator == "enum":
-        return "INVALID_ENUM_VALUE"
+        return "ENUM_MISMATCH"
     if validator == "const":
-        return "INVALID_CONST_VALUE"
+        return "CONST_VIOLATION"
     if validator == "type":
         return "WRONG_TYPE"
+    if validator == "pattern":
+        return "PATTERN_MISMATCH"
     if validator == "minLength":
-        return "VALUE_TOO_SHORT"
+        return "MIN_LENGTH_VIOLATION"
     if validator in ("minimum", "maximum"):
         return "VALUE_OUT_OF_RANGE"
     if validator == "format":
         return "INVALID_FORMAT"
     if validator == "minProperties":
         return "EMPTY_OBJECT"
-    return "SCHEMA_VALIDATION_FAILED"
+    return "SCHEMA_ERROR"
 
 
 def _json_pointer(path: list[str | int]) -> str:
@@ -177,10 +179,11 @@ def _next_action_for(error_code: str, field_path: str) -> str:
             f"Remove the unknown field at '{field_path}'. "
             "v1 contracts do not allow extra top-level fields."
         ),
-        "INVALID_ENUM_VALUE": f"Use one of the allowed enum values for '{field_path}'.",
-        "INVALID_CONST_VALUE": f"Set '{field_path}' to the required constant value.",
+        "ENUM_MISMATCH": f"Use one of the allowed enum values for '{field_path}'.",
+        "CONST_VIOLATION": f"Set '{field_path}' to the required constant value.",
         "WRONG_TYPE": f"Correct the type of '{field_path}'.",
-        "VALUE_TOO_SHORT": f"Provide a non-empty value for '{field_path}'.",
+        "PATTERN_MISMATCH": f"Correct the value at '{field_path}' to match the required pattern.",
+        "MIN_LENGTH_VIOLATION": f"Provide a non-empty value for '{field_path}'.",
         "VALUE_OUT_OF_RANGE": f"Adjust the value at '{field_path}' to be within the allowed range.",
         "INVALID_FORMAT": f"Correct the format of '{field_path}' (e.g. date-time).",
         "EMPTY_OBJECT": f"Provide at least one property inside '{field_path}'.",

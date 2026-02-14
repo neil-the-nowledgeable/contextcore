@@ -1,0 +1,49 @@
+# sprint.* attribute group — 7 attributes
+#
+# Canonical source: src/contextcore/tracker.py (constants)
+
+groups:
+  - id: registry.sprint
+    type: attribute_group
+    brief: >
+      Sprint-level attributes for iteration tracking.
+    prefix: sprint
+    attributes:
+      - id: sprint.id
+        type: string
+        requirement_level: required
+        brief: Sprint identifier.
+        examples: ["sprint-3", "2026-Q1-S2"]
+
+      - id: sprint.name
+        type: string
+        requirement_level: recommended
+        brief: Human-readable sprint name.
+        examples: ["Sprint 3", "Q1 Sprint 2"]
+
+      - id: sprint.goal
+        type: string
+        requirement_level: opt_in
+        brief: Sprint goal or objective.
+
+      - id: sprint.start_date
+        type: string
+        requirement_level: recommended
+        brief: Sprint start date in ISO 8601 format.
+        examples: ["2026-02-01"]
+
+      - id: sprint.end_date
+        type: string
+        requirement_level: recommended
+        brief: Sprint end date in ISO 8601 format.
+        examples: ["2026-02-14"]
+
+      - id: sprint.planned_points
+        type: int
+        requirement_level: opt_in
+        brief: Story points planned for this sprint.
+
+      - id: sprint.completed_points
+        type: int
+        requirement_level: opt_in
+        brief: Story points completed in this sprint.

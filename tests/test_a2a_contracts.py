@@ -344,7 +344,7 @@ class TestA2AValidator:
         report = validate_payload("TaskSpanContract", payload)
         assert not report.is_valid
         codes = {e.error_code for e in report.errors}
-        assert "INVALID_ENUM_VALUE" in codes
+        assert "ENUM_MISMATCH" in codes
 
     def test_invalid_schema_version(self, valid_task_span_payload: dict) -> None:
         payload = {**valid_task_span_payload, "schema_version": "v2"}

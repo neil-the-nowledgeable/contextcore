@@ -1,0 +1,162 @@
+# task.* attribute group — 17 attributes
+#
+# Canonical source: src/contextcore/tracker.py (constants),
+#                   src/contextcore/contracts/types.py (enums)
+
+groups:
+  - id: registry.task
+    type: attribute_group
+    brief: >
+      Attributes for tracking project tasks as OpenTelemetry spans.
+    prefix: task
+    attributes:
+      - id: task.id
+        type: string
+        requirement_level: required
+        brief: Unique task identifier.
+        examples: ["PROJ-123", "PI-019"]
+
+      - id: task.type
+        type:
+          members:
+            - id: epic
+              value: epic
+              brief: Epic-level task.
+            - id: story
+              value: story
+              brief: Story-level task.
+            - id: task
+              value: task
+              brief: Standard task.
+            - id: subtask
+              value: subtask
+              brief: Sub-task of a parent task.
+            - id: bug
+              value: bug
+              brief: Bug report.
+            - id: spike
+              value: spike
+              brief: Research/investigation spike.
+            - id: incident
+              value: incident
+              brief: Production incident.
+        requirement_level: recommended
+        brief: Task type from the TaskType enum.
+
+      - id: task.title
+        type: string
+        requirement_level: opt_in
+        brief: Human-readable task title.
+        examples: ["Implement auth", "Fix login bug"]
+
+      - id: task.status
+        type:
+          members:
+            - id: backlog
+              value: backlog
+              brief: Task is in the backlog.
+            - id: todo
+              value: todo
+              brief: Task is ready to start.
+            - id: in_progress
+              value: in_progress
+              brief: Task is actively being worked on.
+            - id: in_review
+              value: in_review
+              brief: Task is in review.
+            - id: blocked
+              value: blocked
+              brief: Task is blocked by a dependency.
+            - id: done
+              value: done
+              brief: Task is complete.
+            - id: cancelled
+              value: cancelled
+              brief: Task was cancelled.
+        requirement_level: required
+        brief: Current task status from the TaskStatus enum.
+
+      - id: task.priority
+        type:
+          members:
+            - id: critical
+              value: critical
+              brief: Critical priority.
+            - id: high
+              value: high
+              brief: High priority.
+            - id: medium
+              value: medium
+              brief: Medium priority.
+            - id: low
+              value: low
+              brief: Low priority.
+        requirement_level: recommended
+        brief: Task priority from the Priority enum.
+
+      - id: task.assignee
+        type: string
+        requirement_level: opt_in
+        brief: Person or agent assigned to the task.
+
+      - id: task.story_points
+        type: int
+        requirement_level: opt_in
+        brief: Estimated effort in story points.
+
+      - id: task.labels
+        type: string[]
+        requirement_level: opt_in
+        brief: Tags/labels attached to the task.
+        examples: [["frontend", "auth"], ["backend", "api"]]
+
+      - id: task.url
+        type: string
+        requirement_level: opt_in
+        brief: Link to external system (Jira, GitHub Issues, etc.).
+
+      - id: task.due_date
+        type: string
+        requirement_level: opt_in
+        brief: Due date in ISO 8601 format.
+        examples: ["2026-03-01"]
+
+      - id: task.blocked_by
+        type: string[]
+        requirement_level: opt_in
+        brief: IDs of tasks blocking this one.
+
+      - id: task.parent_id
+        type: string
+        requirement_level: recommended
+        brief: Parent task ID (creates parent-child relationship).
+
+      - id: task.percent_complete
+        type: double
+        requirement_level: recommended
+        brief: Completion percentage (0.0 to 100.0).
+
+      - id: task.subtask_count
+        type: int
+        requirement_level: opt_in
+        brief: Total number of subtasks.
+
+      - id: task.subtask_completed
+        type: int
+        requirement_level: opt_in
+        brief: Number of completed subtasks.
+
+      - id: task.deliverable.count
+        type: int
+        requirement_level: opt_in
+        brief: Number of expected deliverables.
+
+      - id: task.deliverable.verified
+        type: int
+        requirement_level: opt_in
+        brief: Number of verified deliverables.
+
+      - id: task.deliverables_complete
+        type: boolean
+        requirement_level: opt_in
+        brief: Whether all expected deliverables have been verified.

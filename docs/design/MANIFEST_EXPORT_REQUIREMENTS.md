@@ -146,14 +146,27 @@ Read a `.contextcore.yaml` manifest and produce the full artifact contract packa
     - Must produce byte-identical output for the same input when deterministic mode is active.
     - Artifact ordering, field ordering, and serialization must be stable.
 
-#### Proposed: Verify Flag
+#### Planned: Verify Flag
 
-17. **`--verify` flag** (proposed)
+17. **`--verify` flag** (planned — roadmap item `pipeline.governance_gates`)
     - When set, must run `a2a-check-pipeline` on the output directory after all files are written.
     - Must report Gate 1 results inline in export output.
     - Must fail with non-zero exit code if any blocking gate fails (when combined with `--fail-on-unhealthy` behavior).
     - Must not run if `--dry-run` is set.
     - Individual `a2a-check-pipeline` command remains available for independent use.
+    - Implementation: import `PipelineChecker` from `contracts/a2a/pipeline_checker.py`, instantiate with output directory, call `run()`, display report inline, exit non-zero if `not report.is_healthy`.
+
+#### Planned: Task Tracking Emission
+
+18. **`--emit-tasks` flag** (planned — see `docs/plans/EXPORT_TASK_TRACKING_REQUIREMENTS.md` for full requirements)
+    - When set, must emit OTel task spans for each artifact in `coverage.gaps` before downstream execution begins.
+    - Must emit an epic span, story spans grouped by artifact type, and task spans per artifact.
+    - Must record `task_trace_id` in `onboarding-metadata.json` for downstream correlation.
+    - Must use existing `TaskTracker` infrastructure from `src/contextcore/tracker.py`.
+    - Must use `TaskSpanContract` and `ArtifactIntent` models from the A2A governance layer.
+    - Must be opt-in; default behavior is unchanged.
+    - Task emission failure must not fail the export — spans are best-effort.
+    - Must not run if `--dry-run` is set (unless `--dry-run` preview mode is requested).
 
 ### CLI Surface
 
@@ -176,7 +189,10 @@ contextcore manifest export
   --min-coverage             (optional)   Fail if coverage below threshold
   --task-mapping             (optional)   JSON file mapping artifact IDs to task IDs
   --emit-quality-report      (optional)   Write export-quality-report.json
-  --verify                   (flag, proposed)  Run Gate 1 after export
+  --verify                   (flag, planned)   Run Gate 1 after export
+  --emit-tasks               (flag, planned)   Emit OTel task spans for coverage gaps
+  --project-id               (optional)        Override project ID for task tracking
+  --endpoint                 (optional)        OTLP endpoint for task emission
 ```
 
 ### Output Files

@@ -428,6 +428,33 @@ def build_onboarding_metadata(
             contract["fields"] = ARTIFACT_PARAMETER_SCHEMA.get(art_type, [])
             output_contracts[art_type] = contract
 
+    # ── Design calibration hints (Gate 6 requirement) ──────────────────
+    # Derives calibration hints from expected_output_contracts for the
+    # pipeline checker's design calibration gate (Gate 6). This transforms
+    # the unified output contracts into the format expected by the gate.
+    # Structure: {artifact_type: {expected_depth, expected_loc_range, red_flag}}
+    design_calibration_hints: Dict[str, Dict[str, str]] = {}
+    for art_type, contract in output_contracts.items():
+        expected_depth = contract.get("expected_depth", "standard")
+        max_lines = contract.get("max_lines", 150)
+        red_flag = contract.get("red_flag", "")
+        
+        # Convert max_lines to expected_loc_range
+        if max_lines <= 50:
+            loc_range = "<=50"
+        elif max_lines <= 150:
+            loc_range = "51-150"
+        elif max_lines <= 300:
+            loc_range = "51-300"
+        else:
+            loc_range = ">150"
+        
+        design_calibration_hints[art_type] = {
+            "expected_depth": expected_depth,
+            "expected_loc_range": loc_range,
+            "red_flag": red_flag,
+        }
+
     # Build semantic conventions block
     semantic_conventions: Optional[Dict[str, Any]] = None
     if artifact_manifest.semantic_conventions:
@@ -474,6 +501,7 @@ def build_onboarding_metadata(
                 "integrity_checksums",
                 "parameter_resolvability",
                 "output_contracts",
+                "design_calibration_hints",
                 "file_ownership",
                 "requirements_hints",
             ],
@@ -514,6 +542,9 @@ def build_onboarding_metadata(
 
     if output_contracts:
         result["expected_output_contracts"] = output_contracts
+
+    if design_calibration_hints:
+        result["design_calibration_hints"] = design_calibration_hints
 
     if requirements_hints:
         result["requirements_hints"] = requirements_hints

@@ -1,0 +1,43 @@
+# ContextCore Semantic Convention Registry
+#
+# OTel Weaver-compatible registry formalizing ~185 attributes across 17+ namespaces.
+# Python enums in contracts/types.py remain the canonical source of truth;
+# this registry mirrors them for machine-readable validation and CI.
+#
+# See: docs/plans/WEAVER_REGISTRY_REQUIREMENTS.md
+
+schema_url: https://contextcore.io/semconv/v1.0.0
+name: contextcore
+version: 1.0.0
+
+otel_semconv_dependency: v1.34.0
+
+description: >
+  Semantic conventions for ContextCore project management observability.
+  Tasks as OTel spans, agent insights, A2A governance contracts.
+
+groups:
+  # Phase 1 (implemented)
+  - registry/task.yaml
+  - registry/project.yaml
+  - registry/sprint.yaml
+  - registry/agent.yaml
+
+  # Phase 2 (planned)
+  # - registry/business.yaml
+  # - registry/insight.yaml
+  # - registry/handoff.yaml
+  # - registry/guidance.yaml
+  # - registry/install.yaml
+  # - registry/code_generation.yaml
+
+spans:
+  - spans/task_spans.yaml
+
+events:
+  - events/task_events.yaml
+
+metrics: []
+  # Phase 2:
+  # - metrics/task_metrics.yaml
+  # - metrics/install_metrics.yaml

@@ -1,0 +1,481 @@
+{
+  "title": "[SQUIRREL] Skills Browser",
+  "uid": "contextcore-squirrel-skills-browser",
+  "schemaVersion": 39,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "tags": [
+    "contextcore",
+    "skills",
+    "squirrel"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "skill",
+        "type": "custom",
+        "label": "Skill",
+        "current": {
+          "text": "All",
+          "value": ".*"
+        },
+        "options": [
+          {
+            "text": "All",
+            "value": ".*",
+            "selected": true
+          },
+          {
+            "text": "capability-value-promoter",
+            "value": "capability-value-promoter",
+            "selected": false
+          },
+          {
+            "text": "dev-tour-guide",
+            "value": "dev-tour-guide",
+            "selected": false
+          }
+        ],
+        "query": "",
+        "includeAll": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Skills Catalog",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Available Skills (click to explore)",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span.skill.id"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Skill ID"
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "View ${__value.raw} details",
+                    "url": "/d/skills-browser/skills-browser?var-skill=${__value.raw}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span.skill.type"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Type"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span.skill.version"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Version"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span.skill.capability_count"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Capabilities"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span.value.persona_count"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Personas"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span.value.channel_count"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Channels"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span.skill.total_tokens"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Tokens"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": true,
+          "countRows": true
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{ name =~ \"value_skill:.*\" } | select(.skill.id, .skill.type, .skill.version, .skill.capability_count, .value.persona_count, .value.channel_count, .skill.total_tokens)",
+          "tableType": "spans",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Skill Details: ${skill}",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      }
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "Skill Metadata",
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 10
+      },
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span.skill.id"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Skill ID"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span.skill.description"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Description"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span.skill.source_path"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Source Path"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span.knowledge.source_file"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Source File"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "md"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{ name =~ \"value_skill:.*\" && .skill.id =~ \"${skill}\" } | select(.skill.id, .skill.description, .skill.source_path, .knowledge.source_file)",
+          "tableType": "spans",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "table",
+      "title": "Personas & Channels",
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 10
+      },
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span.skill.id"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Skill"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span.value.personas_covered"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Personas"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span.value.channels_supported"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Channels"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "md"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{ name =~ \"value_skill:.*\" && .skill.id =~ \"${skill}\" } | select(.skill.id, .value.personas_covered, .value.channels_supported)",
+          "tableType": "spans",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "Capabilities: ${skill}",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      }
+    },
+    {
+      "id": 21,
+      "type": "table",
+      "title": "Skill Capabilities",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span.capability.name"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Capability"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span.value.type"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Value Type"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span.value.personas"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Personas"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span.capability.category"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Category"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span.capability.summary"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Summary"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": true,
+          "countRows": true
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{ name =~ \"value_capability:.*\" && .skill.id =~ \"${skill}\" } | select(.capability.name, .value.type, .value.personas, .capability.category, .capability.summary)",
+          "tableType": "spans",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "title": "Value Capabilities",
+      "url": "/d/contextcore-squirrel-value-capabilities-explorer/value-capabilities-explorer?var-skill=${skill}",
+      "tooltip": "View in Value Capabilities Explorer",
+      "icon": "external link",
+      "type": "link"
+    }
+  ]
+}

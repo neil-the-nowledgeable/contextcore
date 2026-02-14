@@ -1,0 +1,94 @@
+# Task lifecycle events
+#
+# Source: EventType enum in src/contextcore/contracts/metrics.py
+# These events are recorded on task spans via span.add_event().
+
+groups:
+  - id: event.task.created
+    type: event
+    brief: Task was created.
+    attributes:
+      - ref: task.id
+        requirement_level: required
+      - ref: task.type
+        requirement_level: recommended
+      - ref: project.id
+        requirement_level: required
+
+  - id: event.task.status_changed
+    type: event
+    brief: Task status changed (e.g., todo → in_progress).
+    attributes:
+      - ref: task.id
+        requirement_level: required
+      - ref: task.status
+        requirement_level: required
+        brief: The new status value.
+      - id: task.status.old
+        type: string
+        requirement_level: recommended
+        brief: The previous status value.
+
+  - id: event.task.blocked
+    type: event
+    brief: Task became blocked.
+    attributes:
+      - ref: task.id
+        requirement_level: required
+      - ref: task.blocked_by
+        requirement_level: recommended
+
+  - id: event.task.unblocked
+    type: event
+    brief: Task was unblocked.
+    attributes:
+      - ref: task.id
+        requirement_level: required
+
+  - id: event.task.completed
+    type: event
+    brief: Task was completed.
+    attributes:
+      - ref: task.id
+        requirement_level: required
+
+  - id: event.task.cancelled
+    type: event
+    brief: Task was cancelled.
+    attributes:
+      - ref: task.id
+        requirement_level: required
+
+  - id: event.task.assigned
+    type: event
+    brief: Task was assigned to someone.
+    attributes:
+      - ref: task.id
+        requirement_level: required
+      - ref: task.assignee
+        requirement_level: required
+
+  - id: event.task.commented
+    type: event
+    brief: Comment was added to a task.
+    attributes:
+      - ref: task.id
+        requirement_level: required
+
+  - id: event.task.progress_updated
+    type: event
+    brief: Task progress percentage was updated.
+    attributes:
+      - ref: task.id
+        requirement_level: required
+      - ref: task.percent_complete
+        requirement_level: required
+
+  - id: event.subtask.completed
+    type: event
+    brief: A subtask was completed (updates parent progress).
+    attributes:
+      - ref: task.id
+        requirement_level: required
+      - ref: task.parent_id
+        requirement_level: required

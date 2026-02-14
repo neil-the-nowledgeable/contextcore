@@ -1,0 +1,334 @@
+{
+  "version": "1.0.0",
+  "schema": "contextcore.io/onboarding-metadata/v1",
+  "project_id": "checkout-service",
+  "artifact_manifest_path": "checkout-service-artifact-manifest.yaml",
+  "project_context_path": "checkout-service-projectcontext.yaml",
+  "crd_reference": "checkout-service-projectcontext.yaml",
+  "generated_at": "2026-02-12T15:39:10.475640",
+  "artifact_types": {
+    "dashboard": {
+      "output_ext": ".json",
+      "output_path": "grafana/dashboards/{target}-dashboard.json",
+      "description": "Grafana dashboard JSON",
+      "schema_url": "https://grafana.com/docs/grafana/latest/dashboards/build-dashboards/view-dashboard-json-model/",
+      "parameter_keys": [
+        "criticality",
+        "dashboardPlacement",
+        "datasources",
+        "risks"
+      ]
+    },
+    "prometheus_rule": {
+      "output_ext": ".yaml",
+      "output_path": "prometheus/rules/{target}-prometheus-rules.yaml",
+      "description": "Prometheus alerting rules",
+      "schema_url": "https://prometheus-operator.dev/docs/operator/api/#monitoring.coreos.com/v1.PrometheusRule",
+      "parameter_keys": [
+        "alertSeverity",
+        "availabilityThreshold",
+        "latencyThreshold",
+        "latencyP50Threshold",
+        "throughput"
+      ]
+    },
+    "slo_definition": {
+      "output_ext": ".yaml",
+      "output_path": "slo/{target}-slo.yaml",
+      "description": "OpenSLO/Sloth SLO definition",
+      "schema_url": "https://openslo.com/",
+      "parameter_keys": [
+        "availability",
+        "latencyP99",
+        "errorBudget",
+        "throughput"
+      ]
+    },
+    "service_monitor": {
+      "output_ext": ".yaml",
+      "output_path": "k8s/observability/{target}-service-monitor.yaml",
+      "description": "Kubernetes ServiceMonitor",
+      "schema_url": "https://prometheus-operator.dev/docs/operator/api/#monitoring.coreos.com/v1.ServiceMonitor",
+      "parameter_keys": [
+        "metricsInterval",
+        "namespace"
+      ]
+    },
+    "loki_rule": {
+      "output_ext": ".yaml",
+      "output_path": "loki/rules/{target}-loki-rules.yaml",
+      "description": "Loki recording/alerting rules",
+      "schema_url": "https://grafana.com/docs/loki/latest/rules/",
+      "parameter_keys": [
+        "logSelectors",
+        "recordingRules",
+        "labelExtractors",
+        "logFormat"
+      ]
+    },
+    "notification_policy": {
+      "output_ext": ".yaml",
+      "output_path": "alertmanager/{target}-notification.yaml",
+      "description": "Alert routing and notification config",
+      "schema_url": "https://prometheus.io/docs/alerting/latest/configuration/",
+      "parameter_keys": [
+        "alertChannels",
+        "owner",
+        "owners"
+      ]
+    },
+    "runbook": {
+      "output_ext": ".md",
+      "output_path": "runbooks/{target}-runbook.md",
+      "description": "Incident response runbook",
+      "schema_url": "https://docs.github.com/en/contributing/writing-for-github-docs/creating-markdown-runbooks",
+      "parameter_keys": [
+        "risks",
+        "escalationContacts"
+      ]
+    }
+  },
+  "output_path_conventions": {
+    "dashboard": {
+      "output_ext": ".json",
+      "output_path": "grafana/dashboards/{target}-dashboard.json",
+      "description": "Grafana dashboard JSON",
+      "schema_url": "https://grafana.com/docs/grafana/latest/dashboards/build-dashboards/view-dashboard-json-model/"
+    },
+    "prometheus_rule": {
+      "output_ext": ".yaml",
+      "output_path": "prometheus/rules/{target}-prometheus-rules.yaml",
+      "description": "Prometheus alerting rules",
+      "schema_url": "https://prometheus-operator.dev/docs/operator/api/#monitoring.coreos.com/v1.PrometheusRule"
+    },
+    "slo_definition": {
+      "output_ext": ".yaml",
+      "output_path": "slo/{target}-slo.yaml",
+      "description": "OpenSLO/Sloth SLO definition",
+      "schema_url": "https://openslo.com/"
+    },
+    "service_monitor": {
+      "output_ext": ".yaml",
+      "output_path": "k8s/observability/{target}-service-monitor.yaml",
+      "description": "Kubernetes ServiceMonitor",
+      "schema_url": "https://prometheus-operator.dev/docs/operator/api/#monitoring.coreos.com/v1.ServiceMonitor"
+    },
+    "loki_rule": {
+      "output_ext": ".yaml",
+      "output_path": "loki/rules/{target}-loki-rules.yaml",
+      "description": "Loki recording/alerting rules",
+      "schema_url": "https://grafana.com/docs/loki/latest/rules/"
+    },
+    "notification_policy": {
+      "output_ext": ".yaml",
+      "output_path": "alertmanager/{target}-notification.yaml",
+      "description": "Alert routing and notification config",
+      "schema_url": "https://prometheus.io/docs/alerting/latest/configuration/"
+    },
+    "runbook": {
+      "output_ext": ".md",
+      "output_path": "runbooks/{target}-runbook.md",
+      "description": "Incident response runbook",
+      "schema_url": "https://docs.github.com/en/contributing/writing-for-github-docs/creating-markdown-runbooks"
+    },
+    "alert_template": {
+      "output_ext": ".yaml",
+      "output_path": "alertmanager/templates/{target}-alert-template.yaml",
+      "description": "Alert message template",
+      "schema_url": "https://prometheus.io/docs/alerting/latest/configuration/"
+    }
+  },
+  "parameter_schema": {
+    "dashboard": [
+      "criticality",
+      "dashboardPlacement",
+      "datasources",
+      "risks"
+    ],
+    "prometheus_rule": [
+      "alertSeverity",
+      "availabilityThreshold",
+      "latencyThreshold",
+      "latencyP50Threshold",
+      "throughput"
+    ],
+    "slo_definition": [
+      "availability",
+      "latencyP99",
+      "errorBudget",
+      "throughput"
+    ],
+    "service_monitor": [
+      "metricsInterval",
+      "namespace"
+    ],
+    "loki_rule": [
+      "logSelectors",
+      "recordingRules",
+      "labelExtractors",
+      "logFormat"
+    ],
+    "notification_policy": [
+      "alertChannels",
+      "owner",
+      "owners"
+    ],
+    "runbook": [
+      "risks",
+      "escalationContacts"
+    ],
+    "alert_template": [
+      "alertSeverity",
+      "summaryTemplate",
+      "descriptionTemplate"
+    ]
+  },
+  "coverage": {
+    "totalRequired": 12,
+    "totalExisting": 0,
+    "totalOutdated": 0,
+    "overallCoverage": 0.0,
+    "byTarget": [
+      {
+        "target": "checkout-api",
+        "namespace": "default",
+        "requiredCount": 6,
+        "existingCount": 0,
+        "coveragePercent": 0.0,
+        "gaps": [
+          "checkout_api-dashboard",
+          "checkout_api-prometheus-rules",
+          "checkout_api-slo",
+          "checkout_api-service-monitor",
+          "checkout_api-notification",
+          "checkout_api-runbook"
+        ]
+      },
+      {
+        "target": "checkout-worker",
+        "namespace": "default",
+        "requiredCount": 6,
+        "existingCount": 0,
+        "coveragePercent": 0.0,
+        "gaps": [
+          "checkout_worker-dashboard",
+          "checkout_worker-prometheus-rules",
+          "checkout_worker-slo",
+          "checkout_worker-service-monitor",
+          "checkout_worker-notification",
+          "checkout_worker-runbook"
+        ]
+      }
+    ],
+    "byType": {
+      "dashboard": 2,
+      "prometheus_rule": 2,
+      "slo_definition": 2,
+      "service_monitor": 2,
+      "loki_rule": 2,
+      "notification_policy": 2,
+      "runbook": 2
+    },
+    "gaps": [
+      "checkout_api-dashboard",
+      "checkout_api-prometheus-rules",
+      "checkout_api-slo",
+      "checkout_api-service-monitor",
+      "checkout_api-loki-rules",
+      "checkout_api-notification",
+      "checkout_api-runbook",
+      "checkout_worker-dashboard",
+      "checkout_worker-prometheus-rules",
+      "checkout_worker-slo",
+      "checkout_worker-service-monitor",
+      "checkout_worker-loki-rules",
+      "checkout_worker-notification",
+      "checkout_worker-runbook"
+    ]
+  },
+  "semantic_conventions": {
+    "attributeNamespaces": [
+      "gen_ai.*",
+      "agent.*",
+      "io.contextcore.*"
+    ],
+    "metrics": {
+      "contextcore": [
+        "contextcore_task_progress",
+        "contextcore_task_status",
+        "contextcore_install_completeness_percent"
+      ],
+      "beaver": [
+        "startd8_active_sessions",
+        "startd8_requests_total",
+        "startd8_tokens_total",
+        "startd8_response_time_ms",
+        "startd8_context_usage_ratio",
+        "startd8_truncations_total",
+        "startd8_cost_total"
+      ]
+    },
+    "queryTemplates": {
+      "task_by_project": "{ span.io.contextcore.project.id = \"$project\" }",
+      "agent_insights": "{ span.agent.insight.type = \"$type\" }",
+      "gen_ai_operations": "{ span.gen_ai.operation.name = \"$operation\" }",
+      "task_logs": "{job=\"contextcore\"} | json | project_id=\"$project\"",
+      "task_metrics": "contextcore_task_progress{project=\"$project\"}"
+    },
+    "logFormat": "otel"
+  },
+  "provenance": null,
+  "guidance": {
+    "focus": {
+      "areas": [
+        "reliability",
+        "performance",
+        "Black Friday preparation"
+      ],
+      "reason": "All work should prioritize Black Friday readiness (Nov 29)"
+    },
+    "constraints": [
+      {
+        "id": "C-NO-NEW-SYNC-DEPS",
+        "rule": "Do not add new synchronous external service dependencies",
+        "severity": "blocking",
+        "rationale": "Sync dependencies increase latency and reduce fault tolerance",
+        "appliesTo": [
+          "src/services/",
+          "src/handlers/"
+        ]
+      },
+      {
+        "id": "C-PAYMENT-IMMUTABLE",
+        "rule": "Payment processing logic must not be modified without security review",
+        "severity": "blocking",
+        "rationale": "PCI-DSS compliance requirement",
+        "appliesTo": [
+          "src/payment/"
+        ]
+      },
+      {
+        "id": "C-PREFER-STRUCTURED-LOGGING",
+        "rule": "Use structured logging (JSON) instead of string interpolation",
+        "severity": "warning",
+        "rationale": "Improves log searchability in Loki",
+        "appliesTo": []
+      }
+    ],
+    "preferences": [
+      {
+        "id": "PREF-CIRCUIT-BREAKER",
+        "description": "Use resilience4j for circuit breakers over custom implementations",
+        "example": "CircuitBreaker.ofDefaults('payment-gateway')"
+      },
+      {
+        "id": "PREF-METRICS-NAMING",
+        "description": "Follow ContextCore semantic conventions for metric names",
+        "example": "checkout.order.created.total, checkout.payment.duration.seconds"
+      }
+    ]
+  },
+  "artifact_manifest_checksum": "47b9dec839fb74989875ca623f1ffeda52884ac2347cf8609a5a537b549c17b7",
+  "project_context_checksum": "478df70407ac3a17afa61eed0c1512f7b014ea1b76a691b640a490a80abea668",
+  "source_checksum": "6923fb06af7f2c7acc02ca31efb2f0792ede5415ab7c38af33ca231c2f2f6927"
+}

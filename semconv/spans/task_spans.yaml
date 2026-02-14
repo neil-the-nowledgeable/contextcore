@@ -1,0 +1,35 @@
+# Task span definitions
+#
+# Each task becomes a span with start_time, end_time, status, hierarchy, and events.
+# See: src/contextcore/tracker.py TaskTracker.start_task()
+
+groups:
+  - id: span.contextcore.task
+    type: span
+    span_kind: internal
+    brief: >
+      A project task tracked as an OTel span. Each task has a lifecycle:
+      created → in_progress → done/cancelled, with events for status changes.
+    attributes:
+      - ref: task.id
+        requirement_level: required
+      - ref: task.status
+        requirement_level: required
+      - ref: project.id
+        requirement_level: required
+      - ref: task.type
+        requirement_level: recommended
+      - ref: task.priority
+        requirement_level: recommended
+      - ref: task.parent_id
+        requirement_level: recommended
+      - ref: task.title
+        requirement_level: opt_in
+      - ref: task.assignee
+        requirement_level: opt_in
+      - ref: task.story_points
+        requirement_level: opt_in
+      - ref: task.percent_complete
+        requirement_level: opt_in
+      - ref: sprint.id
+        requirement_level: opt_in

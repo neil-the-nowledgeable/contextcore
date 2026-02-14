@@ -4,23 +4,25 @@ Pipeline integrity checker — runs A2A gate checks on real export output.
 Reads ``onboarding-metadata.json`` (and optionally ``provenance.json``) from an
 export output directory and applies the full gate suite:
 
-1. **Checksum chain** — recomputes file checksums and verifies against stored values
-2. **Mapping completeness** — verifies every coverage gap has a task mapping entry
-3. **Gap parity** — compares coverage gaps against available feature IDs
-4. **Structural integrity** — validates required top-level fields exist and are well-formed
-5. **Provenance cross-check** — verifies provenance.json is consistent with onboarding metadata
+1. **Structural integrity** — validates required top-level fields exist and are well-formed
+2. **Checksum chain** — recomputes file checksums and verifies against stored values
+3. **Provenance cross-check** — verifies provenance.json is consistent with onboarding metadata
+4. **Mapping completeness** — verifies every coverage gap has a task mapping entry
+5. **Gap parity** — compares coverage gaps against available feature IDs
+6. **Design calibration** — validates design_calibration_hints cover all artifact types with gaps
+7. **Parameter resolvability** — verifies parameter_sources reference fields that resolve to values
 
 Usage::
 
     from contextcore.contracts.a2a.pipeline_checker import PipelineChecker
 
-    checker = PipelineChecker("out/enrichment-validation")
+    checker = PipelineChecker("out/export")
     report = checker.run()
     print(report.to_text())
 
 CLI::
 
-    contextcore contract a2a-check-pipeline out/enrichment-validation
+    contextcore contract a2a-check-pipeline out/export
 """
 
 from __future__ import annotations
@@ -204,10 +206,12 @@ class PipelineChecker:
         *,
         task_id: str | None = None,
         trace_id: str | None = None,
+        min_coverage: float | None = None,
     ) -> None:
         self.output_dir = Path(output_dir)
         self.task_id = task_id
         self.trace_id = trace_id
+        self.min_coverage = min_coverage
 
         # Loaded lazily by _load()
         self._metadata: dict[str, Any] = {}
@@ -712,6 +716,82 @@ class PipelineChecker:
             checked_at=datetime.now(timezone.utc),
         )
 
+    # ---- Gate: Parameter resolvability ----------------------------------------
+
+    def _check_parameter_resolvability(self) -> Optional[GateResult]:
+        """
+        Verify that parameter_sources reference fields that resolve to values.
+
+        Uses the ``parameter_resolvability`` field computed by onboarding.py,
+        which tracks whether each parameter source path resolves to a non-empty
+        value in the source manifest.
+
+        Returns ``None`` if ``parameter_resolvability`` is not present.
+        """
+        resolvability = self._metadata.get("parameter_resolvability")
+        if not resolvability:
+            return None
+
+        evidence: list[EvidenceItem] = []
+        unresolved_count = 0
+        total_count = 0
+
+        for artifact_id, params in resolvability.items():
+            for param_key, status_info in params.items():
+                total_count += 1
+                if status_info.get("status") == "unresolved":
+                    unresolved_count += 1
+                    reason_msg = status_info.get("reason", "unknown")
+                    source_path = status_info.get("source_path", "?")
+                    evidence.append(EvidenceItem(
+                        type="unresolved_parameter",
+                        ref=f"{artifact_id}.{param_key}",
+                        description=(
+                            f"Parameter '{param_key}' for artifact '{artifact_id}' "
+                            f"references '{source_path}' which is unresolved: {reason_msg}."
+                        ),
+                    ))
+
+        gate_id = f"{self._effective_task_id}-parameter-resolvability"
+        if unresolved_count > 0:
+            return GateResult(
+                gate_id=gate_id,
+                trace_id=self.trace_id,
+                task_id=self._effective_task_id,
+                phase=Phase.EXPORT_CONTRACT,
+                result=GateOutcome.FAIL,
+                severity=GateSeverity.WARNING,
+                reason=(
+                    f"Parameter resolvability issues: {unresolved_count}/{total_count} "
+                    f"parameter(s) reference unresolved manifest fields."
+                ),
+                next_action=(
+                    "Check .contextcore.yaml — the referenced fields are empty or missing. "
+                    "Populate them before re-running export."
+                ),
+                blocking=False,  # Warning — downstream may still work with defaults
+                evidence=evidence[:10],  # Cap evidence to avoid noise
+                checked_at=datetime.now(timezone.utc),
+            )
+
+        return GateResult(
+            gate_id=gate_id,
+            trace_id=self.trace_id,
+            task_id=self._effective_task_id,
+            phase=Phase.EXPORT_CONTRACT,
+            result=GateOutcome.PASS,
+            severity=GateSeverity.INFO,
+            reason=f"All {total_count} parameter source(s) resolve to values.",
+            next_action="Proceed — parameter sources verified.",
+            blocking=False,
+            evidence=[EvidenceItem(
+                type="parameters_verified",
+                ref="parameter_resolvability",
+                description=f"All {total_count} parameter(s) across all artifacts resolve.",
+            )],
+            checked_at=datetime.now(timezone.utc),
+        )
+
     @staticmethod
     def _loc_out_of_range(loc: int, loc_range: str) -> bool:
         """Check if a LOC count falls outside the expected range string."""
@@ -745,6 +825,8 @@ class PipelineChecker:
         3. Provenance cross-check (if provenance.json exists)
         4. Mapping completeness (if artifact_task_mapping exists)
         5. Gap parity (coverage gaps vs artifact features)
+        6. Design calibration (depth tiers vs artifact type expectations)
+        7. Parameter resolvability (parameter_sources reference valid fields)
         """
         self._load()
 
@@ -804,6 +886,63 @@ class PipelineChecker:
             report.skipped.append(
                 "design-calibration: no design_calibration_hints present in metadata"
             )
+
+        # 7. Parameter resolvability
+        param_check = self._check_parameter_resolvability()
+        if param_check:
+            report.gates.append(param_check)
+        else:
+            report.skipped.append(
+                "parameter-resolvability: no parameter_resolvability data in metadata"
+            )
+
+        # --min-coverage enforcement
+        if self.min_coverage is not None:
+            coverage_val = self._metadata.get("coverage", {}).get("overallCoverage", 0.0)
+            gate_id = f"{self._effective_task_id}-min-coverage"
+            if coverage_val < self.min_coverage:
+                report.gates.append(GateResult(
+                    gate_id=gate_id,
+                    trace_id=self.trace_id,
+                    task_id=self._effective_task_id,
+                    phase=Phase.EXPORT_CONTRACT,
+                    result=GateOutcome.FAIL,
+                    severity=GateSeverity.ERROR,
+                    reason=(
+                        f"Coverage {coverage_val * 100:.0f}% is below the "
+                        f"required minimum of {self.min_coverage * 100:.0f}%."
+                    ),
+                    next_action=(
+                        "Run export with --scan-existing to detect existing artifacts, "
+                        "or populate the manifest with more targets."
+                    ),
+                    blocking=True,
+                    evidence=[EvidenceItem(
+                        type="coverage_below_threshold",
+                        ref="coverage.overallCoverage",
+                        description=(
+                            f"overallCoverage={coverage_val}, "
+                            f"min_coverage={self.min_coverage}"
+                        ),
+                    )],
+                    checked_at=datetime.now(timezone.utc),
+                ))
+            else:
+                report.gates.append(GateResult(
+                    gate_id=gate_id,
+                    trace_id=self.trace_id,
+                    task_id=self._effective_task_id,
+                    phase=Phase.EXPORT_CONTRACT,
+                    result=GateOutcome.PASS,
+                    severity=GateSeverity.INFO,
+                    reason=(
+                        f"Coverage {coverage_val * 100:.0f}% meets the "
+                        f"minimum threshold of {self.min_coverage * 100:.0f}%."
+                    ),
+                    next_action="Proceed — coverage meets threshold.",
+                    blocking=False,
+                    checked_at=datetime.now(timezone.utc),
+                ))
 
         # Add warnings for common issues
         coverage = self._metadata.get("coverage", {})

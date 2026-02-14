@@ -1,0 +1,46 @@
+{
+  "generatedAt": "2026-02-13T11:59:36.858772",
+  "durationMs": 36,
+  "sourcePath": "/Users/neilyashinsky/Documents/dev/ContextCore/examples/context_manifest_v2_example.yaml",
+  "sourceChecksum": "6923fb06af7f2c7acc02ca31efb2f0792ede5415ab7c38af33ca231c2f2f6927",
+  "contextcoreVersion": "0.1.0",
+  "pythonVersion": "3.14.2",
+  "hostname": "Harold.local",
+  "username": "neilyashinsky",
+  "workingDirectory": "/Users/neilyashinsky/Documents/dev/ContextCore",
+  "git": {
+    "commitSha": "90e921cddafc3d5fe6612cb592057d401411f28c",
+    "branch": "main",
+    "isDirty": true,
+    "remoteUrl": "https://github.com/neil-the-nowledgable/contextcore.git"
+  },
+  "cliArgs": [
+    "/opt/homebrew/bin/contextcore",
+    "manifest",
+    "export",
+    "-p",
+    "examples/context_manifest_v2_example.yaml",
+    "-o",
+    "./out/enrichment-validation",
+    "--emit-provenance"
+  ],
+  "cliOptions": {
+    "path": "examples/context_manifest_v2_example.yaml",
+    "output_dir": "./out/enrichment-validation",
+    "namespace": "default",
+    "existing": [],
+    "scan_existing": null,
+    "format": "yaml",
+    "dry_run": false,
+    "emit_provenance": true,
+    "embed_provenance": false,
+    "emit_onboarding": true,
+    "min_coverage": null,
+    "task_mapping": null
+  },
+  "outputDirectory": "out/enrichment-validation",
+  "outputFiles": [
+    "checkout-service-projectcontext.yaml",
+    "checkout-service-artifact-manifest.yaml"
+  ]
+}

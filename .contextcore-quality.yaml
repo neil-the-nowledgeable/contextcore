@@ -1,0 +1,27 @@
+strict_quality_default: true
+forbid_no_strict_quality_in_ci: true
+ci_bootstrap_env_var: CONTEXTCORE_BOOTSTRAP_JOB
+
+coverage_thresholds_by_env:
+  dev: 60
+  staging: 80
+  prod: 90
+
+default_environment: dev
+
+scan_path_allowlist:
+  - grafana/dashboards
+  - prometheus/rules
+  - k8s/observability
+  - loki/rules
+  - runbooks
+  - alertmanager
+
+schema_pins:
+  manifest_api_version: contextcore.io/v1alpha2
+  onboarding_schema: contextcore.io/onboarding-metadata/v1
+  validation_schema: contextcore.io/validation-report/v1
+  schema_version: "1.0.0"
+
+emit_quality_report_default: true
+deterministic_output_default: true

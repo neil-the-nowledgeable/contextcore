@@ -37,8 +37,8 @@ class TestTraceQLQueries:
         assert "span.task.next_action" in q
         assert "select(" in q
 
-    def test_gate_failures(self, queries: A2AQueries) -> None:
-        q = queries.gate_failures()
+    def test_gate_failure_rate(self, queries: A2AQueries) -> None:
+        q = queries.gate_failure_rate()
         assert 'span.gate.result = "fail"' in q
 
     def test_gate_results_by_phase(self, queries: A2AQueries) -> None:
@@ -62,7 +62,7 @@ class TestTraceQLQueries:
         traceql_methods = [
             queries.blocked_span_hotspot,
             queries.blocked_spans_with_reason,
-            queries.gate_failures,
+            queries.gate_failure_rate,
             queries.finalize_outcomes,
         ]
         for method in traceql_methods:
@@ -110,7 +110,7 @@ class TestAllQueriesDict:
         expected_keys = {
             "blocked_span_hotspot",
             "blocked_spans_detail",
-            "gate_failures",
+            "gate_failure_rate",
             "finalize_outcomes",
             "handoff_validation_failures",
             "dropped_artifacts",

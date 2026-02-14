@@ -1,0 +1,38 @@
+# project.* attribute group — 5 attributes
+#
+# Canonical source: src/contextcore/tracker.py (constants)
+
+groups:
+  - id: registry.project
+    type: attribute_group
+    brief: >
+      Project-level attributes attached to all ContextCore spans.
+    prefix: project
+    attributes:
+      - id: project.id
+        type: string
+        requirement_level: required
+        brief: Canonical project identifier.
+        examples: ["commerce-platform", "contextcore"]
+
+      - id: project.name
+        type: string
+        requirement_level: recommended
+        brief: Human-readable project name.
+        examples: ["Commerce Platform", "ContextCore"]
+
+      - id: project.epic
+        type: string
+        requirement_level: opt_in
+        brief: Epic identifier for this project context.
+        examples: ["EPIC-42"]
+
+      - id: project.task
+        type: string
+        requirement_level: opt_in
+        brief: Top-level task identifier in external systems.
+
+      - id: project.trace_id
+        type: string
+        requirement_level: opt_in
+        brief: Correlation trace ID linking to other observability data.

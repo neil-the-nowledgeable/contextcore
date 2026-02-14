@@ -575,6 +575,141 @@ class TestDesignCalibration:
 
 
 # ===========================================================================
+# Tests — Parameter resolvability
+# ===========================================================================
+
+
+class TestParameterResolvability:
+    """Test the parameter resolvability gate."""
+
+    def test_all_resolved_passes(self, tmp_path: Path):
+        out_dir = _write_fixture(
+            tmp_path,
+            parameter_resolvability={
+                "checkout_api-dashboard": {
+                    "service_name": {
+                        "status": "resolved",
+                        "source_path": "spec.targets[0].name",
+                    },
+                    "criticality": {
+                        "status": "resolved",
+                        "source_path": "spec.business.criticality",
+                    },
+                },
+            },
+        )
+        checker = PipelineChecker(out_dir)
+        report = checker.run()
+
+        param_gate = next(g for g in report.gates if "parameter-resolvability" in g.gate_id)
+        assert param_gate.result == GateOutcome.PASS
+        assert "2 parameter source(s) resolve" in param_gate.reason
+
+    def test_unresolved_parameters_fails(self, tmp_path: Path):
+        out_dir = _write_fixture(
+            tmp_path,
+            parameter_resolvability={
+                "checkout_api-dashboard": {
+                    "service_name": {
+                        "status": "resolved",
+                        "source_path": "spec.targets[0].name",
+                    },
+                    "latency_p99": {
+                        "status": "unresolved",
+                        "source_path": "spec.requirements.latencyP99",
+                        "reason": "field is empty",
+                    },
+                },
+            },
+        )
+        checker = PipelineChecker(out_dir)
+        report = checker.run()
+
+        param_gate = next(g for g in report.gates if "parameter-resolvability" in g.gate_id)
+        assert param_gate.result == GateOutcome.FAIL
+        assert "1/2" in param_gate.reason
+        assert param_gate.blocking is False  # Warning, not blocking
+
+    def test_no_resolvability_data_skipped(self, tmp_path: Path):
+        out_dir = _write_fixture(tmp_path)
+        checker = PipelineChecker(out_dir)
+        report = checker.run()
+
+        assert any("parameter-resolvability" in s for s in report.skipped)
+
+    def test_unresolved_does_not_break_health(self, tmp_path: Path):
+        """Parameter resolvability issues are warnings, not blocks."""
+        out_dir = _write_fixture(
+            tmp_path,
+            parameter_resolvability={
+                "checkout_api-dashboard": {
+                    "latency_p99": {
+                        "status": "unresolved",
+                        "source_path": "spec.requirements.latencyP99",
+                        "reason": "field is empty",
+                    },
+                },
+            },
+        )
+        checker = PipelineChecker(out_dir)
+        report = checker.run()
+
+        assert report.is_healthy is True  # Non-blocking
+
+
+# ===========================================================================
+# Tests — Min-coverage threshold
+# ===========================================================================
+
+
+class TestMinCoverage:
+    """Test the --min-coverage threshold enforcement."""
+
+    def test_coverage_meets_threshold_passes(self, tmp_path: Path):
+        out_dir = _write_fixture(tmp_path)
+
+        # Set overallCoverage to 0.6
+        meta_path = out_dir / "onboarding-metadata.json"
+        data = json.loads(meta_path.read_text())
+        data["coverage"]["overallCoverage"] = 0.6
+        meta_path.write_text(json.dumps(data))
+
+        checker = PipelineChecker(out_dir, min_coverage=0.5)
+        report = checker.run()
+
+        cov_gate = next(g for g in report.gates if "min-coverage" in g.gate_id)
+        assert cov_gate.result == GateOutcome.PASS
+        assert "60%" in cov_gate.reason
+
+    def test_coverage_below_threshold_fails(self, tmp_path: Path):
+        out_dir = _write_fixture(tmp_path)
+
+        # overallCoverage defaults to 0.0 in the fixture
+        checker = PipelineChecker(out_dir, min_coverage=0.5)
+        report = checker.run()
+
+        cov_gate = next(g for g in report.gates if "min-coverage" in g.gate_id)
+        assert cov_gate.result == GateOutcome.FAIL
+        assert cov_gate.blocking is True
+        assert "0%" in cov_gate.reason
+        assert "50%" in cov_gate.reason
+
+    def test_no_min_coverage_skips_gate(self, tmp_path: Path):
+        out_dir = _write_fixture(tmp_path)
+        checker = PipelineChecker(out_dir)  # No min_coverage
+        report = checker.run()
+
+        assert not any("min-coverage" in g.gate_id for g in report.gates)
+
+    def test_min_coverage_failure_makes_unhealthy(self, tmp_path: Path):
+        out_dir = _write_fixture(tmp_path)
+        checker = PipelineChecker(out_dir, min_coverage=0.5)
+        report = checker.run()
+
+        assert report.is_healthy is False
+
+
+# ===========================================================================
 # Tests — Report
 # ===========================================================================
 

@@ -1,0 +1,204 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Dashboard for triggering Claude agent from Grafana",
+  "editable": true,
+  "links": [],
+  "panels": [
+    {
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "content": "# Claude Agent\n\n**How to use:** Enter your prompt in the text field above (labeled '💬 Enter your prompt'), then click **Ask Claude**. Use **Analyze This Dashboard** to have Claude analyze any dashboard by UID.",
+        "mode": "markdown"
+      },
+      "title": "",
+      "type": "text"
+    },
+    {
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 0,
+        "y": 2
+      },
+      "id": 2,
+      "options": {
+        "contentType": "application/json",
+        "isAuth": false,
+        "method": "POST",
+        "orientation": "center",
+        "payload": "{\"prompt\": \"${prompt}\"}",
+        "text": "Ask Claude",
+        "url": "http://localhost:8888/invoke",
+        "variant": "primary"
+      },
+      "title": "Ask Claude",
+      "type": "cloudspout-button-panel"
+    },
+    {
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 6,
+        "y": 2
+      },
+      "id": 3,
+      "options": {
+        "contentType": "application/json",
+        "isAuth": false,
+        "method": "POST",
+        "orientation": "center",
+        "payload": "{}",
+        "text": "Analyze Live Metrics",
+        "url": "http://localhost:8888/analyze-metrics",
+        "variant": "secondary"
+      },
+      "title": "Analyze Metrics",
+      "type": "cloudspout-button-panel"
+    },
+    {
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 12,
+        "y": 2
+      },
+      "id": 10,
+      "options": {
+        "contentType": "application/json",
+        "isAuth": false,
+        "method": "POST",
+        "orientation": "center",
+        "payload": "{\"dashboard_uid\": \"${dashboard_uid}\", \"question\": \"${prompt}\"}",
+        "text": "Analyze Dashboard",
+        "url": "http://localhost:8888/analyze-dashboard",
+        "variant": "secondary"
+      },
+      "title": "Analyze Dashboard",
+      "type": "cloudspout-button-panel"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "id": 4,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "expr": "{job=\"claude-agent\", type=\"response\"}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Agent Responses",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "id": 5,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "expr": "{job=\"claude-agent\", type=\"prompt\"}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Prompts Sent",
+      "type": "logs"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": [
+    "011yBubo",
+    "agent",
+    "claude"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "value": "What should I monitor for a healthy system?"
+        },
+        "description": "Type your question or prompt for Claude here, then click Ask Claude",
+        "hide": 0,
+        "label": "💬 Enter your prompt",
+        "name": "prompt",
+        "options": [
+          {
+            "selected": true,
+            "text": "What should I monitor for a healthy system?",
+            "value": "What should I monitor for a healthy system?"
+          }
+        ],
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "value": "agent-trigger"
+        },
+        "description": "Enter the UID of a dashboard to analyze",
+        "hide": 0,
+        "label": "📊 Dashboard UID",
+        "name": "dashboard_uid",
+        "options": [
+          {
+            "selected": true,
+            "text": "agent-trigger",
+            "value": "agent-trigger"
+          }
+        ],
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "[EXTERNAL] Agent Trigger",
+  "uid": "contextcore-external-agent-trigger"
+}

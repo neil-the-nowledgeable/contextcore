@@ -13,9 +13,10 @@ import hashlib
 import os
 import subprocess
 import sys
+import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from contextcore.models.artifact_manifest import ExportProvenance, GitContext
 
@@ -34,12 +35,19 @@ def get_file_checksum(file_path: str, algorithm: str = "sha256") -> Optional[str
     path = Path(file_path)
     if not path.exists():
         return None
+        
+    if not path.is_file():
+        # Handle case where path exists but is not a file (e.g. directory)
+        return None
 
     hasher = hashlib.new(algorithm)
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            hasher.update(chunk)
-    return hasher.hexdigest()
+    try:
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                hasher.update(chunk)
+        return hasher.hexdigest()
+    except (OSError, PermissionError):
+        return None
 
 
 def get_content_checksum(
@@ -58,6 +66,97 @@ def get_content_checksum(
     if isinstance(content, str):
         content = content.encode("utf-8")
     return hashlib.new(algorithm, content).hexdigest()
+
+
+def get_file_fingerprint(path: Union[str, Path]) -> Dict[str, Any]:
+    """
+    Get a fingerprint of a file (path, exists, mtime, sha256).
+    
+    Args:
+        path: Path to the file
+        
+    Returns:
+        Dictionary with file metadata
+    """
+    p = Path(path)
+    exists = p.exists()
+    
+    fingerprint = {
+        "path": str(p),
+        "exists": exists,
+        "mtime": None,
+        "sha256": None,
+    }
+    
+    if exists and p.is_file():
+        fingerprint["mtime"] = datetime.fromtimestamp(p.stat().st_mtime).isoformat()
+        fingerprint["sha256"] = get_file_checksum(str(p))
+        
+    return fingerprint
+
+
+def build_run_provenance_payload(
+    workflow_or_command: str,
+    inputs: List[Union[str, Path]],
+    outputs: List[Union[str, Path]],
+    run_id: Optional[str] = None,
+    config_snapshot: Optional[Dict[str, Any]] = None,
+    quality_summary: Optional[Dict[str, Any]] = None,
+    artifact_references: Optional[Dict[str, str]] = None,
+    start_time: Optional[datetime] = None,
+    completed_at: Optional[datetime] = None,
+) -> Dict[str, Any]:
+    """
+    Build a standardized run provenance payload.
+    
+    Args:
+        workflow_or_command: Name of the command or workflow (e.g. 'manifest export')
+        inputs: List of input file paths
+        outputs: List of output file paths
+        run_id: Optional run ID (generated if not provided)
+        config_snapshot: Optional snapshot of relevant configuration
+        quality_summary: Optional summary of quality checks/decisions
+        artifact_references: Optional references to other artifacts (e.g. url, path)
+        start_time: Optional start time (defaults to now)
+        completed_at: Optional completion time (defaults to now)
+        
+    Returns:
+        Dictionary containing the run provenance payload
+    """
+    now = datetime.now()
+    start = start_time or now
+    end = completed_at or now
+    
+    # Generate run ID if not provided
+    if not run_id:
+        run_id = str(uuid.uuid4())
+        
+    # Build fingerprints
+    input_fingerprints = [get_file_fingerprint(p) for p in inputs]
+    output_fingerprints = [get_file_fingerprint(p) for p in outputs]
+    
+    payload = {
+        "run_id": run_id,
+        "workflow_or_command": workflow_or_command,
+        "version": "1.0.0",  # Provenance schema version
+        "contextcore_version": get_contextcore_version(),
+        "started_at": start.isoformat(),
+        "completed_at": end.isoformat(),
+        "duration_ms": int((end - start).total_seconds() * 1000),
+        "environment": {
+            "hostname": get_hostname(),
+            "username": get_username(),
+            "python_version": get_python_version(),
+            "working_directory": os.getcwd(),
+        },
+        "config_snapshot": config_snapshot or {},
+        "inputs": input_fingerprints,
+        "outputs": output_fingerprints,
+        "quality_summary": quality_summary or {},
+        "artifact_references": artifact_references or {},
+    }
+    
+    return payload
 
 
 def get_git_context(file_path: str) -> Optional[GitContext]:
@@ -199,17 +298,19 @@ def capture_provenance(
 
 
 def write_provenance_file(
-    provenance: ExportProvenance,
-    output_path: str,
+    provenance: Union[ExportProvenance, Dict[str, Any]],
+    output_path: Union[str, Path],
     format: str = "json",
+    filename: Optional[str] = None,
 ) -> str:
     """
     Write provenance metadata to a separate file.
     
     Args:
-        provenance: The provenance data to write
+        provenance: The provenance data to write (ExportProvenance or dict)
         output_path: Path to write the file (directory or full path)
         format: Output format ('json' or 'yaml')
+        filename: Optional filename (default: provenance.{format} or run-provenance.{format})
     
     Returns:
         Path to the written file
@@ -220,11 +321,15 @@ def write_provenance_file(
     
     # If output_path is a directory, create filename
     if path.is_dir():
-        filename = f"provenance.{format}"
+        if not filename:
+            filename = f"provenance.{format}"
         path = path / filename
     
     # Serialize
-    data = provenance.model_dump(by_alias=True, exclude_none=True, mode="json")
+    if isinstance(provenance, dict):
+        data = provenance
+    else:
+        data = provenance.model_dump(by_alias=True, exclude_none=True, mode="json")
     
     if format == "yaml":
         import yaml

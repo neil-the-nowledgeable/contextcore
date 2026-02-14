@@ -1,0 +1,26 @@
+apiVersion: contextcore.io/v1
+kind: ProjectContext
+metadata:
+  name: checkout-service
+  namespace: default
+spec:
+  project:
+    id: checkout-service
+    tasks: []
+  business:
+    criticality: critical
+    value: revenue-primary
+    owner: commerce-platform
+    stakeholders: []
+  requirements:
+    availability: '99.95'
+    latencyP99: 200ms
+    throughput: 5000rps
+  risks: []
+  targets:
+  - kind: Deployment
+    name: checkout-api
+    namespace: commerce
+  - kind: Deployment
+    name: checkout-worker
+    namespace: commerce

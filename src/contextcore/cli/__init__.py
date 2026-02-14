@@ -46,12 +46,15 @@ from .knowledge import knowledge
 from .terminology import terminology
 from .manifest import manifest
 from .docs import docs
+from .polish import polish
 from .core import create, annotate, generate, runbook, controller
 
 # Phase 2 commands
 from .review import review
 from .contract import contract
 from .slo_tests import slo_tests
+from .status import status
+from .weaver import weaver
 
 # Phase 3 commands
 from .graph import graph
@@ -95,11 +98,14 @@ main.add_command(knowledge)
 main.add_command(terminology)
 main.add_command(manifest)
 main.add_command(docs)
+main.add_command(polish)
 
 # Phase 2 command groups
 main.add_command(review)
 main.add_command(contract)
 main.add_command(slo_tests, name="slo-tests")
+main.add_command(status)
+main.add_command(weaver)
 
 # Phase 3 command groups
 main.add_command(graph)

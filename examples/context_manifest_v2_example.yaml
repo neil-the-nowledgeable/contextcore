@@ -1,0 +1,238 @@
+# Context Manifest v2.0 Example
+#
+# This example demonstrates the v2.0 "Active Control Plane" format with:
+# - strategy: Unified objectives and tactics (flattened hierarchy)
+# - guidance: Agent governance directives (focus, constraints, questions)
+# - insights: Derived signals with structured evidence
+#
+# Migrate from v1.1: contextcore manifest migrate --path .contextcore.yaml
+
+apiVersion: contextcore.io/v1alpha2
+kind: ContextManifest
+
+metadata:
+  name: checkout-service
+  owners:
+    - team: commerce-platform
+      slack: "#commerce-oncall"
+      email: commerce@example.com
+      oncall: commerce-platform
+  changelog:
+    - date: "2024-01-15"
+      version: "2.0"
+      actor: human:neil
+      summary: "Initial v2.0 manifest with governance section"
+    - date: "2024-01-20"
+      version: "2.0.1"
+      actor: agent:claude
+      summary: "Added latency constraint for Black Friday prep"
+  lastUpdated: "2024-01-20T14:30:00Z"
+  links:
+    repository: https://github.com/example/checkout-service
+    wiki: https://wiki.example.com/commerce/checkout
+    dashboard: https://grafana.example.com/d/checkout-overview
+
+# Operational Context (synced to Kubernetes CRD)
+spec:
+  project:
+    id: checkout-service
+    name: Checkout Service
+    description: Handles cart checkout, payment processing, and order creation
+  business:
+    criticality: critical
+    owner: commerce-platform
+    value: revenue-primary
+  requirements:
+    availability: "99.95"
+    latencyP99: "200ms"
+    throughput: "5000rps"
+  targets:
+    - kind: Deployment
+      name: checkout-api
+      namespace: commerce
+    - kind: Deployment
+      name: checkout-worker
+      namespace: commerce
+
+# Strategic Context (the "Why")
+strategy:
+  objectives:
+    - id: OBJ-RELIABILITY
+      description: "Achieve 99.99% availability for Black Friday"
+      keyResults:
+        - metricKey: availability
+          unit: "%"
+          target: 99.99
+          targetOperator: gte
+          baseline: 99.95
+          window: "30d"
+          dataSource: "promql:avg_over_time(up{service='checkout'}[30d])"
+
+    - id: OBJ-LATENCY
+      description: "Reduce P99 latency to under 150ms"
+      keyResults:
+        - metricKey: latency.p99
+          unit: ms
+          target: 150
+          targetOperator: lte
+          baseline: 220
+          window: "7d"
+          dataSource: "promql:histogram_quantile(0.99, rate(checkout_duration_seconds_bucket[5m]))"
+
+  tactics:
+    - id: TAC-CIRCUIT-BREAKER
+      description: "Implement circuit breaker for payment gateway calls"
+      status: in_progress
+      owner: alice@example.com
+      linkedObjectives:
+        - OBJ-RELIABILITY
+      startDate: "2024-01-10"
+      dueDate: "2024-01-25"
+      progress: 60
+      artifacts:
+        - type: pr
+          id: pr-142
+          url: "https://github.com/example/checkout-service/pull/142"
+        - type: issue
+          id: issue-137
+          url: "https://github.com/example/checkout-service/issues/137"
+
+    - id: TAC-CACHE-INVENTORY
+      description: "Add Redis cache layer for inventory checks"
+      status: planned
+      owner: bob@example.com
+      linkedObjectives:
+        - OBJ-LATENCY
+      startDate: "2024-01-20"
+      dueDate: "2024-02-05"
+
+    - id: TAC-ASYNC-NOTIFICATIONS
+      description: "Move order notifications to async queue"
+      status: blocked
+      owner: alice@example.com
+      linkedObjectives:
+        - OBJ-LATENCY
+      blockedReason: "Waiting for Kafka cluster provisioning (INFRA-234)"
+
+  strategyGroups:
+    - id: STRAT-ASYNC-FIRST
+      description: "Adopt async-first patterns to reduce synchronous dependencies"
+      horizon: near
+      rationale: "Black Friday readiness requires removing latency-sensitive sync calls"
+      objectiveRefs:
+        - OBJ-RELIABILITY
+        - OBJ-LATENCY
+
+# Governance Context (agent directives)
+guidance:
+  focus:
+    areas:
+      - reliability
+      - performance
+      - Black Friday preparation
+    reason: "All work should prioritize Black Friday readiness (Nov 29)"
+    until: "2024-11-30"
+
+  constraints:
+    - id: C-NO-NEW-SYNC-DEPS
+      rule: "Do not add new synchronous external service dependencies"
+      severity: blocking
+      rationale: "Sync dependencies increase latency and reduce fault tolerance"
+      appliesTo:
+        - src/services/
+        - src/handlers/
+
+    - id: C-PAYMENT-IMMUTABLE
+      rule: "Payment processing logic must not be modified without security review"
+      severity: blocking
+      rationale: "PCI-DSS compliance requirement"
+      appliesTo:
+        - src/payment/
+
+    - id: C-PREFER-STRUCTURED-LOGGING
+      rule: "Use structured logging (JSON) instead of string interpolation"
+      severity: warning
+      rationale: "Improves log searchability in Loki"
+
+  preferences:
+    - id: PREF-CIRCUIT-BREAKER
+      description: "Use resilience4j for circuit breakers over custom implementations"
+      example: "CircuitBreaker.ofDefaults('payment-gateway')"
+
+    - id: PREF-METRICS-NAMING
+      description: "Follow ContextCore semantic conventions for metric names"
+      example: "checkout.order.created.total, checkout.payment.duration.seconds"
+
+  questions:
+    - id: Q-REDIS-CLUSTER
+      question: "Should we use Redis Cluster or Redis Sentinel for the cache layer?"
+      status: open
+      priority: high
+
+    - id: Q-CIRCUIT-BREAKER-CONFIG
+      question: "What are the recommended failure thresholds for the payment gateway circuit breaker?"
+      status: answered
+      priority: medium
+      answer: "5 failures in 30 seconds with 60 second reset timeout"
+      answeredBy: agent:claude
+      answeredAt: "2024-01-18T10:30:00Z"
+
+    - id: Q-LOAD-TEST-RESULTS
+      question: "What did the latest load test reveal about checkout throughput limits?"
+      status: deferred
+      priority: low
+
+# Ephemeral Context (derived insights)
+insights:
+  - id: INS-DEP-EOL
+    type: risk
+    summary: "PostgreSQL driver version 42.2 reaches EOL in 60 days"
+    confidence: 0.95
+    source: "scanner:dependency-check"
+    severity: critical
+    observedAt: "2024-01-15T08:00:00Z"
+    expiresAt: "2024-03-15T00:00:00Z"
+    impact: "Security vulnerabilities will not be patched after EOL"
+    evidence:
+      - type: scanner-report
+        ref: "https://nvd.nist.gov/vuln/detail/CVE-2024-XXXX"
+        description: "CVE details for vulnerable driver version"
+    recommendedActions:
+      - "Upgrade to PostgreSQL driver 42.7+ in TAC-DEP-UPGRADE"
+      - "Create upgrade tactic if not exists"
+
+  - id: INS-LATENCY-PATTERN
+    type: pattern
+    summary: "Payment gateway latency spikes correlate with inventory service deployments"
+    confidence: 0.78
+    source: "agent:performance-analyzer"
+    severity: medium
+    observedAt: "2024-01-19T16:00:00Z"
+    impact: "Checkout latency increases 40% during inventory deployments"
+    evidence:
+      - type: correlation-analysis
+        ref: "grafana:d/checkout-correlation?from=1705680000"
+        description: "Grafana dashboard showing latency correlation"
+    recommendedActions:
+      - "Investigate shared database connection pool exhaustion"
+      - "Consider circuit breaker for inventory calls"
+
+  - id: INS-TEST-COVERAGE
+    type: opportunity
+    summary: "Payment module test coverage is 45%, below 80% target"
+    confidence: 1.0
+    source: "ci:coverage-report"
+    severity: info
+    observedAt: "2024-01-20T06:00:00Z"
+    impact: "Lower confidence in payment flow changes"
+    recommendedActions:
+      - "Add unit tests for PaymentProcessor edge cases"
+      - "Add integration tests for refund flows"
+
+# Optional: Ephemeral state tracking
+state:
+  lastSyncTime: "2024-01-20T14:30:00Z"
+  syncStatus: synced
+  objectiveCount: 2
+  activeTacticCount: 2
+  openQuestionCount: 1
