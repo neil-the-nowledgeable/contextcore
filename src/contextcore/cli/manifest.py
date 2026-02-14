@@ -549,27 +549,63 @@ def _build_plan_draft_markdown(
 {nfr_lines}
 
 ## 7. Artifact Generation Plan
-- [dashboard]
-- [prometheus_rule]
-- [loki_rule]
-- [service_monitor]
-- [slo_definition]
-- [notification_policy]
-- [runbook]
 
-## 8. Validation and Test Obligations
+Each artifact type has derivation rules (business metadata → artifact config), expected output
+contracts (depth, max_lines, completeness markers), and may have dependencies on other artifacts.
+
+| Artifact Type | Expected Depth | Depends On | Notes |
+|---------------|---------------|------------|-------|
+| dashboard | comprehensive (>150 LOC) | prometheus_rule, slo_definition | Grafana JSON with panels, templating |
+| prometheus_rule | standard (51-150 LOC) | service_monitor | Alert rules, recording rules |
+| loki_rule | standard (51-150 LOC) | - | Log-based recording rules |
+| service_monitor | brief (<=50 LOC) | - | K8s ServiceMonitor YAML |
+| slo_definition | standard | - | SLO target + error budget |
+| notification_policy | standard | prometheus_rule | Alert routing config |
+| runbook | standard-comprehensive | prometheus_rule, dashboard | Incident procedures |
+
+## 8. A2A Governance Gates
+
+The export pipeline is validated by the A2A governance layer at every handoff boundary.
+
+### Pre-Ingestion (Gate 1) — `contextcore contract a2a-check-pipeline`
+- Structural integrity: all 4 export files present and valid
+- Checksum chain: source → artifact manifest → CRD checksums verified
+- Provenance consistency: git context and timestamps cross-checked
+- Mapping completeness: every artifact has a task mapping entry
+- Gap parity: coverage gaps match expected feature count
+- Design calibration: expected depth per artifact type validated (warning only)
+
+### Post-Ingestion (Gate 2) — `contextcore contract a2a-diagnose`
+- Q1: Is the contract complete? (Export layer)
+- Q2: Was the contract faithfully translated? (Plan Ingestion layer)
+- Q3: Was the translated plan faithfully executed? (Artisan layer)
+
+### Enrichment Fields (in onboarding-metadata.json)
+- `derivation_rules`: business → artifact parameter mappings per type
+- `expected_output_contracts`: depth, max_lines, completeness markers per type
+- `artifact_dependency_graph`: adjacency list of artifact dependencies
+- `resolved_artifact_parameters`: concrete parameter values per artifact
+- `open_questions`: unresolved design decisions surfaced from guidance
+- `file_ownership`: output path → artifact ID mapping for gap parity
+
+## 9. Validation and Test Obligations
 - [unit/integration tests]
 - [schema validation checks]
 - [acceptance criteria checks]
+- A2A pipeline checker gate pass (Gate 1)
+- Three Questions diagnostic pass (Gates 1-3)
 
-## 9. Risks and Mitigations
+## 10. Risks and Mitigations
 - Risk: [describe]
   - Mitigation: [describe]
 
-## 10. Execution Notes for Startd8
+## 11. Execution Notes for Startd8
 - Feed this plan to `startd8 workflow run plan-ingestion`.
 - Keep ContextCore export artifacts available for ingestion preflight.
 - Route expectation: Prime for simpler scope; Artisan for complex or low-quality translation.
+- **Pre-ingestion**: Run `contextcore contract a2a-check-pipeline` on export output.
+- **Post-ingestion**: Run `contextcore contract a2a-diagnose` with `--ingestion-dir`.
+- **Export**: Always use `--emit-provenance` for checksum chain integrity.
 """
 
 
@@ -788,6 +824,43 @@ def create(
             "contextcore_export_dir_expected": contextcore_export_dir,
             "startd8_config_path": str(startd8_config_path) if emit_startd8_config else None,
         },
+        "a2a_contracts": {
+            "schema_version": "v1",
+            "contract_types": [
+                {"name": "TaskSpanContract", "usage": "Task/subtask lifecycle as trace spans"},
+                {"name": "ArtifactIntent", "usage": "Artifact requirement declaration before generation"},
+                {"name": "GateResult", "usage": "Phase boundary check outcomes at every gate"},
+                {"name": "HandoffContract", "usage": "Agent-to-agent delegation at routing decisions"},
+            ],
+            "schemas_path": "schemas/contracts/",
+        },
+        "enrichment_fields": {
+            "description": "Fields in onboarding-metadata.json that downstream consumers depend on",
+            "required": [
+                "derivation_rules",
+                "expected_output_contracts",
+                "artifact_dependency_graph",
+                "resolved_artifact_parameters",
+                "file_ownership",
+            ],
+            "recommended": [
+                "open_questions",
+                "objectives",
+                "requirements_hints",
+                "parameter_resolvability",
+            ],
+        },
+        "defense_in_depth": {
+            "principles": [
+                "P1: Validate at the boundary, not just at the end",
+                "P2: Treat each piece as potentially adversarial",
+                "P3: Use checksums as circuit breakers",
+                "P4: Fail loud, fail early, fail specific",
+                "P5: Design calibration guards against over/under-engineering",
+                "P6: Three Questions diagnostic ordering",
+            ],
+            "reference": "docs/EXPORT_PIPELINE_ANALYSIS_GUIDE.md §6",
+        },
     }
 
     create_gates: Dict[str, Any] = {
@@ -798,10 +871,37 @@ def create(
             "min_export_coverage": min_export_coverage,
             "block_on_unresolved_parameter_sources": True,
             "block_on_validation_diagnostics": True,
+            "derivation_rules_populated": True,
+            "expected_output_contracts_present": True,
+            "dependency_graph_populated": True,
+            "open_questions_surfaced": True,
+        },
+        "a2a_pipeline_checker": {
+            "enabled": True,
+            "command": "contextcore contract a2a-check-pipeline",
+            "gates": [
+                {"name": "structural-integrity", "phase": "EXPORT_CONTRACT", "blocking": True},
+                {"name": "checksum-chain", "phase": "CONTRACT_INTEGRITY", "blocking": True},
+                {"name": "provenance-consistency", "phase": "CONTRACT_INTEGRITY", "blocking": True},
+                {"name": "mapping-completeness", "phase": "CONTRACT_INTEGRITY", "blocking": True},
+                {"name": "gap-parity", "phase": "INGEST_PARSE_ASSESS", "blocking": True},
+                {"name": "design-calibration", "phase": "ARTISAN_DESIGN", "blocking": False},
+            ],
+        },
+        "a2a_diagnostic": {
+            "enabled": True,
+            "command": "contextcore contract a2a-diagnose",
+            "stop_at_first_failure": True,
+            "questions": [
+                "Q1: Is the contract complete? (Export layer)",
+                "Q2: Was the contract faithfully translated? (Plan Ingestion layer)",
+                "Q3: Was the translated plan faithfully executed? (Artisan layer)",
+            ],
         },
         "notes": [
             "These gates are intended for pre-ingestion validation.",
             "Use with contextcore manifest export outputs and plan-ingestion preflight checks.",
+            "Run a2a-check-pipeline after export (Gate 1) and a2a-diagnose after ingestion (Gate 2).",
         ],
     }
 
@@ -813,6 +913,14 @@ def create(
         "requirements_files": requirement_files,
         "low_quality_policy": low_quality_policy,
         "min_export_coverage": min_export_coverage,
+        "a2a_check_pipeline_gate": True,
+        "enrichment_requirements": [
+            "derivation_rules",
+            "expected_output_contracts",
+            "artifact_dependency_graph",
+            "resolved_artifact_parameters",
+            "file_ownership",
+        ],
     }
     if route_policy in {"prime", "artisan"}:
         startd8_config["force_route"] = route_policy
