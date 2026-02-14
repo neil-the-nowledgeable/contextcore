@@ -1,0 +1,218 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "uid": "contextcore-a2a-governance",
+  "title": "A2A Governance",
+  "description": "Operational dashboard for A2A contract governance: blocked spans, gate failures, handoff validation, dropped artifacts, and finalize trends.",
+  "tags": [
+    "contextcore",
+    "a2a",
+    "governance",
+    "contracts"
+  ],
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "liveNow": false,
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "version": 1,
+  "weekStart": "",
+  "templating": {
+    "list": [
+      {
+        "name": "project",
+        "label": "Project",
+        "type": "custom",
+        "current": {
+          "text": "contextcore",
+          "value": "contextcore"
+        },
+        "options": [
+          {
+            "text": "contextcore",
+            "value": "contextcore",
+            "selected": true
+          }
+        ],
+        "query": "contextcore"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "title": "Blocked Span Hotspot",
+      "description": "Phases that block execution most often. Action: investigate root cause in the most-blocked phase.",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "traceql",
+          "query": "{ resource.service.name = \"contextcore\" && span.project.id = \"$project\" && span.task.status = \"blocked\" }"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "title": "Gate Failures",
+      "description": "Failed gate results by phase and severity. Action: address critical/error gates before proceeding.",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "traceql",
+          "query": "{ resource.service.name = \"contextcore\" && span.project.id = \"$project\" && span.gate.result = \"fail\" }"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "title": "Blocked Spans — Reason & Next Action",
+      "description": "Detail view showing why each span is blocked and what to do next.",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "traceql",
+          "query": "{ resource.service.name = \"contextcore\" && span.project.id = \"$project\" && span.task.status = \"blocked\" } | select(span.task.id, span.task.phase, span.task.blocked_reason, span.task.next_action)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "title": "Finalize Outcomes",
+      "description": "FINALIZE_VERIFY span outcomes over time. Action: if failure rate is rising, investigate upstream gates.",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "traceql",
+          "query": "{ resource.service.name = \"contextcore\" && span.project.id = \"$project\" && span.task.phase = \"FINALIZE_VERIFY\" }"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "title": "Handoff Validation Failures",
+      "description": "Handoff payloads rejected at boundaries. Action: fix the payload producer for the failing contract.",
+      "type": "logs",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{job=\"contextcore\"} |= \"handoff.validation\" |= \"failed\" | json | event_type =~ \"handoff.validation.*.failed\""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showTime": true,
+        "sortOrder": "Descending"
+      }
+    },
+    {
+      "title": "Dropped Artifacts (Gap Parity Failures)",
+      "description": "Artifacts silently dropped during PARSE/TRANSFORM. Action: re-run parser or investigate gap parity.",
+      "type": "logs",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{job=\"contextcore\"} |= \"gap_parity\" |= \"missing_feature\" | json"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showTime": true,
+        "sortOrder": "Descending"
+      }
+    },
+    {
+      "title": "Finalize Failure Trend",
+      "description": "Finalize failure count over time (1h buckets). Action: monitor trend; investigate if rising.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count_over_time({job=\"contextcore\"} |= \"FINALIZE_VERIFY\" |= \"fail\" | json [1h])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 50
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      }
+    },
+    {
+      "title": "Boundary Enforcement Errors",
+      "description": "All boundary enforcement rejections (invalid payloads caught). Action: fix producers sending invalid payloads.",
+      "type": "logs",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 32 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{job=\"contextcore\"} |= \"Boundary enforcement failure\" | json"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showTime": true,
+        "sortOrder": "Descending"
+      }
+    }
+  ]
+}
