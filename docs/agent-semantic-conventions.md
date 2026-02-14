@@ -303,6 +303,110 @@ GET /apis/contextcore.io/v1/namespaces/commerce/projectcontexts/checkout-service
 
 ---
 
+### 7. Framework Interoperability Attributes (Optional)
+
+Optional attributes for bridging external agent/pipeline frameworks to ContextCore governance.
+These attributes are **never required** — they provide lineage context when ContextCore governs
+execution that originates in an external runtime.
+
+#### Graph Orchestration (`graph.*`) — LangGraph, StateGraph
+
+For frameworks that model execution as directed graphs with stateful checkpoints.
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `graph.id` | string | No | Graph definition identifier |
+| `graph.node` | string | No | Current node within the graph |
+| `graph.edge` | string | No | Edge label that triggered this transition |
+| `graph.checkpoint_id` | string | No | Durable checkpoint identifier for resumability |
+| `graph.checkpoint_approved_by` | string | No | Who/what approved resumption from checkpoint |
+
+#### Crew/Role Orchestration (`crew.*`) — CrewAI
+
+For role-driven agent team frameworks.
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `crew.id` | string | No | Crew/team identifier |
+| `crew.role` | string | No | Role of the acting agent within the crew |
+| `crew.flow_step` | string | No | Current step in the crew's workflow |
+| `crew.blocked_on_role` | string | No | Which role is blocking progress |
+| `crew.next_action_owner` | string | No | Role responsible for the next action |
+
+#### Pipeline Orchestration (`pipeline.*`) — Haystack, Custom Pipelines
+
+For component-based pipeline frameworks.
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `pipeline.id` | string | No | Pipeline definition identifier |
+| `pipeline.component` | string | No | Current component/node within the pipeline |
+| `pipeline.step` | integer | No | Ordinal step number |
+| `pipeline.topology_ref` | string | No | Reference to pipeline topology definition |
+
+#### RAG Orchestration (`rag.*`) — LlamaIndex, Haystack RAG
+
+For retrieval-augmented generation pipelines.
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `rag.phase` | string | No | RAG phase: `indexing`, `retrieval`, `generation`, `evaluation` |
+| `rag.index_id` | string | No | Index being queried |
+| `rag.retrieval_mode` | string | No | Retrieval strategy: `dense`, `sparse`, `hybrid`, `reranked` |
+| `rag.retrieval_confidence` | float | No | Retrieval confidence score (0.0-1.0) |
+| `rag.chunk_count` | integer | No | Number of chunks retrieved |
+
+#### Conversation Lineage (`conversation.*`) — AutoGen, OpenAI Agents SDK
+
+For conversational multi-agent frameworks.
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `conversation.id` | string | No | Conversation/thread identifier |
+| `conversation.turn_id` | string | No | Current turn within the conversation |
+| `conversation.agent_role` | string | No | Role of agent in this conversation turn |
+| `conversation.parent_turn_id` | string | No | Parent turn (for nested conversations) |
+
+#### Optimization/Tuning (`optimization.*`) — DSPy
+
+For programmatic prompt/model optimization frameworks.
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `optimization.run_id` | string | No | Optimization run identifier |
+| `optimization.metric` | string | No | Target metric being optimized |
+| `optimization.baseline_score` | float | No | Score before optimization |
+| `optimization.optimized_score` | float | No | Score after optimization |
+| `prompt.version` | string | No | Version of the prompt/program being optimized |
+
+#### Structured Output (`validation.*`) — Guidance, Outlines, Instructor
+
+For schema-constrained generation frameworks.
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `validation.retry_count` | integer | No | Number of validation retries before success |
+| `validation.failure_reason` | string | No | Last validation failure reason |
+| `gen_ai.response.schema` | string | No | Schema reference for expected output structure |
+| `gen_ai.response.schema_version` | string | No | Version of the response schema |
+
+#### Capability Registry (`capability.*`) — Semantic Kernel, Plugin Systems
+
+For frameworks with explicit capability/plugin registries.
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `capability.id` | string | No | Registered capability identifier |
+| `capability.owner` | string | No | Team/agent that owns this capability |
+| `capability.risk_tier` | string | No | Risk classification: `low`, `medium`, `high`, `critical` |
+| `capability.required_gates` | string[] | No | Gate IDs that must pass before invocation |
+
+> **Usage principle**: Keep execution runtime in the external framework. Use these attributes
+> only when ContextCore needs lineage context for governance decisions, gate checks, or
+> observability queries. Never duplicate runtime logic.
+
+---
+
 ## Human-Readable Documentation (Below)
 
 ### Why These Conventions Matter
