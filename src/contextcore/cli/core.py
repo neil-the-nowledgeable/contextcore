@@ -5,6 +5,9 @@ import os
 import shutil
 import subprocess
 import sys
+import hashlib
+from datetime import datetime
+from pathlib import Path
 from typing import Optional, Tuple
 
 import click
@@ -115,6 +118,14 @@ def _get_project_context_spec(project: str, namespace: str = "default") -> Optio
         return None
 
 
+def _file_sha256(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        while chunk := f.read(8192):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 @click.command()
 @click.option("--name", "-n", required=True, help="ProjectContext name")
 @click.option("--namespace", default="default", help="K8s namespace")
@@ -216,7 +227,32 @@ def annotate(resource: str, context: str, namespace: str):
 @click.option("--prometheus-rule", is_flag=True, help="Generate PrometheusRule")
 @click.option("--dashboard", is_flag=True, help="Generate Grafana dashboard")
 @click.option("--all", "generate_all", is_flag=True, help="Generate all artifacts")
-def generate(context: str, output: str, service_monitor: bool, prometheus_rule: bool, dashboard: bool, generate_all: bool):
+@click.option(
+    "--strict-quality/--no-strict-quality",
+    default=True,
+    help="Enable strict quality safeguards (default: enabled)",
+)
+@click.option(
+    "--emit-report/--no-emit-report",
+    default=True,
+    help="Write generation-report.json with checksums (default: enabled)",
+)
+@click.option(
+    "--write-legacy-aliases/--no-write-legacy-aliases",
+    default=False,
+    help="Also write legacy filenames for backward compatibility (default: disabled)",
+)
+def generate(
+    context: str,
+    output: str,
+    service_monitor: bool,
+    prometheus_rule: bool,
+    dashboard: bool,
+    generate_all: bool,
+    strict_quality: bool,
+    emit_report: bool,
+    write_legacy_aliases: bool,
+):
     """Generate observability artifacts from ProjectContext."""
     if "/" in context:
         namespace, name = context.split("/", 1)
@@ -232,26 +268,66 @@ def generate(context: str, output: str, service_monitor: bool, prometheus_rule: 
     pc = json.loads(stdout)
     spec = pc.get("spec", {})
 
+    if strict_quality:
+        # Basic contract checks to avoid low-quality/partial outputs.
+        missing = []
+        if not spec.get("targets"):
+            missing.append("spec.targets")
+        if not spec.get("business", {}).get("criticality"):
+            missing.append("spec.business.criticality")
+        if not spec.get("requirements", {}).get("availability"):
+            missing.append("spec.requirements.availability")
+        if missing:
+            raise click.ClickException(
+                "Strict quality checks failed. Missing required fields: "
+                + ", ".join(missing)
+                + ". Use --no-strict-quality to bypass."
+            )
+
     os.makedirs(output, exist_ok=True)
+
+    if not any([service_monitor, prometheus_rule, dashboard, generate_all]):
+        click.echo("No specific artifact flags provided; defaulting to --all for complete output.")
+        generate_all = True
+
+    # Strict profile enforces checksum report generation.
+    if strict_quality:
+        emit_report = True
+        if write_legacy_aliases:
+            click.echo(
+                "⚠ Strict quality mode disables legacy alias outputs; using canonical filenames only."
+            )
+            write_legacy_aliases = False
 
     if generate_all:
         service_monitor = prometheus_rule = dashboard = True
 
     generated = []
+    legacy_written = []
 
     if service_monitor:
         sm = generate_service_monitor(name, namespace, spec)
-        path = os.path.join(output, f"{name}-servicemonitor.yaml")
+        path = os.path.join(output, f"{name}-service-monitor.yaml")
         with open(path, "w") as f:
-            yaml.dump(sm, f)
+            yaml.dump(sm, f, sort_keys=False)
         generated.append(path)
+        if write_legacy_aliases:
+            legacy_path = os.path.join(output, f"{name}-servicemonitor.yaml")
+            with open(legacy_path, "w") as f:
+                yaml.dump(sm, f, sort_keys=False)
+            legacy_written.append(legacy_path)
 
     if prometheus_rule:
         pr = generate_prometheus_rule(name, namespace, spec)
-        path = os.path.join(output, f"{name}-prometheusrule.yaml")
+        path = os.path.join(output, f"{name}-prometheus-rules.yaml")
         with open(path, "w") as f:
-            yaml.dump(pr, f)
+            yaml.dump(pr, f, sort_keys=False)
         generated.append(path)
+        if write_legacy_aliases:
+            legacy_path = os.path.join(output, f"{name}-prometheusrule.yaml")
+            with open(legacy_path, "w") as f:
+                yaml.dump(pr, f, sort_keys=False)
+            legacy_written.append(legacy_path)
 
     if dashboard:
         db = generate_dashboard(name, namespace, spec)
@@ -264,6 +340,36 @@ def generate(context: str, output: str, service_monitor: bool, prometheus_rule: 
         click.echo(f"Generated {len(generated)} artifacts in {output}/")
         for path in generated:
             click.echo(f"  - {path}")
+        if legacy_written:
+            click.echo(f"  Wrote {len(legacy_written)} legacy alias file(s) for compatibility")
+
+        if emit_report:
+            report = {
+                "generated_at": datetime.utcnow().isoformat() + "Z",
+                "context": context,
+                "projectcontext_name": name,
+                "namespace": namespace,
+                "strict_quality": strict_quality,
+                "output_dir": str(Path(output).resolve()),
+                "artifacts": [],
+                "legacy_aliases": legacy_written,
+            }
+            for path in generated:
+                report["artifacts"].append(
+                    {
+                        "path": path,
+                        "filename": os.path.basename(path),
+                        "sha256": _file_sha256(path),
+                    }
+                )
+            report_path = os.path.join(output, "generation-report.json")
+            with open(report_path, "w") as f:
+                json.dump(report, f, indent=2)
+            click.echo(f"  - {report_path}")
+            if strict_quality and len(report["artifacts"]) != len(generated):
+                raise click.ClickException(
+                    "Strict quality checks failed: generation-report.json is incomplete."
+                )
     else:
         click.echo("No artifacts generated. Use --all or specific flags.")
 

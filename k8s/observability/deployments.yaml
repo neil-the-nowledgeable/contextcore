@@ -1,3 +1,16 @@
+###############################################################################
+# WARNING: DO NOT APPLY THIS FILE TO THE CLUSTER
+#
+# These manifests use emptyDir volumes which DESTROY persistent data.
+# The canonical observability manifests live in:
+#   ~/Documents/Deploy/observability/*/deployment.yaml
+#
+# To deploy/update the observability stack, run:
+#   cd ~/Documents/Deploy && make up-observability
+#
+# This file is kept for reference only. Applying it will be blocked by
+# the pvc-guard webhook and the o11y-pvc-guard hook.
+###############################################################################
 ---
 # Mimir Deployment
 apiVersion: apps/v1
