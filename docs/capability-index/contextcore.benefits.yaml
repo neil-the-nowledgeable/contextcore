@@ -1,14 +1,14 @@
 # ContextCore Benefits Manifest
-# Version: 1.2.0
+# Version: 1.6.0
 # Created: 2026-01-28
-# Updated: 2026-01-29
+# Updated: 2026-02-11
 #
 # PURPOSE: First-class user benefits that drive capability creation.
 # Benefits with delivery_status: "gap" represent roadmap opportunities.
 
 manifest_id: contextcore.benefits
 name: ContextCore User Benefits
-version: "1.2.0"
+version: "1.6.0"
 description: |
   User benefits for ContextCore, articulated independently of implementation.
   Benefits drive capability design; gaps become roadmap items.
@@ -215,7 +215,9 @@ benefits:
 
     delivered_by:
       - contextcore.dashboard.sprint
-    delivery_status: partial
+      - contextcore.metrics.recording_rules
+    delivery_status: delivered
+    delivered_at: "2026-02-04"
 
     acceptance_criteria:
       - "Cycle time updates within 5 minutes of task completion"
@@ -523,11 +525,10 @@ benefits:
       ref: "Phase 4 Unified Alignment — gen_ai.* attributes emitted but no dashboard"
       date: 2026-01-29
 
-    delivered_by: []  # GAP
-    delivery_status: gap
-
-    priority: high
-    effort_estimate: small
+    delivered_by:
+      - contextcore.dashboard.agent_insights
+    delivery_status: delivered
+    delivered_at: "2026-02-04"
 
     functional_requirements:
       - id: FR-410
@@ -570,8 +571,10 @@ benefits:
       ref: "P2 risk in .contextcore.yaml — execution ≠ completion discovered via phase tasks"
       date: 2026-01-20
 
-    delivered_by: []  # GAP
-    delivery_status: gap
+    delivered_by:
+      - contextcore.tracker.deliverable_validation
+    delivery_status: partial
+    delivered_at: "2026-02-04"
 
     priority: high
     effort_estimate: medium
@@ -592,6 +595,83 @@ benefits:
       - "Completion triggers automatic deliverable verification"
       - "Verification results emitted as span events"
       - "Dashboard distinguishes verified from unverified completions"
+
+  # ============================================================================
+  # CATEGORY: CONTEXT MANAGEMENT
+  # ============================================================================
+
+  - benefit_id: context.unified_source_of_truth
+    name: "Unified Context Source of Truth"
+    value_statement: "Users can maintain one file that drives both business strategy and operational config so they avoid context fragmentation across tools"
+
+    personas:
+      - persona_id: developer
+        pain_point: "I update K8s config but business context lives in a wiki somewhere else"
+        value_received: "Single .contextcore.yaml for both strategic and operational context"
+        importance: high
+      - persona_id: project_manager
+        pain_point: "Roadmap, strategy, and infrastructure config are disconnected"
+        value_received: "Strategies and tactics in same file as observability config"
+        importance: critical
+      - persona_id: ai_agent
+        pain_point: "Business objectives scattered, hard to find why decisions were made"
+        value_received: "Structured access to objectives, strategies, and rationale"
+        importance: high
+
+    measurable_outcome: "Context lookup time reduced from minutes to seconds"
+    measurement_method: "Time to answer 'why was this service built this way?'"
+    baseline: "Search wiki, Jira, Slack, code comments—5-15 minutes"
+
+    origin:
+      type: vision
+      ref: "Context Manifest design session 2026-02-05"
+      date: 2026-02-05
+
+    delivered_by:
+      - contextcore.manifest.load
+      - contextcore.manifest.distill_crd
+      - contextcore.manifest.validate
+    delivery_status: delivered
+    delivered_at: "2026-02-05"
+
+    acceptance_criteria:
+      - "Single .contextcore.yaml captures objectives, strategies, tactics, and operational spec"
+      - "CRD can be distilled from manifest without manual translation"
+      - "Schema validation catches misconfigurations before deployment"
+      - "LLMs and agents can read manifest for business context"
+
+  - benefit_id: context.crd_without_bloat
+    name: "Lightweight CRD Without Context Stuffing"
+    value_statement: "Users can derive K8s CRDs from rich context files so they get policy-driving metadata without cluster bloat"
+
+    personas:
+      - persona_id: operator
+        pain_point: "CRDs bloated with business context that controllers don't need"
+        value_received: "Distilled CRDs contain only operational fields"
+        importance: high
+      - persona_id: developer
+        pain_point: "Large CRDs slow down kubectl and increase etcd storage"
+        value_received: "Manifest stores rich context, CRD stores only essentials"
+        importance: medium
+
+    measurable_outcome: "CRD size reduced by 60%+ vs embedding full context"
+    measurement_method: "Compare CRD YAML size: full context vs distilled"
+    baseline: "CRDs that include all business context: 500+ lines"
+
+    origin:
+      type: design_decision
+      ref: "Two-Context Architecture design 2026-02-05"
+      date: 2026-02-05
+
+    delivered_by:
+      - contextcore.manifest.distill_crd
+    delivery_status: delivered
+    delivered_at: "2026-02-05"
+
+    acceptance_criteria:
+      - "Distilled CRD contains only spec.project, spec.business, spec.requirements, spec.observability"
+      - "Objectives, strategies, insights excluded from CRD"
+      - "CRD validates against existing ProjectContext schema"
 
   # ============================================================================
   # CATEGORY: DEVELOPER EXPERIENCE
@@ -620,8 +700,12 @@ benefits:
       ref: "Beaver dashboard referenced yesoreyeram-infinity-datasource plugin not configured"
       date: 2026-01-20
 
-    delivered_by: []  # GAP
-    delivery_status: gap
+    delivered_by:
+      - contextcore.devex.dependency_validation_script
+      - contextcore.devex.dependency_ci_workflow
+      - contextcore.devex.dependency_precommit_hook
+    delivery_status: delivered
+    delivered_at: "2026-02-04"
 
     priority: medium
     effort_estimate: small
@@ -688,38 +772,30 @@ benefits:
 # ==============================================================================
 
 gap_summary:
-  total_benefits: 14
-  delivered: 6
+  total_benefits: 16
+  delivered: 11
   partial: 2
-  gaps: 6
+  gaps: 3
 
   gaps_by_priority:
     high:
       - benefit_id: time.status_compilation_eliminated
         effort: medium
         recommendation: "Build on existing dashboard infrastructure"
-      - benefit_id: visibility.agent_insights
-        effort: small
-        recommendation: "Quick win — gen_ai.* attributes already emitted, just needs dashboard"
-      - benefit_id: quality.deliverable_verification
-        effort: medium
-        recommendation: "Addresses P2 risk — execution ≠ completion"
     medium:
       - benefit_id: interop.aos_compliance
         effort: medium
         recommendation: "Implement in phases: AOS events first, MCP second"
-      - benefit_id: devex.dependency_validation
-        effort: small
-        recommendation: "Quick win — dependency manifest pattern already documented"
     low:
       - benefit_id: devex.codegen_health
         effort: medium
         recommendation: "Defer until code generation volume increases"
 
   partial_by_priority:
+    high:
+      - benefit_id: quality.deliverable_verification
+        note: "TaskTracker deliverable validation implemented, dashboard panel pending"
     medium:
-      - benefit_id: visibility.cycle_time_realtime
-        note: "Sprint dashboard exists, recording rules pending"
       - benefit_id: ai.orchestration_multi
         note: "A2A protocol foundation delivered (Phase 4), task routing and result aggregation pending"
 
@@ -728,6 +804,28 @@ gap_summary:
 # ==============================================================================
 
 changelog:
+  - version: "1.6.0"
+    date: "2026-02-11"
+    changes:
+      - "visibility.agent_insights: gap → delivered (Agent Insights dashboard provisioned at core/agent-insights.json)"
+      - "visibility.cycle_time_realtime: partial → delivered (Loki recording rules deployed 2026-02-04)"
+      - "Updated gap_summary: 11 delivered, 2 partial, 3 gaps (was 9/3/4)"
+      - "Removed visibility.agent_insights and visibility.cycle_time_realtime from gaps/partial lists"
+  - version: "1.5.0"
+    date: "2026-02-05"
+    changes:
+      - "Added CONTEXT MANAGEMENT category with 2 new benefits"
+      - "context.unified_source_of_truth: Single .contextcore.yaml for strategic + operational context (delivered)"
+      - "context.crd_without_bloat: Distill lightweight CRDs from rich manifests (delivered)"
+      - "New capabilities delivering these benefits: manifest.load, manifest.distill_crd, manifest.validate"
+      - "Updated gap_summary: 9 delivered, 3 partial, 4 gaps (was 7/3/4)"
+      - "16 total benefits across 8 categories"
+  - version: "1.4.0"
+    date: "2026-02-04"
+    changes:
+      - "devex.dependency_validation: gap → delivered (CI workflow, pre-commit hook, validation script)"
+      - "quality.deliverable_verification: gap → partial (TaskTracker implementation, dashboard pending)"
+      - "Updated gap_summary: 7 delivered, 3 partial, 4 gaps (was 6/2/6)"
   - version: "1.3.0"
     date: "2026-01-29"
     changes:

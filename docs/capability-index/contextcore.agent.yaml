@@ -1,12 +1,12 @@
 # ContextCore Agent Capability Index
-# Version: 1.2.0
+# Version: 1.4.0
 # Created: 2026-01-28
-# Updated: 2026-01-29
+# Updated: 2026-02-05
 # Audience: AI Agents (primary), Developers (secondary)
 
 manifest_id: contextcore.agent
 name: ContextCore Agent Capabilities
-version: "1.2.0"
+version: "1.4.0"
 description: |
   Agent-focused capabilities for ContextCore SDK.
   Tasks as OTel spans, insights as knowledge, handoffs as coordination.
@@ -928,6 +928,559 @@ capabilities:
     confidence: 0.8
 
 # ============================================================================
+  # CONTEXT MANIFEST CAPABILITIES (Beta)
+  # ============================================================================
+
+  - capability_id: contextcore.manifest.load
+    category: query
+    maturity: stable
+    summary: Load and parse Context Manifest (v1.1 or v2) with automatic version detection
+
+    audiences: [agent, human]
+
+    description:
+      agent: |
+        Load Context Manifest. In: {path: string} or {data: dict}. Out: ContextManifest (v1.1) or ContextManifestV2 (v2). Auto-detects version from apiVersion field. load_manifest() unified, load_manifest_v1()/load_manifest_v2() explicit. Validates against Pydantic schema.
+      human: |
+        Loads a Context Manifest from YAML file or dictionary with automatic version detection.
+        Returns ContextManifest for v1.1 (apiVersion: contextcore.io/v1alpha1) or ContextManifestV2
+        for v2 (apiVersion: contextcore.io/v1alpha2). The v2 format adds agent governance via
+        the `guidance` section with constraints, focus areas, and questions.
+
+    triggers:
+      - "load context manifest"
+      - "read contextcore yaml"
+      - "parse project context"
+      - "load business context"
+
+    inputs:
+      type: object
+      required: []
+      properties:
+        path:
+          type: string
+          description: Path to .contextcore.yaml file
+        data:
+          type: object
+          description: Dict representation of manifest (for programmatic use)
+
+    outputs:
+      type: object
+      properties:
+        version: { type: string }
+        spec: { type: object, description: "ProjectContextSpec for K8s CRD" }
+        objectives: { type: array, description: "Business objectives with metrics" }
+        strategies: { type: array, description: "Strategies with tactics and horizons" }
+        insights: { type: array, description: "Derived insights with confidence" }
+
+    evidence:
+      - type: code
+        ref: src/contextcore/models/manifest_loader.py
+        description: load_manifest(), detect_manifest_version(), version-aware loading
+      - type: code
+        ref: src/contextcore/models/manifest.py
+        description: ContextManifest v1.1 Pydantic model with validation
+      - type: code
+        ref: src/contextcore/models/manifest_v2.py
+        description: ContextManifestV2 with AgentGuidanceSpec governance layer
+      - type: doc
+        ref: examples/context_manifest_example.yaml
+        description: Complete v1.1 example manifest
+      - type: doc
+        ref: examples/context_manifest_v2_example.yaml
+        description: Complete v2 example with guidance section
+      - type: test
+        ref: tests/test_manifest_v2.py
+        description: 24 tests covering v2 models and version-aware loading
+
+    confidence: 0.95
+
+    anti_patterns:
+      - "Don't load manifest in hot paths—cache the parsed result"
+      - "Don't embed sensitive data in manifest—it's checked into Git"
+      - "Don't assume field names—grep model definition before instantiating"
+
+  - capability_id: contextcore.manifest.distill_crd
+    category: transform
+    maturity: beta
+    summary: Distill lightweight K8s ProjectContext CRD from full Context Manifest
+
+    audiences: [agent, human]
+
+    description:
+      agent: |
+        Distill CRD from manifest. In: {manifest: ContextManifest}. Out: ProjectContextSpec (K8s-ready). Extracts only spec section, discarding objectives/strategies/insights. Use for GitOps sync to cluster without context stuffing.
+      human: |
+        Extracts the operational spec from a full Context Manifest to produce a lightweight
+        ProjectContext CRD suitable for Kubernetes. This implements the "Two-Context Architecture"
+        where rich strategic context lives in the manifest, but only policy-driving metadata
+        reaches the cluster. Prevents CRD bloat while maintaining single source of truth.
+
+    triggers:
+      - "distill crd"
+      - "extract k8s spec"
+      - "manifest to crd"
+      - "generate projectcontext"
+
+    inputs:
+      type: object
+      required: [manifest]
+      properties:
+        manifest:
+          type: object
+          description: Full ContextManifest object
+
+    outputs:
+      type: object
+      description: ProjectContextSpec for K8s CRD
+      properties:
+        project: { type: object }
+        business: { type: object }
+        requirements: { type: object }
+        targets: { type: array }
+        observability: { type: object }
+        risks: { type: array }
+
+    evidence:
+      - type: code
+        ref: src/contextcore/models/manifest.py
+        description: ContextManifest.spec field maps directly to CRD (line 75)
+      - type: code
+        ref: src/contextcore/models/core.py
+        description: ProjectContextSpec Pydantic model
+
+    confidence: 0.85
+
+    delivers_benefit: context.unified_source_of_truth
+
+  - capability_id: contextcore.manifest.validate
+    category: validate
+    maturity: beta
+    summary: Validate Context Manifest against schema with detailed error reporting
+
+    audiences: [agent, human]
+
+    description:
+      agent: |
+        Validate manifest schema. In: {data: dict}. Out: {valid: bool, errors: ValidationError[]}. Checks: required fields, enum values, confidence ranges [0,1], strategy horizon enums, nested tactic structure. Uses Pydantic validation with path-based error locations.
+      human: |
+        Validates a Context Manifest against the Pydantic schema with comprehensive
+        error reporting. Checks structural validity, required fields, enum constraints
+        (e.g., StrategicHorizon must be now|next|later), and value ranges (e.g., confidence
+        must be 0.0-1.0). Returns detailed errors with paths to invalid fields.
+
+    triggers:
+      - "validate manifest"
+      - "check contextcore yaml"
+      - "manifest schema check"
+      - "validate context file"
+
+    inputs:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          description: Dict representation of manifest to validate
+
+    outputs:
+      type: object
+      properties:
+        valid: { type: boolean }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              path: { type: string }
+              message: { type: string }
+              value: { type: any }
+
+    evidence:
+      - type: code
+        ref: src/contextcore/models/manifest.py
+        description: Pydantic BaseModel with Field validators
+      - type: code
+        ref: src/contextcore/models/manifest.py
+        description: StrategicHorizon enum for horizon validation (lines 23-27)
+
+    confidence: 0.85
+
+  - capability_id: contextcore.manifest.migrate
+    category: transform
+    maturity: stable
+    summary: Migrate Context Manifest from v1.1 to v2 format non-destructively
+
+    audiences: [agent, human]
+
+    description:
+      agent: |
+        Migrate v1.1→v2. In: {v1: ContextManifest}. Out: v2_dict (ready for ContextManifestV2). Transforms: objectives→strategy.objectives, strategies.tactics→strategy.tactics (flattened), insights preserved with IDs, empty guidance section added, changelog entry appended. Non-destructive.
+      human: |
+        Migrates a v1.1 Context Manifest to v2 format without data loss. Flattens the
+        strategy/tactic hierarchy, preserves all existing data, adds an empty guidance
+        section for agent governance, and appends a migration entry to the changelog.
+        The output is validated against the v2 schema.
+
+    triggers:
+      - "migrate manifest"
+      - "upgrade to v2"
+      - "convert context manifest"
+      - "v1 to v2"
+
+    inputs:
+      type: object
+      required: [v1]
+      properties:
+        v1:
+          type: object
+          description: ContextManifest (v1.1) to migrate
+        migration_note:
+          type: string
+          description: Optional note to add to changelog
+
+    outputs:
+      type: object
+      description: v2 manifest dict suitable for ContextManifestV2
+      properties:
+        apiVersion: { type: string, const: "contextcore.io/v1alpha2" }
+        strategy: { type: object, description: "Flattened objectives and tactics" }
+        guidance: { type: object, description: "Empty governance section" }
+
+    evidence:
+      - type: code
+        ref: src/contextcore/models/manifest_migrate.py
+        description: migrate_v1_to_v2(), migrate_v1_to_v2_model(), validate_migration()
+      - type: test
+        ref: tests/test_manifest_v2.py
+        description: test_migrate_example_yaml_produces_valid_v2, test_migrate_preserves_changelog
+
+    confidence: 0.9
+
+    anti_patterns:
+      - "Don't modify v1 input in place—migration returns new dict"
+      - "Don't skip validation—always parse output as ContextManifestV2"
+
+  - capability_id: contextcore.manifest.guidance.read
+    category: query
+    maturity: stable
+    summary: Read agent guidance (constraints, focus, questions) from v2 manifest
+
+    audiences: [agent, human]
+
+    description:
+      agent: |
+        Read guidance from v2 manifest. In: {manifest: ContextManifestV2}. Out: AgentGuidanceSpec with {focus: Focus, constraints: Constraint[], preferences: Preference[], questions: Question[]}. Helpers: get_open_questions(), get_active_constraints(). Constraints use ConstraintSeverity enum.
+      human: |
+        Reads the agent governance section from a v2 Context Manifest. The guidance section
+        contains: focus areas (what to prioritize), constraints (what NOT to do with severity
+        levels), preferences (recommended patterns), and questions (for agents to answer).
+        Helper methods filter open questions and blocking constraints.
+
+    triggers:
+      - "read guidance"
+      - "get constraints"
+      - "agent focus"
+      - "open questions"
+      - "manifest governance"
+
+    inputs:
+      type: object
+      required: [manifest]
+      properties:
+        manifest:
+          type: object
+          description: ContextManifestV2 instance
+
+    outputs:
+      type: object
+      properties:
+        focus:
+          type: object
+          properties:
+            areas: { type: array, items: { type: string } }
+            reason: { type: string }
+            until: { type: string }
+        constraints:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              rule: { type: string }
+              severity: { type: string, enum: [blocking, warning, advisory] }
+              appliesTo: { type: array, items: { type: string } }
+        questions:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              question: { type: string }
+              status: { type: string, enum: [open, answered, deferred] }
+              priority: { type: string }
+
+    evidence:
+      - type: code
+        ref: src/contextcore/models/manifest_v2.py
+        description: AgentGuidanceSpec, Constraint, Focus, Preference, Question models
+      - type: code
+        ref: src/contextcore/models/manifest_v2.py
+        description: ContextManifestV2.get_open_questions(), get_active_constraints()
+      - type: test
+        ref: tests/test_manifest_v2.py
+        description: test_v2_get_open_questions, test_v2_get_active_constraints
+
+    confidence: 0.9
+
+    anti_patterns:
+      - "Never ignore BLOCKING constraints—they are mandatory"
+      - "Don't assume v1 manifests have guidance—check apiVersion first"
+
+  - capability_id: contextcore.manifest.sync_strategy
+    category: action
+    maturity: draft
+    summary: Sync strategy/tactic status bidirectionally with project management tools
+
+    audiences: [agent, human]
+
+    description:
+      agent: |
+        Sync strategy status. In: {manifest: ContextManifest, pm_source: enum[jira|github|linear]}. Out: {updated_tactics: Tactic[], sync_conflicts: Conflict[]}. Bidirectional: reads PM tool status, updates manifest tactics, optionally writes back. Detects conflicts when status diverges.
+      human: |
+        Enables bidirectional synchronization between the Context Manifest's strategies/tactics
+        and external project management tools (Jira, GitHub Projects, Linear). Reads current
+        status from PM tool, updates manifest tactics, and optionally pushes updates back.
+        Detects conflicts when manifest and PM tool have diverged.
+
+    triggers:
+      - "sync strategy status"
+      - "update tactics from jira"
+      - "bidirectional pm sync"
+      - "strategy pm integration"
+
+    inputs:
+      type: object
+      required: [manifest, pm_source]
+      properties:
+        manifest:
+          type: object
+        pm_source:
+          type: string
+          enum: [jira, github, linear]
+        direction:
+          type: string
+          enum: [read, write, bidirectional]
+          default: bidirectional
+
+    outputs:
+      type: object
+      properties:
+        updated_tactics: { type: array }
+        sync_conflicts: { type: array }
+
+    evidence:
+      - type: doc
+        ref: docs/CONTEXT_MANIFEST_VALUE_PROPOSITION.md
+        description: Value proposition for PM tool integration
+
+    confidence: 0.5
+
+    delivers_benefit: context.unified_source_of_truth
+
+    roadmap:
+      phase: 2
+      depends_on: [contextcore.manifest.load, contextcore.manifest.validate]
+      estimated_effort: large
+      implements_frs: [FR-600, FR-601]
+
+  - capability_id: contextcore.manifest.export_provenance
+    category: action
+    maturity: stable
+    summary: Export artifact manifest with comprehensive provenance audit trail
+
+    audiences: [agent, human]
+
+    description:
+      agent: |
+        Export manifest with provenance. CLI: `contextcore manifest export --emit-provenance --embed-provenance`. Out: artifact-manifest.yaml + projectcontext.yaml + provenance.json. Provenance captures: git context (commit, branch, dirty), source checksum (SHA-256), environment (hostname, user, cwd), CLI args, duration. --emit-provenance writes separate file, --embed-provenance adds to manifest metadata.
+      human: |
+        Exports artifact manifest and ProjectContext CRD with comprehensive provenance
+        metadata for audit trails and reproducibility. The provenance captures: git context
+        (commit SHA, branch name, dirty state, remote URL), source file SHA-256 checksum,
+        environment details (hostname, username, working directory, Python version), CLI
+        invocation arguments, and export duration. Use --emit-provenance for a separate
+        provenance.json file, or --embed-provenance to include it in the artifact manifest.
+
+    triggers:
+      - "export with provenance"
+      - "audit trail"
+      - "export manifest"
+      - "generate artifact manifest"
+      - "provenance metadata"
+
+    inputs:
+      type: object
+      required: [path]
+      properties:
+        path:
+          type: string
+          description: Path to Context Manifest (.contextcore.yaml)
+        output_dir:
+          type: string
+          description: Directory for generated files
+        emit_provenance:
+          type: boolean
+          description: Write separate provenance.json file
+          default: false
+        embed_provenance:
+          type: boolean
+          description: Embed provenance in artifact manifest
+          default: false
+
+    outputs:
+      type: object
+      properties:
+        artifact_manifest:
+          type: string
+          description: Path to generated artifact manifest
+        projectcontext:
+          type: string
+          description: Path to generated CRD
+        provenance:
+          type: object
+          description: Provenance metadata (if captured)
+          properties:
+            generatedAt: { type: string, format: date-time }
+            durationMs: { type: integer }
+            sourcePath: { type: string }
+            sourceChecksum: { type: string, description: "SHA-256 of source file" }
+            git:
+              type: object
+              properties:
+                commitSha: { type: string }
+                branch: { type: string }
+                isDirty: { type: boolean }
+                remoteUrl: { type: string }
+            hostname: { type: string }
+            username: { type: string }
+            cliArgs: { type: array, items: { type: string } }
+
+    evidence:
+      - type: code
+        ref: src/contextcore/utils/provenance.py
+        description: capture_provenance(), get_git_context(), get_file_checksum() utilities
+      - type: code
+        ref: src/contextcore/models/artifact_manifest.py
+        description: GitContext, ExportProvenance Pydantic models
+      - type: code
+        ref: src/contextcore/cli/manifest.py
+        description: export command with --emit-provenance and --embed-provenance flags
+
+    confidence: 0.9
+
+    delivers_benefit: context.unified_source_of_truth
+
+    anti_patterns:
+      - "Don't skip provenance for production exports—it's essential for debugging"
+      - "Don't rely on embedded provenance alone if auditors need separate files"
+
+  - capability_id: contextcore.manifest.export_onboarding
+    category: action
+    maturity: stable
+    summary: Emit programmatic onboarding metadata for plan ingestion and artisan seed enrichment
+
+    audiences: [agent, human]
+
+    description:
+      agent: |
+        Export onboarding metadata for downstream workflows. CLI: `contextcore manifest export`
+        (default, use --no-onboarding to disable). Output: onboarding-metadata.json with:
+        artifact type schemas (parameter keys, parameter sources, output conventions, example
+        snippets), coverage gaps, semantic conventions, checksums (artifact_manifest_checksum,
+        project_context_checksum, source_checksum), artifact_task_mapping, and provenance chain.
+        Consumed by: plan ingestion PARSE/ASSESS phases, artisan context seed enrichment.
+      human: |
+        Produces a machine-actionable onboarding metadata file that bridges the gap between
+        "what artifacts are needed" (the artifact manifest) and "how to build them" (schemas,
+        conventions, examples). This file is the programmatic bridge consumed by the plan
+        ingestion workflow and artisan context seed enrichment. Emitted by default on every
+        export; use --no-onboarding to opt out. Includes integrity checksums for validation
+        at every handoff, artifact ID → task ID mapping for traceability, and the provenance
+        chain (source_checksum) enabling end-to-end freshness verification.
+
+    triggers:
+      - "export onboarding"
+      - "onboarding metadata"
+      - "plan ingestion context"
+      - "artisan seed"
+      - "programmatic onboarding"
+
+    inputs:
+      type: object
+      required: [artifact_manifest, artifact_manifest_path, project_context_path]
+      properties:
+        artifact_manifest:
+          type: object
+          description: The generated ArtifactManifest instance
+        artifact_manifest_path:
+          type: string
+          description: Relative path to artifact manifest file
+        project_context_path:
+          type: string
+          description: Relative path to project context CRD file
+        provenance:
+          type: object
+          description: Optional ExportProvenance for audit chain
+        artifact_task_mapping:
+          type: object
+          description: Optional artifact_id → plan task ID mapping
+        source_path:
+          type: string
+          description: Path to source .contextcore.yaml for checksum
+
+    outputs:
+      type: object
+      properties:
+        version: { type: string, description: "Schema version" }
+        schema: { type: string, description: "contextcore.io/onboarding-metadata/v1" }
+        project_id: { type: string }
+        artifact_types:
+          type: object
+          description: Per-type schemas with parameter_keys, parameter_sources, output conventions, example snippets
+        coverage:
+          type: object
+          description: Overall coverage percentage, gaps list, by-type breakdown
+        semantic_conventions:
+          type: object
+          description: Metric names, label conventions for dashboard/rule generation
+        artifact_manifest_checksum: { type: string, description: "SHA-256 of artifact manifest content" }
+        project_context_checksum: { type: string, description: "SHA-256 of CRD content" }
+        source_checksum: { type: string, description: "SHA-256 of .contextcore.yaml for provenance chain" }
+        artifact_task_mapping:
+          type: object
+          description: artifact_id → plan task ID mapping for traceability
+
+    evidence:
+      - type: code
+        ref: src/contextcore/utils/onboarding.py
+        description: build_onboarding_metadata() with ARTIFACT_PARAMETER_SOURCES, ARTIFACT_PARAMETER_SCHEMA, ARTIFACT_EXAMPLE_OUTPUTS
+      - type: code
+        ref: src/contextcore/cli/manifest.py
+        description: export command writes onboarding-metadata.json by default (lines 812-834)
+      - type: doc
+        ref: docs/EXPORT_PIPELINE_ANALYSIS_GUIDE.md
+        description: Full pipeline analysis guide documenting onboarding metadata consumption by plan ingestion and artisan
+
+    confidence: 0.9
+
+    delivers_benefit: context.unified_source_of_truth
+
+    anti_patterns:
+      - "Don't hand-edit onboarding-metadata.json—re-export instead, as checksums will break"
+      - "Don't skip onboarding metadata for plan ingestion—ASSESS phase needs parameter schemas and coverage gaps"
+
+  # ============================================================================
   # AOS COMPLIANCE CAPABILITIES (Draft)
   # ============================================================================
 
@@ -1303,6 +1856,42 @@ pivoted_work:
 # ==============================================================================
 
 changelog:
+  - version: "1.6.0"
+    date: "2026-02-12"
+    changes:
+      - "manifest.export_onboarding (new, stable): Programmatic onboarding metadata for plan ingestion and artisan seed enrichment"
+      - "Includes: artifact type schemas, parameter sources, output conventions, example snippets, checksums, task mapping"
+      - "New evidence: docs/EXPORT_PIPELINE_ANALYSIS_GUIDE.md (pipeline analysis guide)"
+      - "27 total capabilities: insight (2), handoff (3), guidance (2), code_generation (1), size_estimation (1), a2a (4), api (1), aos (5), manifest (8)"
+  - version: "1.5.0"
+    date: "2026-02-12"
+    changes:
+      - "manifest.export_provenance (new, stable): Export artifact manifest with comprehensive audit trail"
+      - "Provenance captures: git context, source checksum (SHA-256), environment, CLI args, duration"
+      - "New CLI flags: --emit-provenance (separate file), --embed-provenance (in manifest)"
+      - "New files: src/contextcore/utils/provenance.py (150 lines)"
+      - "New models: GitContext, ExportProvenance in artifact_manifest.py"
+      - "26 total capabilities: insight (2), handoff (3), guidance (2), code_generation (1), size_estimation (1), a2a (4), api (1), aos (5), manifest (7)"
+  - version: "1.4.0"
+    date: "2026-02-05"
+    changes:
+      - "Context Manifest v2.0 implementation: version-aware loading, migration tooling, CLI commands"
+      - "manifest.load promoted to stable: Auto-detects v1.1 vs v2 from apiVersion"
+      - "manifest.migrate (new, stable): Non-destructive v1.1→v2 transformation with changelog preservation"
+      - "manifest.guidance.read (new, stable): Read agent governance (constraints, focus, questions) from v2"
+      - "New files: manifest_v2.py (475 lines), manifest_loader.py, manifest_migrate.py, cli/manifest.py"
+      - "24 tests in test_manifest_v2.py covering v2 models, loader, and migration"
+      - "25 total capabilities: insight (2), handoff (3), guidance (2), code_generation (1), size_estimation (1), a2a (4), api (1), aos (5), manifest (6)"
+  - version: "1.3.0"
+    date: "2026-02-05"
+    changes:
+      - "Added CONTEXT MANIFEST capabilities (4 new): manifest.load, manifest.distill_crd, manifest.validate, manifest.sync_strategy"
+      - "New category: CONTEXT MANIFEST CAPABILITIES"
+      - "manifest.load: Load and parse Context Manifest (.contextcore.yaml) from file or dict (beta)"
+      - "manifest.distill_crd: Distill lightweight K8s CRD from full manifest (beta)"
+      - "manifest.validate: Validate manifest against Pydantic schema (beta)"
+      - "manifest.sync_strategy: Bidirectional PM tool sync for strategies/tactics (draft)"
+      - "23 total capabilities: insight (2), handoff (3), guidance (2), code_generation (1), size_estimation (1), a2a (4), api (1), aos (5), manifest (4)"
   - version: "1.2.0"
     date: "2026-01-29"
     changes:

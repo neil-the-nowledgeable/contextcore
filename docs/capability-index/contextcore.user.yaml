@@ -1,14 +1,14 @@
 # ContextCore User-Facing Capability Index
-# Version: 1.1.0
+# Version: 1.2.0
 # Created: 2026-01-28
-# Updated: 2026-01-29
+# Updated: 2026-02-11
 # Audience: Users (primary), GTM (secondary)
 #
 # Complement to: contextcore.agent.yaml (technical/agent-focused)
 
 manifest_id: contextcore.user
 name: ContextCore User-Facing Capabilities
-version: "1.1.0"
+version: "1.2.0"
 description: |
   User-facing capabilities for ContextCore, organized by value delivered.
   Project management as observability—eliminate the PM data silo by treating tasks as telemetry.
@@ -244,7 +244,8 @@ capabilities:
     description:
       human: |
         Sprint metrics dashboard shows real-time burndown derived from actual
-        task completion—not manual updates. See velocity trends, cycle time
+        task completion—not manual updates. Loki recording rules derive cycle time
+        and progress metrics automatically. See velocity trends, cycle time
         percentiles, and WIP limits. Sprint retrospectives have real data to
         discuss, not recollections.
       gtm: |
@@ -265,10 +266,13 @@ capabilities:
 
     evidence:
       - type: doc
-        ref: demo/dashboards/sprint-metrics.json
+        ref: grafana/provisioning/dashboards/json/sprint-metrics.json
         description: Sprint Metrics Grafana dashboard
+      - type: code
+        ref: loki/rules/fake/contextcore-rules.yaml
+        description: Loki recording rules deriving cycle time and progress metrics
 
-    confidence: 0.85
+    confidence: 0.9
 
     personas: [project_manager, engineering_leader]
     measurable_outcome: "Accurate sprint data without manual tracking"
@@ -541,8 +545,8 @@ capabilities:
         - Rationale explaining the choice
         - Evidence links supporting the decision
         - Alternatives considered
-        Query decisions via CLI or Grafana dashboard. Audit agent reasoning
-        after the fact.
+        Browse decisions in the Agent Insights dashboard or query via CLI.
+        Audit agent reasoning after the fact.
       gtm: |
         AI transparency by default. Every AI decision is logged with reasoning,
         queryable later. When someone asks "why did the AI do that?", you have
@@ -563,8 +567,11 @@ capabilities:
       - type: code
         ref: src/contextcore/agent/insights.py
         description: InsightType.decision with confidence and rationale
+      - type: doc
+        ref: grafana/provisioning/dashboards/core/agent-insights.json
+        description: Agent Insights Grafana dashboard for browsing gen_ai.* decisions
 
-    confidence: 0.85
+    confidence: 0.9
 
     personas: [developer, engineering_leader]
     measurable_outcome: "Full audit trail of AI reasoning"
@@ -817,6 +824,12 @@ gtm_guidelines:
 # ==============================================================================
 
 changelog:
+  - version: "1.2.0"
+    date: "2026-02-11"
+    changes:
+      - "agent.decision_visibility: Added Agent Insights dashboard evidence, confidence 0.85→0.9"
+      - "dashboard.sprint: Added Loki recording rules evidence, updated description, confidence 0.85→0.9"
+      - "Fixed sprint dashboard evidence ref: demo/dashboards/ → grafana/provisioning/dashboards/json/"
   - version: "1.1.0"
     date: "2026-01-29"
     changes:

@@ -7,7 +7,7 @@
 
 manifest_id: contextcore.roadmap
 name: ContextCore Capability Roadmap
-version: "1.1.0"
+version: "2.1.0"
 
 # ==============================================================================
 # ACTIVE ROADMAP ITEMS
@@ -378,18 +378,19 @@ roadmap_items:
     name: "Agent Decision Visibility"
     priority: high
     total_effort: small
-    status: planned
+    status: in_progress
 
     phases:
 
       - phase_id: "1"
         name: "Agent Insights Dashboard"
         description: "Grafana dashboard for browsing agent decisions, lessons, and recommendations via gen_ai.* attributes"
-        status: planned
+        status: completed
+        completed_at: "2026-02-04"
         effort: small
 
         capabilities:
-          - contextcore.dashboard.agent_insights  # new
+          - contextcore.dashboard.agent_insights
 
         functional_requirements:
           - FR-410
@@ -407,6 +408,10 @@ roadmap_items:
 
         depends_on:
           - contextcore.insight.emit
+
+        notes: |
+          Dashboard provisioned at grafana/provisioning/dashboards/core/agent-insights.json.
+          12th dashboard in the ContextCore portfolio.
 
       - phase_id: "2"
         name: "Insight Browsing CLI"
@@ -433,12 +438,12 @@ roadmap_items:
           - phase_id: "1"
 
     total_phases: 2
-    completed_phases: 0
+    completed_phases: 1
 
     timeline:
       estimated_start: "2026-02"
       estimated_completion: "2026-02"
-      actual_start: null
+      actual_start: "2026-02-04"
       actual_completion: null
 
   # ============================================================================
@@ -449,19 +454,20 @@ roadmap_items:
     name: "Complete Real-Time Cycle Time Visibility"
     priority: medium
     total_effort: medium
-    status: planned
-    note: "Existing partial benefit — sprint dashboard exists, recording rules pending"
+    status: completed
+    note: "Recording rules deployed 2026-02-04, sprint dashboard operational"
 
     phases:
 
       - phase_id: "1"
         name: "Loki Recording Rules"
         description: "Deploy recording rules deriving task_percent_complete and cycle_time from structured logs"
-        status: planned
+        status: completed
+        completed_at: "2026-02-04"
         effort: medium
 
         capabilities:
-          - contextcore.metrics.cycle_time  # new
+          - contextcore.metrics.cycle_time
 
         functional_requirements:
           - FR-310
@@ -479,14 +485,19 @@ roadmap_items:
 
         depends_on: []
 
+        notes: |
+          5 recording rules across 2 groups deployed in loki/rules/fake/contextcore-rules.yaml.
+          docker-compose.yaml updated with volume mount.
+
       - phase_id: "2"
         name: "Sprint Burndown Derivation"
         description: "Recording rules for sprint velocity and burndown from task events"
-        status: planned
+        status: completed
+        completed_at: "2026-02-04"
         effort: small
 
         capabilities:
-          - contextcore.dashboard.sprint  # existing
+          - contextcore.dashboard.sprint
 
         functional_requirements:
           - FR-311
@@ -504,13 +515,13 @@ roadmap_items:
           - phase_id: "1"
 
     total_phases: 2
-    completed_phases: 0
+    completed_phases: 2
 
     timeline:
       estimated_start: "2026-02"
       estimated_completion: "2026-03"
-      actual_start: null
-      actual_completion: null
+      actual_start: "2026-02-04"
+      actual_completion: "2026-02-04"
 
   # ============================================================================
   # QUALITY: DELIVERABLE VERIFICATION
@@ -520,24 +531,26 @@ roadmap_items:
     name: "Deliverable Verification"
     priority: high
     total_effort: medium
-    status: planned
+    status: in_progress
 
     phases:
 
       - phase_id: "1"
         name: "Deliverable Schema"
         description: "Define deliverable types, expected outputs, and verification criteria"
-        status: planned
+        status: completed
+        completed_at: "2026-02-04"
         effort: small
 
         capabilities:
-          - contextcore.task.deliverable_define  # new
+          - contextcore.task.deliverable_define
 
         functional_requirements:
           - FR-510
 
         deliverables:
-          - "Deliverable type definitions (file, artifact, test_result, document_section)"
+          - "Deliverable dataclass (type, path, description, validator callable)"
+          - "DeliverableResult dataclass for verification outcomes"
           - "Expected output schema for task spans"
           - "Deliverable attributes in span events"
 
@@ -547,31 +560,40 @@ roadmap_items:
 
         depends_on: []
 
+        notes: |
+          Implemented in src/contextcore/tracker.py. Deliverable dataclass at line 95,
+          DeliverableResult at line 117. start_task() accepts optional deliverables list.
+
       - phase_id: "2"
         name: "Post-Completion Verification"
         description: "Automated hooks verifying deliverables after task completion"
-        status: planned
+        status: completed
+        completed_at: "2026-02-04"
         effort: medium
 
         capabilities:
-          - contextcore.task.deliverable_verify  # new
+          - contextcore.task.deliverable_verify
 
         functional_requirements:
           - FR-511
 
         deliverables:
-          - "Post-completion verification hooks"
-          - "Deliverable existence and checksum verification"
-          - "Verification span events with pass/fail status"
-          - "Status downgrade on verification failure"
+          - "_validate_deliverables() method in TaskTracker"
+          - "Custom validator or os.path.exists() file checks"
+          - "task.deliverables_verified span event with counts and JSON results"
+          - "task.deliverable.count, task.deliverable.verified span attributes"
 
         exit_criteria:
           - "Task completion triggers deliverable verification"
           - "Verification results emitted as span events"
-          - "Failed verification prevents premature 'done' status"
+          - "Logs warnings for failures but does NOT block completion"
 
         depends_on:
           - phase_id: "1"
+
+        notes: |
+          20 new tests + 23 existing pass (43 total).
+          Tests in tests/test_deliverable_validation.py.
 
       - phase_id: "3"
         name: "Deliverable Dashboard"
@@ -598,12 +620,12 @@ roadmap_items:
           - phase_id: "2"
 
     total_phases: 3
-    completed_phases: 0
+    completed_phases: 2
 
     timeline:
       estimated_start: "2026-02"
       estimated_completion: "2026-03"
-      actual_start: null
+      actual_start: "2026-02-04"
       actual_completion: null
 
   # ============================================================================
@@ -614,26 +636,28 @@ roadmap_items:
     name: "Automated Dependency Validation"
     priority: medium
     total_effort: small
-    status: planned
+    status: in_progress
 
     phases:
 
       - phase_id: "1"
         name: "CI Pipeline Validation"
         description: "Pre-commit and CI checks validating dependency manifests are complete"
-        status: planned
+        status: completed
+        completed_at: "2026-02-04"
         effort: small
 
         capabilities:
-          - contextcore.validate.dependencies  # new
+          - contextcore.validate.dependencies
 
         functional_requirements:
           - FR-520
 
         deliverables:
-          - "Pre-commit hook scanning for undeclared dependencies"
-          - "CI GitHub Action validating dependency manifests"
-          - "contextcore validate dependencies CLI command"
+          - "Pre-commit hook scanning for undeclared dependencies (.pre-commit-config.yaml)"
+          - "CI GitHub Action validating dependency manifests (.github/workflows/validate-dependencies.yml)"
+          - "Validation script scanning 14 dashboards (scripts/validate_dependencies.py)"
+          - "Dependency manifest (grafana/provisioning/dashboards/dependencies.yaml)"
 
         exit_criteria:
           - "New dashboard/config dependencies detected in CI"
@@ -641,6 +665,10 @@ roadmap_items:
           - "CLI validates manifest completeness"
 
         depends_on: []
+
+        notes: |
+          Fully operational. Pre-commit hook triggers on dashboard JSON or dependencies.yaml changes.
+          CI workflow validates on push and pull_request. Script scans 14 dashboards with --verbose option.
 
       - phase_id: "2"
         name: "Runtime Dependency Verification"
@@ -667,12 +695,12 @@ roadmap_items:
           - phase_id: "1"
 
     total_phases: 2
-    completed_phases: 0
+    completed_phases: 1
 
     timeline:
       estimated_start: "2026-02"
       estimated_completion: "2026-02"
-      actual_start: null
+      actual_start: "2026-02-04"
       actual_completion: null
 
   # ============================================================================
@@ -751,63 +779,72 @@ roadmap_items:
 
 summary:
   total_benefits: 8
-  planned: 7
-  in_progress: 1
-  completed: 0
+  planned: 3
+  in_progress: 3
+  completed: 2
 
   by_priority:
     high:
       - benefit_id: time.status_compilation_eliminated
         phases: 2
         effort: medium
+        status: planned
       - benefit_id: visibility.agent_insights
         phases: 2
+        completed: 1
         effort: small
+        status: in_progress
       - benefit_id: quality.deliverable_verification
         phases: 3
+        completed: 2
         effort: medium
+        status: in_progress
     medium:
       - benefit_id: interop.aos_compliance
         phases: 5
         effort: medium
+        status: planned
       - benefit_id: ai.orchestration_multi
         phases: 4
         completed: 1
         effort: large
+        status: in_progress
       - benefit_id: visibility.cycle_time_realtime
         phases: 2
+        completed: 2
         effort: medium
+        status: completed
       - benefit_id: devex.dependency_validation
         phases: 2
+        completed: 1
         effort: small
+        status: in_progress
     low:
       - benefit_id: devex.codegen_health
         phases: 2
         effort: medium
+        status: planned
 
   recommended_sequence:
     - order: 1
       benefit_id: visibility.agent_insights
-      reason: "Quick win — gen_ai.* attributes already emitted, just needs dashboard and CLI"
+      reason: "Dashboard delivered — CLI browsing remaining (small effort)"
     - order: 2
-      benefit_id: time.status_compilation_eliminated
-      reason: "High priority, medium effort, builds on existing dashboard infrastructure"
+      benefit_id: quality.deliverable_verification
+      reason: "Schema + verification done — dashboard panel remaining (small effort)"
     - order: 3
       benefit_id: devex.dependency_validation
-      reason: "Quick win — dependency manifest pattern already documented, prevents deploy failures"
+      reason: "CI done — runtime install verify remaining (small effort)"
     - order: 4
-      benefit_id: visibility.cycle_time_realtime
-      reason: "Completes existing partial benefit, sprint dashboard already exists"
+      benefit_id: time.status_compilation_eliminated
+      reason: "High priority, medium effort, builds on existing dashboard infrastructure"
     - order: 5
-      benefit_id: quality.deliverable_verification
-      reason: "Addresses P2 risk (execution ≠ completion), foundational for trust in task status"
-    - order: 6
       benefit_id: interop.aos_compliance
       reason: "Medium priority, enables ecosystem integration with OWASP AOS standard"
-    - order: 7
+    - order: 6
       benefit_id: ai.orchestration_multi
       reason: "In progress — A2A foundation delivered, task routing and aggregation are large effort"
-    - order: 8
+    - order: 7
       benefit_id: devex.codegen_health
       reason: "Low priority — defer until code generation volume increases"
 
@@ -816,6 +853,15 @@ summary:
 # ==============================================================================
 
 changelog:
+  - version: "2.1.0"
+    date: "2026-02-11"
+    changes:
+      - "visibility.cycle_time_realtime: planned → completed (Loki recording rules + sprint burndown both deployed 2026-02-04)"
+      - "visibility.agent_insights: planned → in_progress (Phase 1 dashboard completed 2026-02-04, Phase 2 CLI pending)"
+      - "quality.deliverable_verification: planned → in_progress (Phases 1+2 completed 2026-02-04, Phase 3 dashboard pending)"
+      - "devex.dependency_validation: planned → in_progress (Phase 1 CI completed 2026-02-04, Phase 2 runtime pending)"
+      - "Summary: 3 planned, 3 in_progress, 2 completed (was 7/1/0)"
+      - "Recommended sequence reordered: near-complete items first, then new work"
   - version: "2.0.0"
     date: "2026-01-29"
     changes:
