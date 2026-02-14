@@ -14,6 +14,8 @@ import click
 import yaml
 
 from contextcore.contracts.timeouts import SUBPROCESS_DEFAULT_TIMEOUT_S
+from contextcore.cli.export_io_ops import atomic_write_with_backup
+from contextcore.utils.provenance import build_run_provenance_payload, write_provenance_file
 from ._generators import generate_service_monitor, generate_prometheus_rule, generate_dashboard
 
 
@@ -242,6 +244,17 @@ def annotate(resource: str, context: str, namespace: str):
     default=False,
     help="Also write legacy filenames for backward compatibility (default: disabled)",
 )
+@click.option(
+    "--document-write-strategy",
+    type=click.Choice(["update_existing", "new_output"]),
+    default="update_existing",
+    help="Strategy for writing output documents (default: update_existing)",
+)
+@click.option(
+    "--emit-run-provenance/--no-emit-run-provenance",
+    default=None,
+    help="Emit run-provenance.json (default: enabled in strict mode)",
+)
 def generate(
     context: str,
     output: str,
@@ -252,6 +265,8 @@ def generate(
     strict_quality: bool,
     emit_report: bool,
     write_legacy_aliases: bool,
+    document_write_strategy: str,
+    emit_run_provenance: Optional[bool],
 ):
     """Generate observability artifacts from ProjectContext."""
     if "/" in context:
@@ -293,6 +308,8 @@ def generate(
     # Strict profile enforces checksum report generation.
     if strict_quality:
         emit_report = True
+        if emit_run_provenance is None:
+            emit_run_provenance = True
         if write_legacy_aliases:
             click.echo(
                 "⚠ Strict quality mode disables legacy alias outputs; using canonical filenames only."
@@ -304,37 +321,37 @@ def generate(
 
     generated = []
     legacy_written = []
+    use_backup = (document_write_strategy == "update_existing")
 
     if service_monitor:
         sm = generate_service_monitor(name, namespace, spec)
         path = os.path.join(output, f"{name}-service-monitor.yaml")
-        with open(path, "w") as f:
-            yaml.dump(sm, f, sort_keys=False)
+        atomic_write_with_backup(Path(path), yaml.dump(sm, sort_keys=False), backup=use_backup)
         generated.append(path)
         if write_legacy_aliases:
             legacy_path = os.path.join(output, f"{name}-servicemonitor.yaml")
-            with open(legacy_path, "w") as f:
-                yaml.dump(sm, f, sort_keys=False)
+            atomic_write_with_backup(Path(legacy_path), yaml.dump(sm, sort_keys=False), backup=use_backup)
             legacy_written.append(legacy_path)
 
     if prometheus_rule:
         pr = generate_prometheus_rule(name, namespace, spec)
         path = os.path.join(output, f"{name}-prometheus-rules.yaml")
-        with open(path, "w") as f:
-            yaml.dump(pr, f, sort_keys=False)
+        atomic_write_with_backup(Path(path), yaml.dump(pr, sort_keys=False), backup=use_backup)
         generated.append(path)
         if write_legacy_aliases:
             legacy_path = os.path.join(output, f"{name}-prometheusrule.yaml")
-            with open(legacy_path, "w") as f:
-                yaml.dump(pr, f, sort_keys=False)
+            atomic_write_with_backup(Path(legacy_path), yaml.dump(pr, sort_keys=False), backup=use_backup)
             legacy_written.append(legacy_path)
 
     if dashboard:
         db = generate_dashboard(name, namespace, spec)
         path = os.path.join(output, f"{name}-dashboard.json")
-        with open(path, "w") as f:
-            json.dump(db, f, indent=2)
+        atomic_write_with_backup(Path(path), json.dumps(db, indent=2), backup=use_backup)
         generated.append(path)
+        if write_legacy_aliases:
+            # Dashboard doesn't have common legacy alias in scan logic, but maybe?
+            # Original code didn't write legacy alias for dashboard.
+            pass
 
     if generated:
         click.echo(f"Generated {len(generated)} artifacts in {output}/")
@@ -363,13 +380,38 @@ def generate(
                     }
                 )
             report_path = os.path.join(output, "generation-report.json")
-            with open(report_path, "w") as f:
-                json.dump(report, f, indent=2)
+            atomic_write_with_backup(Path(report_path), json.dumps(report, indent=2), backup=use_backup)
             click.echo(f"  - {report_path}")
             if strict_quality and len(report["artifacts"]) != len(generated):
                 raise click.ClickException(
                     "Strict quality checks failed: generation-report.json is incomplete."
                 )
+        
+        if emit_run_provenance:
+            # Reuse report inputs if available, else construct
+            prov_outputs = [str(Path(p).resolve()) for p in generated]
+            if emit_report:
+                prov_outputs.append(str(Path(report_path).resolve()))
+            
+            run_payload = build_run_provenance_payload(
+                workflow_or_command="contextcore generate",
+                inputs=[], # Input is K8s resource, no file path usually
+                outputs=prov_outputs,
+                config_snapshot={
+                    "context": context,
+                    "strict_quality": strict_quality,
+                    "namespace": namespace
+                }
+            )
+            
+            prov_dir = Path(output)
+            prov_path = prov_dir / "run-provenance.json"
+            if prov_path.exists() and use_backup:
+                shutil.copy2(prov_path, prov_path.with_suffix(".json.bak"))
+                
+            write_provenance_file(run_payload, str(prov_dir), filename="run-provenance.json")
+            click.echo(f"  - {prov_path}")
+
     else:
         click.echo("No artifacts generated. Use --all or specific flags.")
 

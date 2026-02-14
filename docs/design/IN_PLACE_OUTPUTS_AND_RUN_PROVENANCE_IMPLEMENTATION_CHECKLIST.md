@@ -134,7 +134,7 @@ This checklist is scoped to current command entrypoints and helper modules:
 
 ### 1. Add strategy and provenance flags
 
-- [ ] **Extend `generate` CLI surface**
+- [x] **Extend `generate` CLI surface**
   - **File:** `src/contextcore/cli/core.py`
   - **Insertion point:** `generate(...)` option decorators.
   - **Action:**
@@ -144,7 +144,7 @@ This checklist is scoped to current command entrypoints and helper modules:
 
 ### 2. Refactor writes for safety and consistency
 
-- [ ] **Centralize artifact file target resolution**
+- [x] **Centralize artifact file target resolution**
   - **File:** `src/contextcore/cli/core.py`
   - **Insertion point:** just before artifact write blocks (`service_monitor`, `prometheus_rule`, `dashboard`).
   - **Action:** compute target paths once, then write atomically with backup.
@@ -152,7 +152,7 @@ This checklist is scoped to current command entrypoints and helper modules:
 
 ### 3. Emit generate run provenance
 
-- [ ] **Write `run-provenance.json` in output dir**
+- [x] **Write `run-provenance.json` in output dir**
   - **File:** `src/contextcore/cli/core.py`
   - **Insertion point:** after generation report creation (`generation-report.json`) and before return.
   - **Action:**
