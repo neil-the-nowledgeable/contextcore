@@ -44,7 +44,7 @@ This checklist is scoped to current command entrypoints and helper modules:
 
 ### 1. CLI inputs and defaults
 
-- [ ] **Add write strategy options**
+- [x] **Add write strategy options**
   - **File:** `src/contextcore/cli/manifest.py`
   - **Insertion point:** `@manifest.command()` `export(...)` options block.
   - **Action:**
@@ -54,7 +54,7 @@ This checklist is scoped to current command entrypoints and helper modules:
 
 ### 2. Output path resolution
 
-- [ ] **Centralize export output resolution**
+- [x] **Centralize export output resolution**
   - **File:** `src/contextcore/cli/export_io_ops.py`
   - **Insertion point:** before `write_export_outputs(...)`.
   - **Action:**
@@ -70,7 +70,7 @@ This checklist is scoped to current command entrypoints and helper modules:
 
 ### 3. Safe write behavior
 
-- [ ] **Switch export writes to atomic write with backup**
+- [x] **Switch export writes to atomic write with backup**
   - **File:** `src/contextcore/cli/export_io_ops.py`
   - **Insertion point:** inside `write_export_outputs(...)` where `Path.write_text(...)` is currently used.
   - **Action:** replace direct writes with atomic write helper (existing project helper or utility).
@@ -78,7 +78,7 @@ This checklist is scoped to current command entrypoints and helper modules:
 
 ### 4. Run provenance emission
 
-- [ ] **Emit `run-provenance.json` from export command**
+- [x] **Emit `run-provenance.json` from export command**
   - **File:** `src/contextcore/cli/manifest.py`
   - **Insertion point:** after `file_results = write_export_outputs(...)` and before success print.
   - **Action:**
@@ -89,7 +89,7 @@ This checklist is scoped to current command entrypoints and helper modules:
     - Write `run-provenance.json` under `output_dir`.
   - **Acceptance:** successful export always produces run provenance when enabled by policy/flag.
 
-- [ ] **Expose path in user output**
+- [x] **Expose path in user output**
   - **File:** `src/contextcore/cli/export_io_ops.py`
   - **Insertion point:** `print_export_success(...)`.
   - **Action:** print `run-provenance.json` location in success summary.

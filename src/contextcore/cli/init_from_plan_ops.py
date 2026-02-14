@@ -75,7 +75,7 @@ def build_v2_manifest_template(name: str) -> Dict[str, Any]:
                 "metricsInterval": "30s",
                 "alertChannels": ["#alerts"],
                 "logLevel": "info",
-                "dashboardPlacement": "default",
+                "dashboardPlacement": "standard",
             },
         },
         "strategy": {

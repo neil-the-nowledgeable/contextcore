@@ -3,11 +3,69 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import click
 import yaml
+
+from contextcore.utils.provenance import build_run_provenance_payload, write_provenance_file
+
+
+def resolve_export_output_paths(
+    output_dir: Path,
+    project_name: str,
+    output_format: str,
+    emit_provenance: bool,
+    emit_onboarding: bool,
+    emit_quality_report: bool,
+) -> Dict[str, Path]:
+    """
+    Resolve concrete output paths for export artifacts.
+    """
+    paths = {
+        "project_context": output_dir / f"{project_name}-projectcontext.yaml",
+        "artifact_manifest": output_dir / f"{project_name}-artifact-manifest.{output_format}",
+        "validation_report": output_dir / "validation-report.json",
+        "run_provenance": output_dir / "run-provenance.json",
+    }
+    
+    if emit_provenance:
+        paths["provenance"] = output_dir / "provenance.json"
+        
+    if emit_onboarding:
+        paths["onboarding_metadata"] = output_dir / "onboarding-metadata.json"
+        
+    if emit_quality_report:
+        paths["quality_report"] = output_dir / "export-quality-report.json"
+        
+    return paths
+
+
+def atomic_write_with_backup(path: Path, content: str, backup: bool = True) -> None:
+    """Write file atomically, optionally creating a backup if it exists."""
+    # Create parent dir if needed
+    path.parent.mkdir(parents=True, exist_ok=True)
+    
+    if path.exists() and backup:
+        backup_path = path.with_suffix(path.suffix + ".bak")
+        shutil.copy2(path, backup_path)
+        
+    # Write to temp file then rename
+    fd, temp_path = tempfile.mkstemp(dir=path.parent, text=True)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(content)
+        # Preserve permissions if possible
+        if path.exists():
+            shutil.copymode(path, temp_path)
+        os.replace(temp_path, path)
+    except Exception:
+        os.unlink(temp_path)
+        raise
 
 
 def parse_existing_artifacts(existing: tuple[str, ...]) -> tuple[dict[str, str], list[str]]:
@@ -216,39 +274,78 @@ def write_export_outputs(
     emit_quality_report: bool,
     quality_report: Dict[str, Any],
     output_files: list[str],
+    run_provenance_inputs: Optional[List[str]] = None,
+    document_write_strategy: str = "update_existing",
 ) -> Dict[str, Optional[str]]:
-    (output_path / crd_filename).write_text(crd_yaml, encoding="utf-8")
-    (output_path / artifact_filename).write_text(artifact_content, encoding="utf-8")
+    # Use atomic write with backup if strategy is update_existing
+    use_backup = (document_write_strategy == "update_existing")
+    
+    # 1. Write ProjectContext CRD
+    crd_path = output_path / crd_filename
+    atomic_write_with_backup(crd_path, crd_yaml, backup=use_backup)
+    
+    # 2. Write Artifact Manifest
+    artifact_path = output_path / artifact_filename
+    atomic_write_with_backup(artifact_path, artifact_content, backup=use_backup)
 
     provenance_file: Optional[str] = None
     if emit_provenance and provenance:
-        from contextcore.utils.provenance import write_provenance_file
-
+        prov_path = output_path / "provenance.json"
+        if prov_path.exists() and use_backup:
+            shutil.copy2(prov_path, prov_path.with_suffix(".json.bak"))
+            
         provenance_file = write_provenance_file(provenance, str(output_path), format="json")
         output_files.append("provenance.json")
 
     onboarding_file: Optional[str] = None
     if emit_onboarding:
         onboarding_path = output_path / "onboarding-metadata.json"
-        onboarding_path.write_text(json.dumps(onboarding_metadata, indent=2, default=str), encoding="utf-8")
+        content = json.dumps(onboarding_metadata, indent=2, default=str)
+        atomic_write_with_backup(onboarding_path, content, backup=use_backup)
         onboarding_file = str(onboarding_path)
         output_files.append("onboarding-metadata.json")
 
     validation_path = output_path / "validation-report.json"
-    validation_path.write_text(json.dumps(validation_report, indent=2, default=str), encoding="utf-8")
+    content = json.dumps(validation_report, indent=2, default=str)
+    atomic_write_with_backup(validation_path, content, backup=use_backup)
     output_files.append("validation-report.json")
 
     quality_path: Optional[str] = None
     if emit_quality_report:
         qp = output_path / "export-quality-report.json"
-        qp.write_text(json.dumps(quality_report, indent=2, default=str), encoding="utf-8")
+        content = json.dumps(quality_report, indent=2, default=str)
+        atomic_write_with_backup(qp, content, backup=use_backup)
         quality_path = str(qp)
         output_files.append("export-quality-report.json")
 
+    # 3. Write Run Provenance
+    # Calculate inputs/outputs for run provenance
+    # Outputs are already in output_files (filenames relative to output_dir)
+    # We need full paths for run provenance payload
+    
+    full_output_paths = [str(output_path / f) for f in output_files]
+    
+    run_payload = build_run_provenance_payload(
+        workflow_or_command="manifest export",
+        inputs=run_provenance_inputs or [],
+        outputs=full_output_paths,
+        quality_summary={
+            "strict_quality": quality_report.get("strict_quality", False) if quality_report else False,
+            "coverage_meets_minimum": quality_report.get("gates", {}).get("coverage_meets_minimum", True) if quality_report else True,
+        }
+    )
+    
+    run_prov_path = output_path / "run-provenance.json"
+    if run_prov_path.exists() and use_backup:
+         shutil.copy2(run_prov_path, run_prov_path.with_suffix(".json.bak"))
+         
+    write_provenance_file(run_payload, str(output_path), filename="run-provenance.json")
+    
     return {
         "provenance_file": provenance_file,
         "onboarding_file": onboarding_file,
         "quality_path": quality_path,
+        "run_provenance_file": str(run_prov_path),
     }
 
 
@@ -261,6 +358,7 @@ def print_export_success(
     quality_path: Optional[str],
     artifact_manifest: Any,
     provenance: Any,
+    run_provenance_file: Optional[str] = None,
 ) -> None:
     click.echo(f"✓ Exported ContextCore artifacts to {output_path}/")
     click.echo(f"  1. {crd_filename} - Kubernetes CRD (do NOT apply directly)")
@@ -272,6 +370,8 @@ def print_export_success(
     click.echo("  5. validation-report.json - Export-time validation diagnostics")
     if quality_path:
         click.echo("  6. export-quality-report.json - Strict-quality gate summary")
+    if run_provenance_file:
+        click.echo(f"  7. {Path(run_provenance_file).name} - Run inputs/outputs lineage")
 
     print_coverage_summary(artifact_manifest)
 

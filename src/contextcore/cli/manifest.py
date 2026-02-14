@@ -1298,6 +1298,12 @@ def init_from_plan(
     default=None,
     help="Override project ID for task tracking (defaults to manifest project ID).",
 )
+@click.option(
+    "--document-write-strategy",
+    type=click.Choice(["update_existing", "new_output"]),
+    default="update_existing",
+    help="Strategy for writing output documents (default: update_existing)",
+)
 @click.pass_context
 def export(
     ctx,
@@ -1319,6 +1325,7 @@ def export(
     verify: bool,
     emit_tasks: bool,
     project_id: Optional[str],
+    document_write_strategy: str,
 ):
     """
     Export CRD and Artifact Manifest for Wayfinder implementations.
@@ -1594,6 +1601,15 @@ def export(
                 sys.exit(1)
             return
 
+        # Collect run inputs
+        run_inputs = [str(Path(path).resolve())]
+        if task_mapping:
+            run_inputs.append(str(Path(task_mapping).resolve()))
+        if scan_existing:
+             run_inputs.append(str(Path(scan_existing).resolve()))
+        if policy_file:
+             run_inputs.append(str(policy_file))
+
         file_results = write_export_outputs(
             output_path=output_path,
             crd_filename=crd_filename,
@@ -1608,6 +1624,8 @@ def export(
             emit_quality_report=emit_quality_report,
             quality_report=quality_report,
             output_files=output_files,
+            run_provenance_inputs=run_inputs,
+            document_write_strategy=document_write_strategy,
         )
         print_export_success(
             output_path=output_path,
@@ -1616,6 +1634,7 @@ def export(
             provenance_file=file_results["provenance_file"],
             onboarding_file=file_results["onboarding_file"],
             quality_path=file_results["quality_path"],
+            run_provenance_file=file_results.get("run_provenance_file"),
             artifact_manifest=artifact_manifest,
             provenance=provenance,
         )
