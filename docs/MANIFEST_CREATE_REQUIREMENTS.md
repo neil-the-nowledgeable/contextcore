@@ -291,7 +291,7 @@ When updating this document:
 
 ## Related Docs
 
-- `docs/EXPORT_PIPELINE_ANALYSIS_GUIDE.md` — 4-step pipeline, defense-in-depth principles
+- `docs/EXPORT_PIPELINE_ANALYSIS_GUIDE.md` — 7-step A2A governance-aware pipeline, defense-in-depth principles
 - `docs/design/contextcore-a2a-comms-design.md` — A2A governance layer architecture
 - `docs/MANIFEST_ONBOARDING_GUIDE.md` — manifest onboarding guide
 - `docs/ONBOARDING_METADATA_SCHEMA.md` — onboarding metadata field reference

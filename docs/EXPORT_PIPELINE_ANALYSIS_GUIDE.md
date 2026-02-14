@@ -37,7 +37,7 @@ Step 1                Step 2                  Step 3              Step 4        
                                                                    │ Execution      │  │ Verification   │
                                                                    │ (Prime/Artisan)│  │ (Gate 3)       │
                                                                    └────────────────┘  └────────────────┘
-```
+```are 
 
 Each step has a well-defined responsibility:
 
@@ -211,7 +211,7 @@ When something goes wrong in artifact generation, trace through these checkpoint
 
 ## 6. Defense in Depth: Guarding the Pipeline End-to-End
 
-The 4-step pipeline has a fundamental property: **each step trusts the output and assumptions from the prior step.** A defect in initialization or export can cascade silently through ingestion and into the artisan build. Defense in depth means inserting validation at every boundary so that problems are caught as close to their source as possible, rather than manifesting as mysterious failures at the end.
+The 7-step pipeline has a fundamental property: **each step trusts the output and assumptions from the prior step.** A defect in initialization or export can cascade silently through ingestion and into the artisan build. Defense in depth — now enforced by A2A governance gates at steps 3, 5, and 7 — means inserting validation at every boundary so that problems are caught as close to their source as possible, rather than manifesting as mysterious failures at the end.
 
 ### Principle 1: Validate at the Boundary, Not Just at the End
 
@@ -295,7 +295,7 @@ The pipeline has a checksum chain: `source_checksum` → `artifact_manifest_chec
 
 ### Principle 4: Fail Loud, Fail Early, Fail Specific
 
-When diagnosing a failure, start from the **output symptom** and trace backward through all four steps. The most common mistake is assuming the problem is in the step where the symptom appeared:
+When diagnosing a failure, start from the **output symptom** and trace backward through all seven steps. The most common mistake is assuming the problem is in the step where the symptom appeared:
 
 ```text
 Symptom in artisan output

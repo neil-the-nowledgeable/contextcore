@@ -1302,34 +1302,42 @@ def export(
     """
     Export CRD and Artifact Manifest for Wayfinder implementations.
 
-    This command generates two files:
+    This is Step 2 in the 7-step A2A governance-aware pipeline:
+    init -> export -> a2a-check-pipeline (Gate 1) -> plan-ingestion ->
+    a2a-diagnose (Gate 2) -> contractor execution -> finalize (Gate 3)
+
+    This command generates two core files plus enrichment metadata:
     1. ProjectContext CRD (not applied, just YAML)
     2. Artifact Manifest (defines what observability artifacts are needed)
 
     The Artifact Manifest serves as the CONTRACT between ContextCore (which knows
     WHAT artifacts are needed) and Wayfinder (which knows HOW to create them).
 
-    Provenance tracking:
-    - Use --emit-provenance to write a separate provenance.json file
-    - Use --embed-provenance to include provenance in the artifact manifest
+    Provenance tracking (recommended for A2A governance):
+    - Use --emit-provenance to write provenance.json with full audit trail
+    - Required for A2A pipeline checker (Gate 1) checksum-chain validation
     - Provenance includes: git context, timestamps, checksums, CLI args
 
     Programmatic onboarding:
-    - Onboarding metadata (onboarding-metadata.json) is written by default for plan ingestion
+    - Onboarding metadata (onboarding-metadata.json) is written by default
+    - Includes enrichment fields: derivation_rules, expected_output_contracts,
+      artifact_dependency_graph, open_questions, file_ownership
     - Use --no-onboarding to opt out
-    - Includes: artifact type schemas, output conventions, coverage gaps,
-      checksums, semantic conventions, and provenance chain
-    - Validation report (validation-report.json) is always written for deterministic gating
+    - Validation report (validation-report.json) is always written
+
+    After export, run A2A governance validation:
+        contextcore contract a2a-check-pipeline ./output   # Gate 1: 6 integrity checks
+        contextcore contract a2a-diagnose ./output          # Gate 2: Three Questions
 
     Example:
-        contextcore manifest export -p .contextcore.yaml -o ./output
         contextcore manifest export -p .contextcore.yaml -o ./output --emit-provenance
         contextcore manifest export -p .contextcore.yaml -o ./output --no-onboarding
+        contextcore manifest export -p .contextcore.yaml -o ./output --dry-run
 
     This creates:
         ./output/my-project-projectcontext.yaml
         ./output/my-project-artifact-manifest.yaml
-        ./output/provenance.json (if --emit-provenance)
+        ./output/provenance.json (if --emit-provenance — recommended)
         ./output/onboarding-metadata.json (default; use --no-onboarding to skip)
         ./output/validation-report.json (always)
     """
