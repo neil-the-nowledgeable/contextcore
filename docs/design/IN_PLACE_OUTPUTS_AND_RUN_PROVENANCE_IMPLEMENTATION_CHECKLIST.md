@@ -165,7 +165,7 @@ This checklist is scoped to current command entrypoints and helper modules:
 
 ## Phase 4: Policy and defaults
 
-- [ ] **Add policy keys for run provenance behavior**
+- [x] **Add policy keys for run provenance behavior**
   - **File:** `.contextcore-quality.yaml` (repo root)
   - **Insertion point:** strict quality policy section.
   - **Action:** add policy toggles like:
@@ -173,7 +173,7 @@ This checklist is scoped to current command entrypoints and helper modules:
     - `document_write_strategy_default`
   - **Acceptance:** org-level defaults are centralized and CI-friendly.
 
-- [ ] **Strict-mode defaulting rule**
+- [x] **Strict-mode defaulting rule**
   - **File:** `src/contextcore/cli/manifest.py`, `src/contextcore/cli/core.py`
   - **Insertion point:** where strict profile toggles are currently resolved.
   - **Action:** in strict mode, force run provenance on unless explicitly disabled by policy exception.

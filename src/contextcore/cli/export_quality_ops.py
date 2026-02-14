@@ -68,6 +68,8 @@ def load_quality_policy(manifest_path: str) -> Dict[str, Any]:
         },
         "emit_quality_report_default": True,
         "deterministic_output_default": True,
+        "emit_run_provenance_default": True,
+        "document_write_strategy_default": "update_existing",
     }
 
     policy_file = find_quality_policy_file(manifest_path)
@@ -88,7 +90,9 @@ def resolve_export_quality_toggles(
     strict_quality: Optional[bool],
     deterministic_output: Optional[bool],
     emit_quality_report: Optional[bool],
-) -> tuple[bool, bool, bool]:
+    emit_run_provenance: Optional[bool] = None,
+    document_write_strategy: str = None,
+) -> tuple[bool, bool, bool, bool, str]:
     strict = bool(policy.get("strict_quality_default", True)) if strict_quality is None else strict_quality
     deterministic = (
         bool(policy.get("deterministic_output_default", True))
@@ -100,7 +104,24 @@ def resolve_export_quality_toggles(
         if emit_quality_report is None
         else emit_quality_report
     )
-    return strict, deterministic, quality_report
+    
+    # Run provenance defaults to policy value if not provided, or True if not in policy
+    # but forced by strict quality below
+    run_provenance_default = policy.get("emit_run_provenance_default", True)
+    run_provenance = (
+        bool(run_provenance_default) 
+        if emit_run_provenance is None 
+        else emit_run_provenance
+    )
+    
+    write_strategy = (
+        str(policy.get("document_write_strategy_default", "update_existing"))
+        if document_write_strategy is None
+        else document_write_strategy
+    )
+    
+    return strict, deterministic, quality_report, run_provenance, write_strategy
+
 
 
 def evaluate_ci_policy(strict_quality: bool, policy: Dict[str, Any]) -> Optional[Dict[str, str]]:
@@ -126,6 +147,7 @@ def apply_strict_quality_profile(
     scan_existing: Optional[str],
     emit_provenance: bool,
     embed_provenance: bool,
+    emit_run_provenance: bool = False,
 ) -> Dict[str, Any]:
     result: Dict[str, Any] = {
         "ok": True,
@@ -134,6 +156,7 @@ def apply_strict_quality_profile(
         "min_coverage": min_coverage,
         "emit_provenance": emit_provenance,
         "embed_provenance": embed_provenance,
+        "emit_run_provenance": emit_run_provenance,
         "environment": os.getenv(
             "CONTEXTCORE_ENV",
             str(policy.get("default_environment", "dev")),
@@ -196,6 +219,10 @@ def apply_strict_quality_profile(
     if not result["embed_provenance"]:
         result["embed_provenance"] = True
         result["warnings"].append("⚠ Strict quality enables --embed-provenance automatically.")
+        
+    if not result["emit_run_provenance"]:
+        result["emit_run_provenance"] = True
+        result["warnings"].append("⚠ Strict quality enables --emit-run-provenance automatically.")
 
     return result
 

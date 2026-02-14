@@ -25,3 +25,6 @@ schema_pins:
 
 emit_quality_report_default: true
 deterministic_output_default: true
+emit_run_provenance_default: true
+document_write_strategy_default: update_existing
+
