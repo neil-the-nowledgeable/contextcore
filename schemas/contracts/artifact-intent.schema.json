@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contextcore.io/schemas/contracts/artifact-intent.schema.json",
+  "title": "ArtifactIntent",
+  "description": "Typed declaration of an observability artifact need before generation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_id",
+    "artifact_type",
+    "intent",
+    "owner",
+    "parameter_sources"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "v1"
+    },
+    "artifact_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifact_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "intent": {
+      "type": "string",
+      "enum": [
+        "create",
+        "update",
+        "validate",
+        "deprecate"
+      ]
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "promoted_to_task": {
+      "type": "boolean",
+      "default": false
+    },
+    "promotion_reason": {
+      "type": "string",
+      "enum": [
+        "lifecycle",
+        "dependency",
+        "risk",
+        "ownership",
+        "traceability",
+        "none"
+      ],
+      "default": "none"
+    },
+    "parameter_sources": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "output_convention": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "output_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "output_ext": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "semantic_conventions": {
+      "type": "object"
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

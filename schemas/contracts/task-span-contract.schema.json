@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contextcore.io/schemas/contracts/task-span-contract.schema.json",
+  "title": "TaskSpanContract",
+  "description": "Typed contract for a task/subtask represented as a trace span.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "project_id",
+    "task_id",
+    "phase",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "v1"
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "span_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parent_task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "INIT_BASELINE",
+        "EXPORT_CONTRACT",
+        "CONTRACT_INTEGRITY",
+        "INGEST_PARSE_ASSESS",
+        "ROUTING_DECISION",
+        "ARTISAN_DESIGN",
+        "ARTISAN_IMPLEMENT",
+        "TEST_VALIDATE",
+        "REVIEW_CALIBRATE",
+        "FINALIZE_VERIFY",
+        "OTHER"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "blocked",
+        "completed",
+        "failed"
+      ]
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "checksums": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source_checksum": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact_manifest_checksum": {
+          "type": "string",
+          "minLength": 1
+        },
+        "project_context_checksum": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "gap_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "feature_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "complexity_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "artifact_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "blocked_reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "blocked_on_span_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "next_action": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
