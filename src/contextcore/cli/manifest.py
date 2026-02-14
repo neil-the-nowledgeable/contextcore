@@ -1103,7 +1103,7 @@ def init_from_plan(
     inference_warnings = list(inference["warnings"])
 
     report = {
-        "version": "1.0.0",
+        "version": "1.1.0",
         "schema": "contextcore.io/init-from-plan-report/v1",
         "generated_at": datetime.now().isoformat(),
         "inputs": {
@@ -1116,6 +1116,7 @@ def init_from_plan(
         "inferences": inference["inferences"],
         "core_inferred_count": inference["core_inferred_count"],
         "warnings": inference_warnings,
+        "downstream_readiness": inference.get("downstream_readiness"),
     }
 
     if strict_quality and inference["core_inferred_count"] < 3:
@@ -1165,6 +1166,29 @@ def init_from_plan(
         click.echo(f"  Name: {inferred_name}")
         click.echo(f"  Inferences: {len(inference['inferences'])}")
         click.echo(f"  Report: {report_out}")
+
+    # Display downstream readiness assessment
+    readiness = inference.get("downstream_readiness")
+    if readiness:
+        verdict = readiness["verdict"]
+        score = readiness["score"]
+        verdict_display = {
+            "ready": "✓ ready",
+            "needs_enrichment": "⚠ needs enrichment",
+            "insufficient": "✗ insufficient",
+        }.get(verdict, verdict)
+        click.echo(f"\n  Downstream readiness: {verdict_display} (score: {score}/100)")
+        a2a = readiness.get("a2a_gate_readiness", {})
+        for gate_name, gate_status in a2a.items():
+            icon = "✓" if gate_status == "ready" else "⚠" if gate_status == "at_risk" else "✗"
+            click.echo(f"    {icon} {gate_name}: {gate_status}")
+        click.echo(f"  Estimated artifacts: ~{readiness.get('estimated_artifact_count', 0)}")
+        click.echo(f"\n  Next steps:")
+        click.echo(f"    1. Edit {output} to refine inferred values")
+        click.echo(f"    2. Run: contextcore manifest validate --path {output}")
+        click.echo(f"    3. Run: contextcore install init")
+        click.echo(f"    4. Run: contextcore manifest export -p {output} -o ./out/export --emit-provenance")
+        click.echo(f"    5. Run: contextcore contract a2a-check-pipeline ./out/export")
 
 
 @manifest.command()

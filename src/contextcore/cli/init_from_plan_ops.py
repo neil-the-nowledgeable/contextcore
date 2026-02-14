@@ -123,6 +123,31 @@ def build_v2_manifest_template(name: str) -> Dict[str, Any]:
     }
 
 
+# Valid risk types per contextcore.contracts.types.RiskType
+_RISK_TYPE_KEYWORDS: Dict[str, List[str]] = {
+    "security": ["security", "auth", "credential", "encrypt", "vulnerability", "attack", "breach", "injection"],
+    "compliance": ["compliance", "regulation", "audit", "gdpr", "hipaa", "pci", "sox", "legal"],
+    "data-integrity": ["data integrity", "corruption", "data loss", "consistency", "backup", "replication"],
+    "availability": ["availability", "uptime", "downtime", "outage", "failover", "disaster", "redundancy"],
+    "financial": ["cost", "budget", "spending", "billing", "financial", "revenue"],
+    "reputational": ["reputation", "customer trust", "brand", "public", "media"],
+}
+
+
+def _infer_risk_type(risk_text: str) -> str:
+    """Infer the risk type from risk description text using keyword matching.
+
+    Falls back to 'availability' when no keywords match.
+    Valid types: security, compliance, data-integrity, availability, financial, reputational.
+    """
+    lowered = risk_text.lower()
+    for risk_type, keywords in _RISK_TYPE_KEYWORDS.items():
+        for kw in keywords:
+            if kw in lowered:
+                return risk_type
+    return "availability"
+
+
 def infer_init_from_plan(
     manifest_data: Dict[str, Any],
     plan_text: str,
@@ -259,7 +284,7 @@ def infer_init_from_plan(
     if extracted_risks:
         manifest_data["spec"]["risks"] = [
             {
-                "type": "availability",
+                "type": _infer_risk_type(r),
                 "description": r,
                 "priority": "P2",
                 "mitigation": "Define mitigation in implementation plan",
@@ -310,10 +335,11 @@ def infer_init_from_plan(
         if (in_goals or in_execution_scope) and ln.startswith("- "):
             goals.append(ln.lstrip("- ").strip())
     if goals:
-        manifest_data["strategy"]["objectives"] = [
-            {
-                "id": "OBJ-PLAN-001",
-                "description": goals[0][:180],
+        objectives = []
+        for idx, goal in enumerate(goals[:3]):
+            obj = {
+                "id": f"OBJ-PLAN-{idx+1:03d}",
+                "description": goal[:180],
                 "keyResults": [
                     {
                         "metricKey": "availability",
@@ -324,12 +350,69 @@ def infer_init_from_plan(
                     }
                 ],
             }
-        ]
+            objectives.append(obj)
+        manifest_data["strategy"]["objectives"] = objectives
         add_inference(
-            "strategy.objectives[0].description",
-            goals[0][:180],
+            "strategy.objectives",
+            [o["id"] for o in objectives],
             "plan:goals_or_execution_scope_extraction",
             0.8,
+        )
+
+    # ── Tactics extraction from plan phases/milestones/action items ──
+    tactics: List[Dict[str, Any]] = []
+    in_phases = False
+    in_milestones = False
+    in_action_items = False
+    obj_ids = [o["id"] for o in manifest_data["strategy"].get("objectives", [])]
+    for ln in plan_lines:
+        lowered_line = ln.lower()
+        if re.match(r"^#{2,3}\s*(phase|milestone|action|step|task)\b", lowered_line):
+            in_phases = True
+            in_milestones = False
+            in_action_items = False
+            # The heading itself may describe a phase
+            heading_text = re.sub(r"^#{2,3}\s*", "", ln).strip()
+            if len(heading_text) > 10:
+                tac_id = f"TAC-PLAN-{len(tactics)+1:03d}"
+                tactics.append({
+                    "id": tac_id,
+                    "description": heading_text[:180],
+                    "status": "planned",
+                    "linkedObjectives": obj_ids[:1] if obj_ids else [],
+                })
+            continue
+        if lowered_line.startswith("### milestones"):
+            in_milestones = True
+            in_phases = False
+            in_action_items = False
+            continue
+        if lowered_line.startswith("### action items") or lowered_line.startswith("### deliverables"):
+            in_action_items = True
+            in_phases = False
+            in_milestones = False
+            continue
+        if (in_phases or in_milestones or in_action_items) and ln.startswith("## "):
+            in_phases = False
+            in_milestones = False
+            in_action_items = False
+        if (in_phases or in_milestones or in_action_items) and ln.startswith("- "):
+            item_text = ln.lstrip("- ").strip()
+            if len(item_text) > 10 and len(tactics) < 10:
+                tac_id = f"TAC-PLAN-{len(tactics)+1:03d}"
+                tactics.append({
+                    "id": tac_id,
+                    "description": item_text[:180],
+                    "status": "planned",
+                    "linkedObjectives": obj_ids[:1] if obj_ids else [],
+                })
+    if tactics:
+        manifest_data["strategy"]["tactics"] = tactics
+        add_inference(
+            "strategy.tactics",
+            [t["id"] for t in tactics],
+            "plan:phase_milestone_extraction",
+            0.7,
         )
 
     if emit_guidance_questions:
@@ -351,6 +434,32 @@ def infer_init_from_plan(
                 0.6,
             )
 
+    # ── URL extraction for metadata.links ──────────────────────────
+    url_pattern = re.compile(r"(https?://[^\s\)\]\>\"']+)")
+    found_urls = url_pattern.findall(text)
+    links_updated = False
+    for url in found_urls:
+        url_lower = url.lower()
+        if "github.com" in url_lower or "gitlab.com" in url_lower or "bitbucket.org" in url_lower:
+            manifest_data["metadata"]["links"]["repo"] = url
+            links_updated = True
+        elif "jira" in url_lower or "linear" in url_lower or "atlassian.net" in url_lower:
+            manifest_data["metadata"]["links"]["tracker"] = url
+            links_updated = True
+        elif "wiki" in url_lower or "confluence" in url_lower or "notion" in url_lower:
+            manifest_data["metadata"]["links"]["docs"] = url
+            links_updated = True
+        elif "grafana" in url_lower or "dashboard" in url_lower:
+            manifest_data["metadata"]["links"]["dashboard"] = url
+            links_updated = True
+    if links_updated:
+        add_inference(
+            "metadata.links",
+            manifest_data["metadata"]["links"],
+            "plan+requirements:url_extraction",
+            0.7,
+        )
+
     core_inferred_fields = {
         item["field_path"] for item in inferences
         if item["field_path"] in {
@@ -360,7 +469,7 @@ def infer_init_from_plan(
             "spec.targets[0].name",
             "spec.business.owner",
             "guidance.constraints",
-            "strategy.objectives[0].description",
+            "strategy.objectives",
         }
     }
     if len(core_inferred_fields) < 3:
@@ -368,9 +477,101 @@ def infer_init_from_plan(
             "Low-confidence init-from-plan: fewer than 3 core fields were inferred from inputs."
         )
 
+    # ── Downstream readiness assessment ──────────────────────────
+    # Predict how well this manifest will perform in export and plan ingestion
+    readiness_score = 0
+    readiness_checks: List[Dict[str, Any]] = []
+
+    # Check if requirements are populated (drives derivation rules)
+    reqs = manifest_data.get("spec", {}).get("requirements", {})
+    populated_reqs = [k for k, v in reqs.items() if v and str(v) not in ("", "0")]
+    readiness_checks.append({
+        "check": "requirements_populated",
+        "status": "pass" if len(populated_reqs) >= 3 else "warn",
+        "detail": f"{len(populated_reqs)}/4 requirement fields populated ({', '.join(populated_reqs)})",
+    })
+    readiness_score += min(len(populated_reqs), 4) * 5
+
+    # Check if targets are defined (drives artifact generation)
+    targets = manifest_data.get("spec", {}).get("targets", [])
+    readiness_checks.append({
+        "check": "targets_defined",
+        "status": "pass" if targets else "fail",
+        "detail": f"{len(targets)} target(s) defined",
+    })
+    readiness_score += 10 if targets else 0
+
+    # Check if observability config is present (drives alert channels, sampling)
+    obs = manifest_data.get("spec", {}).get("observability", {})
+    has_channels = bool(obs.get("alertChannels"))
+    readiness_checks.append({
+        "check": "observability_configured",
+        "status": "pass" if has_channels else "warn",
+        "detail": f"alertChannels={'yes' if has_channels else 'empty'}, logLevel={obs.get('logLevel', 'unset')}",
+    })
+    readiness_score += 10 if has_channels else 0
+
+    # Check if objectives exist (drives export objectives enrichment)
+    objectives = manifest_data.get("strategy", {}).get("objectives", [])
+    readiness_checks.append({
+        "check": "objectives_defined",
+        "status": "pass" if objectives else "warn",
+        "detail": f"{len(objectives)} objective(s) defined",
+    })
+    readiness_score += 10 if objectives else 0
+
+    # Check if guidance has constraints or questions (drives open_questions export)
+    guidance = manifest_data.get("guidance", {})
+    has_constraints = bool(guidance.get("constraints"))
+    has_questions = bool(guidance.get("questions"))
+    readiness_checks.append({
+        "check": "guidance_populated",
+        "status": "pass" if (has_constraints or has_questions) else "warn",
+        "detail": f"constraints={len(guidance.get('constraints', []))}, questions={len(guidance.get('questions', []))}",
+    })
+    readiness_score += 10 if has_constraints else 0
+    readiness_score += 5 if has_questions else 0
+
+    # Check if risks are defined (drives runbook derivation)
+    risks = manifest_data.get("spec", {}).get("risks", [])
+    readiness_checks.append({
+        "check": "risks_defined",
+        "status": "pass" if risks else "warn",
+        "detail": f"{len(risks)} risk(s) defined",
+    })
+    readiness_score += 10 if risks else 0
+
+    # Estimate artifact coverage
+    artifact_types = ["dashboard", "prometheus_rule", "loki_rule", "service_monitor",
+                      "slo_definition", "notification_policy", "runbook"]
+    estimated_artifacts = len(artifact_types) * len(targets) if targets else 0
+    readiness_checks.append({
+        "check": "estimated_artifact_coverage",
+        "status": "pass" if estimated_artifacts > 0 else "warn",
+        "detail": f"~{estimated_artifacts} artifacts ({len(artifact_types)} types x {len(targets)} targets)",
+    })
+
+    downstream_readiness = {
+        "score": min(readiness_score, 100),
+        "verdict": (
+            "ready" if readiness_score >= 60
+            else "needs_enrichment" if readiness_score >= 30
+            else "insufficient"
+        ),
+        "checks": readiness_checks,
+        "estimated_artifact_count": estimated_artifacts,
+        "a2a_gate_readiness": {
+            "checksum_chain": "ready" if len(populated_reqs) >= 2 else "at_risk",
+            "derivation_rules": "ready" if len(populated_reqs) >= 3 else "at_risk",
+            "design_calibration": "ready" if targets else "blocked",
+            "gap_parity": "ready" if targets else "blocked",
+        },
+    }
+
     return {
         "manifest_data": manifest_data,
         "inferences": inferences,
         "warnings": warnings,
         "core_inferred_count": len(core_inferred_fields),
+        "downstream_readiness": downstream_readiness,
     }
