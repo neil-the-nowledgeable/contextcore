@@ -390,3 +390,72 @@ def a2a_pilot_cmd(
 
     if fail_on_block and not result.is_success:
         sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# Pipeline integrity checker
+# ---------------------------------------------------------------------------
+
+
+@contract.command("a2a-check-pipeline")
+@click.argument("output_dir", type=click.Path(exists=True))
+@click.option("--task-id", default=None, help="Task span ID for gate context")
+@click.option("--trace-id", default=None, help="Trace ID for gate context")
+@click.option("--report", "-r", type=click.Path(), default=None,
+              help="Write JSON report to this path")
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text",
+              help="Output format (default: text)")
+@click.option("--fail-on-unhealthy", is_flag=True,
+              help="Exit with code 1 if any blocking gate fails")
+def a2a_check_pipeline_cmd(
+    output_dir: str,
+    task_id: Optional[str],
+    trace_id: Optional[str],
+    report: Optional[str],
+    output_format: str,
+    fail_on_unhealthy: bool,
+):
+    """Run A2A governance checks on a real export output directory.
+
+    Reads onboarding-metadata.json (and optionally provenance.json) from
+    OUTPUT_DIR and runs the full gate suite:
+
+    \b
+    1. Structural integrity — required fields exist
+    2. Checksum chain — recompute and compare file hashes
+    3. Provenance cross-check — consistency with provenance.json
+    4. Mapping completeness — every gap has a task mapping
+    5. Gap parity — gaps vs artifact features
+
+    Example:
+
+    \b
+        contextcore contract a2a-check-pipeline out/enrichment-validation
+
+    \b
+        contextcore contract a2a-check-pipeline out/enrichment-validation \\
+            --fail-on-unhealthy --report pipeline-report.json
+    """
+    from contextcore.contracts.a2a.pipeline_checker import PipelineChecker
+
+    try:
+        checker = PipelineChecker(output_dir, task_id=task_id, trace_id=trace_id)
+        result = checker.run()
+    except FileNotFoundError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+
+    # Write report if requested
+    if report:
+        result.write_json(report)
+        click.echo(f"Report written to {report}")
+
+    # Display output
+    if output_format == "json":
+        click.echo(json.dumps(result.summary(), indent=2, default=str))
+    else:
+        click.echo("")
+        click.echo(result.to_text())
+
+    if fail_on_unhealthy and not result.is_healthy:
+        sys.exit(1)

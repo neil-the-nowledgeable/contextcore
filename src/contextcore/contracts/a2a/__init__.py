@@ -63,6 +63,10 @@ from contextcore.contracts.a2a.pilot import (
     PilotSeed,
     PilotResult,
 )
+from contextcore.contracts.a2a.pipeline_checker import (
+    PipelineChecker,
+    PipelineCheckReport,
+)
 from contextcore.contracts.a2a.queries import A2AQueries
 
 __all__ = [
@@ -96,6 +100,9 @@ __all__ = [
     "PilotRunner",
     "PilotSeed",
     "PilotResult",
+    # Pipeline checker
+    "PipelineChecker",
+    "PipelineCheckReport",
     # Queries
     "A2AQueries",
 ]
