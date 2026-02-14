@@ -67,6 +67,11 @@ from contextcore.contracts.a2a.pipeline_checker import (
     PipelineChecker,
     PipelineCheckReport,
 )
+from contextcore.contracts.a2a.three_questions import (
+    ThreeQuestionsDiagnostic,
+    DiagnosticResult,
+    QuestionStatus,
+)
 from contextcore.contracts.a2a.queries import A2AQueries
 
 __all__ = [
@@ -103,6 +108,10 @@ __all__ = [
     # Pipeline checker
     "PipelineChecker",
     "PipelineCheckReport",
+    # Three Questions diagnostic
+    "ThreeQuestionsDiagnostic",
+    "DiagnosticResult",
+    "QuestionStatus",
     # Queries
     "A2AQueries",
 ]

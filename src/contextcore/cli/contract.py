@@ -459,3 +459,85 @@ def a2a_check_pipeline_cmd(
 
     if fail_on_unhealthy and not result.is_healthy:
         sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# Three Questions diagnostic
+# ---------------------------------------------------------------------------
+
+
+@contract.command("a2a-diagnose")
+@click.argument("export_dir", type=click.Path(exists=True))
+@click.option("--ingestion-dir", type=click.Path(), default=None,
+              help="Path to plan ingestion output (enables Q2 checks)")
+@click.option("--artisan-dir", type=click.Path(), default=None,
+              help="Path to artisan workflow output (enables Q3 checks)")
+@click.option("--trace-id", default=None, help="Trace ID for gate context")
+@click.option("--report", "-r", type=click.Path(), default=None,
+              help="Write JSON diagnostic report to this path")
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text",
+              help="Output format (default: text)")
+@click.option("--fail-on-issue", is_flag=True,
+              help="Exit with code 1 if any question fails")
+def a2a_diagnose_cmd(
+    export_dir: str,
+    ingestion_dir: Optional[str],
+    artisan_dir: Optional[str],
+    trace_id: Optional[str],
+    report: Optional[str],
+    output_format: str,
+    fail_on_issue: bool,
+):
+    """Run the Three Questions diagnostic on a pipeline execution.
+
+    Walks through the structured diagnostic ordering from the Export Pipeline
+    Analysis Guide:
+
+    \b
+    Q1: Is the contract complete? (Export layer)
+    Q2: Was the contract faithfully translated? (Plan Ingestion)
+    Q3: Was the translated plan faithfully executed? (Artisan)
+
+    Stops at the first failing question — fixing downstream issues
+    when the upstream contract is broken is wasted effort.
+
+    Example:
+
+    \b
+        # Check export only
+        contextcore contract a2a-diagnose out/enrichment-validation
+
+    \b
+        # Full pipeline diagnostic
+        contextcore contract a2a-diagnose out/enrichment-validation \\
+            --ingestion-dir out/plan-ingestion \\
+            --artisan-dir out/artisan
+    """
+    from contextcore.contracts.a2a.three_questions import ThreeQuestionsDiagnostic
+
+    try:
+        diag = ThreeQuestionsDiagnostic(
+            export_dir,
+            ingestion_dir=ingestion_dir,
+            artisan_dir=artisan_dir,
+            trace_id=trace_id,
+        )
+        result = diag.run()
+    except FileNotFoundError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+
+    # Write report if requested
+    if report:
+        result.write_json(report)
+        click.echo(f"Diagnostic report written to {report}")
+
+    # Display output
+    if output_format == "json":
+        click.echo(json.dumps(result.summary(), indent=2, default=str))
+    else:
+        click.echo("")
+        click.echo(result.to_text())
+
+    if fail_on_issue and not result.all_passed:
+        sys.exit(1)
