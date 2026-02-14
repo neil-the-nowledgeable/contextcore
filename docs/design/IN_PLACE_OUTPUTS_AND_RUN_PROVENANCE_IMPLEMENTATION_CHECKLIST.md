@@ -185,12 +185,12 @@ This checklist is scoped to current command entrypoints and helper modules:
 
 ## 1) Unit tests to add
 
-- [ ] **Export output path resolution tests**
-  - **Target file:** `tests/unit/test_manifest_export_in_place.py` (new)
+- [x] **Export output path resolution tests**
+  - **Target file:** `tests/unit/contextcore/cli/provenance/test_provenance_basics.py` (consolidated)
   - **Coverage:** default update_existing, explicit override, fallback behavior.
 
-- [ ] **Export run provenance payload tests**
-  - **Target file:** `tests/unit/test_manifest_export_provenance.py` (new)
+- [x] **Export run provenance payload tests**
+  - **Target file:** `tests/unit/contextcore/cli/provenance/test_provenance_basics.py` (consolidated)
   - **Coverage:** required fields, fingerprint integrity, artifact references.
 
 - [ ] **Init/init-from-plan provenance tests**

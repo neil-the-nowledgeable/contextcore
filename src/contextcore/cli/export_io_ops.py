@@ -16,17 +16,26 @@ from contextcore.utils.provenance import build_run_provenance_payload, write_pro
 
 
 def resolve_export_output_paths(
-    output_dir: Path,
-    project_name: str,
-    output_format: str,
-    emit_provenance: bool,
-    emit_onboarding: bool,
-    emit_quality_report: bool,
-) -> Dict[str, Path]:
+    manifest_path: str,
+    output_arg: Optional[str] = None,
+    # Additional optional args for specific outputs
+    project_name: str = "project",
+    output_format: str = "yaml",
+    emit_provenance: bool = True,
+    emit_onboarding: bool = True,
+    emit_quality_report: bool = True,
+) -> Dict[str, Any]:
     """
     Resolve concrete output paths for export artifacts.
     """
+    if output_arg:
+        output_dir = Path(output_arg)
+    else:
+        # Default: relative to CWD -> out/
+        output_dir = Path.cwd() / "out"
+        
     paths = {
+        "base_dir": str(output_dir),
         "project_context": output_dir / f"{project_name}-projectcontext.yaml",
         "artifact_manifest": output_dir / f"{project_name}-artifact-manifest.{output_format}",
         "validation_report": output_dir / "validation-report.json",
