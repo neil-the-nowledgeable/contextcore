@@ -37,7 +37,7 @@ Step 1                Step 2                  Step 3              Step 4        
                                                                    │ Execution      │  │ Verification   │
                                                                    │ (Prime/Artisan)│  │ (Gate 3)       │
                                                                    └────────────────┘  └────────────────┘
-```are 
+```
 
 Each step has a well-defined responsibility:
 
@@ -55,16 +55,20 @@ Each step has a well-defined responsibility:
 
 ## 2. What `contextcore manifest export` Produces
 
-The export command reads a `.contextcore.yaml` v2 manifest and produces up to **four files**, each serving a distinct downstream consumer:
+The export command reads a `.contextcore.yaml` v2 manifest and produces up to **six files**, each serving a distinct downstream consumer:
 
-| # | File | Purpose | Primary Consumer |
-| - | ---- | ------- | ---------------- |
-| 1 | `{project}-projectcontext.yaml` | Kubernetes CRD — project metadata, business criticality, SLOs, risks | K8s controller, Grafana labels |
-| 2 | `{project}-artifact-manifest.yaml` | **The CONTRACT** — specifies every observability artifact needed (dashboards, PrometheusRules, SLOs, Loki rules, ServiceMonitors, runbooks, etc.) with derivation rules showing how business metadata maps to artifact config | Plan Ingester, Artisan seed |
-| 3 | `provenance.json` | Audit trail — git context, timestamps, checksums, CLI args, duration | Integrity verification, compliance |
-| 4 | `onboarding-metadata.json` | **Programmatic onboarding** — artifact type schemas, parameter sources, output conventions, coverage gaps, checksums, semantic conventions, task mappings | Plan Ingester (directly), Artisan context seed enrichment |
+| # | File | Purpose | When produced | Primary Consumer |
+| - | ---- | ------- | ------------- | ---------------- |
+| 1 | `{project}-projectcontext.yaml` | Kubernetes CRD — project metadata, business criticality, SLOs, risks | Always | K8s controller, Grafana labels |
+| 2 | `{project}-artifact-manifest.yaml` | **The CONTRACT** — specifies every observability artifact needed (dashboards, PrometheusRules, SLOs, Loki rules, ServiceMonitors, runbooks, etc.) with derivation rules showing how business metadata maps to artifact config | Always | Plan Ingester, Artisan seed |
+| 3 | `provenance.json` | Audit trail — git context, timestamps, checksums, CLI args, duration | `--emit-provenance` | Integrity verification, A2A provenance-consistency gate |
+| 4 | `onboarding-metadata.json` | **Programmatic onboarding** — artifact type schemas, parameter sources, output conventions, coverage gaps, checksums, semantic conventions, enrichment fields, task mappings | Default (use `--no-onboarding` to skip) | Plan Ingester (directly), Artisan context seed enrichment, A2A pipeline checker |
+| 5 | `validation-report.json` | Export-time validation diagnostics — schema errors, cross-reference issues, quality gate results | Always | CI/automation, deterministic gating |
+| 6 | `export-quality-report.json` | Strict-quality gate summary — field completeness, coverage analysis | `--emit-quality-report` or strict-quality mode | Quality review, pre-ingestion audit |
 
 The critical insight: **ContextCore knows WHAT artifacts are needed** (derived from business criticality, SLOs, alerting requirements) but does **not** know how to create them. The artifact manifest is the contract between the "what" and the "how."
+
+**Additional export flags** (not shown in this guide's examples): `--embed-provenance` (inline provenance in artifact manifest), `--emit-quality-report` / `--strict-quality` (quality gate report), `--deterministic-output` (stable ordering), `--format yaml|json`, `--namespace`, `--existing artifact_id:path` (mark individual artifacts as existing). Run `contextcore manifest export --help` for the full list.
 
 ### Key fields in onboarding-metadata.json
 
@@ -104,7 +108,7 @@ The export output is the primary input for A2A governance validation. Two CLI co
 | `contextcore contract a2a-check-pipeline <export-dir>` | Gate 1 | 6 checks: structural integrity, checksum chain, provenance consistency, mapping completeness, gap parity, design calibration | After export, before plan ingestion |
 | `contextcore contract a2a-diagnose <export-dir>` | Gate 2 | Three Questions: contract complete? faithfully translated? faithfully executed? | After plan ingestion, before contractor execution |
 
-Gate 1 requires `--emit-provenance` for checksum chain validation. Gate 2 requires both export output and plan ingestion output.
+Gate 1 runs 6 checks; checksum-chain uses checksums from `onboarding-metadata.json` (always present). The provenance-consistency gate (1 of 6) is skipped if `provenance.json` is absent — use `--emit-provenance` for full 6/6 gate coverage. Gate 2 requires `export_dir`; `--ingestion-dir` and `--artisan-dir` are optional (questions are skipped without them).
 
 The A2A governance layer uses four contract types at phase boundaries:
 
@@ -224,6 +228,7 @@ Init ──[gate 0]──▶ Export ──[gate 1]──▶ Plan Ingestion ─�
 **Gate 0 — Init validation** (before export begins):
 
 - Run `contextcore install init` to validate installation completeness and critical dependencies.
+- **Note**: `init` always exits 0 (advisory mode). For strict gating that fails on incomplete installation, use `contextcore install verify` instead.
 - Confirm telemetry export endpoint is correct (`--endpoint`) so installation metrics are flushed to your backend.
 - If needed for quick onboarding docs only, use `--skip-verify`, but treat this as a reduced-safety mode.
 
@@ -382,7 +387,7 @@ startd8 workflow run plan-ingestion --plan_path plan.md --output_dir ./out \
 # Step 5: Gate 2 — Three Questions diagnostic
 contextcore contract a2a-diagnose ./output --ingestion-dir ./out
 
-# Step 6: contractor execution
+# Step 6: contractor execution (these scripts live in startd8-sdk, not ContextCore)
 python3 scripts/run_artisan_workflow.py --seed seed.json --output-dir out/ --cost-budget 10
 python3 scripts/run_artisan_design_only.py --seed seed.json --output-dir out/  # design review
 python3 scripts/run_artisan_implement_only.py --handoff out/design-handoff.json  # from handoff

@@ -418,14 +418,18 @@ def a2a_check_pipeline_cmd(
     """Run A2A governance checks on a real export output directory.
 
     Reads onboarding-metadata.json (and optionally provenance.json) from
-    OUTPUT_DIR and runs the full gate suite:
+    OUTPUT_DIR and runs the full 6-gate suite:
 
     \b
-    1. Structural integrity — required fields exist
+    1. Structural integrity — required fields exist and are parseable
     2. Checksum chain — recompute and compare file hashes
-    3. Provenance cross-check — consistency with provenance.json
-    4. Mapping completeness — every gap has a task mapping
-    5. Gap parity — gaps vs artifact features
+    3. Provenance consistency — cross-check with provenance.json (skipped if absent)
+    4. Mapping completeness — every target has corresponding artifacts
+    5. Gap parity — coverage gaps match artifact features
+    6. Design calibration — artifact depth tiers match type expectations
+
+    Gates 1-2 always run. Gate 3 is skipped without provenance.json.
+    Gates 4-6 are skipped when their input data is absent.
 
     Example:
 

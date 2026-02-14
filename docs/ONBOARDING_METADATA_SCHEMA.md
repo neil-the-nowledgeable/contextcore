@@ -157,7 +157,7 @@ The onboarding metadata is the primary input for A2A governance validation:
 - **`contextcore contract a2a-diagnose`** uses onboarding metadata to answer "Is the contract complete?" (Q1)
 - Enrichment fields (`derivation_rules`, `expected_output_contracts`, `artifact_dependency_graph`) are checked as part of Gate 1 validation
 
-To ensure A2A gate readiness, export with `--emit-provenance`:
+The checksum-chain gate uses checksums from onboarding-metadata.json (always present). For full 6/6 gate coverage, export with `--emit-provenance` (enables the provenance-consistency gate):
 
 ```bash
 contextcore manifest export -p .contextcore.yaml -o ./output --emit-provenance

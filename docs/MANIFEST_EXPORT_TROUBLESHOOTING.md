@@ -92,7 +92,7 @@ Common issues when using `contextcore manifest export` and related tooling.
 **Resolution:**
 1. Use `--emit-provenance` to capture full provenance and `source_checksum`
 2. `source_checksum` can still be populated from the source file when provenance is absent if `source_path` is available to the onboarding builder
-3. **Important:** `contextcore contract a2a-check-pipeline` requires provenance for the `checksum-chain` gate. Without `--emit-provenance`, this gate will fail
+3. **Note:** The `checksum-chain` gate uses checksums from `onboarding-metadata.json` and works without provenance. The `provenance-consistency` gate (1 of 6) is skipped without `--emit-provenance`. Use `--emit-provenance` for full 6/6 gate coverage
 
 ---
 

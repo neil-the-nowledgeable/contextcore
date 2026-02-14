@@ -662,9 +662,12 @@ class ThreeQuestionsDiagnostic:
                 severity="info",
             ))
 
-        # Check for finalize report
+        # Check for finalize report (supports both ContextCore naming and
+        # startd8-sdk naming: workflow-execution-report.json)
         finalize_files = list(self.artisan_dir.glob("*finalize*report*.json")) + \
-                         list(self.artisan_dir.glob("*finalize*.json"))
+                         list(self.artisan_dir.glob("*finalize*.json")) + \
+                         list(self.artisan_dir.glob("*execution*report*.json")) + \
+                         list(self.artisan_dir.glob("workflow-execution-report.json"))
         if finalize_files:
             try:
                 with open(finalize_files[0]) as fh:
