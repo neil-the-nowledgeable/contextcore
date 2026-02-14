@@ -302,3 +302,91 @@ def a2a_gate_cmd(
 
     if fail_on_block and result.blocking and result.result.value == "fail":
         sys.exit(1)
+
+
+@contract.command("a2a-pilot")
+@click.option("--output", "-o", type=click.Path(), default="out/pilot-trace.json",
+              help="Path to write trace evidence JSON (default: out/pilot-trace.json)")
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text",
+              help="Output format for summary")
+@click.option("--fail-on-block", is_flag=True, help="Exit 1 if pilot is blocked")
+@click.option("--source-checksum", default=None, help="Override source checksum (test mismatch)")
+@click.option("--drop-feature", default=None, help="Drop a feature ID to test gap parity failure")
+@click.option("--test-failures", type=int, default=0, help="Inject N critical test failures")
+def a2a_pilot_cmd(
+    output: str,
+    output_format: str,
+    fail_on_block: bool,
+    source_checksum: Optional[str],
+    drop_feature: Optional[str],
+    test_failures: int,
+):
+    """Run the PI-101-002 pilot trace with full gate evidence.
+
+    Executes all 10 phase spans (S1-S10) with gate checks at each boundary.
+    Writes complete trace evidence to a JSON file.
+
+    By default runs the happy path. Use options to inject failures:
+
+    \b
+    # Happy path
+    contextcore contract a2a-pilot
+
+    \b
+    # Checksum mismatch (blocks at S3)
+    contextcore contract a2a-pilot --source-checksum sha256:STALE
+
+    \b
+    # Gap parity failure (blocks at S4)
+    contextcore contract a2a-pilot --drop-feature gap-latency-panel
+
+    \b
+    # Test failure (blocks at S8)
+    contextcore contract a2a-pilot --test-failures 2
+    """
+    from contextcore.contracts.a2a.pilot import PilotRunner, PilotSeed
+
+    seed = PilotSeed()
+
+    # Apply overrides for failure injection
+    if source_checksum:
+        seed.source_checksum = source_checksum
+
+    if drop_feature:
+        seed.feature_ids = [f for f in seed.feature_ids if f != drop_feature]
+
+    if test_failures > 0:
+        seed.test_critical_failures = test_failures
+
+    runner = PilotRunner(seed=seed)
+    result = runner.execute()
+
+    # Write evidence
+    evidence_path = result.write_evidence(output)
+
+    # Output summary
+    summary = result.summary()
+
+    if output_format == "json":
+        click.echo(json.dumps(summary, indent=2))
+    else:
+        status_icon = "PASS" if result.is_success else "BLOCKED" if result.final_status == "blocked" else "FAIL"
+        click.echo(f"\n{'='*60}")
+        click.echo(f"  PI-101-002 Pilot: {status_icon}")
+        click.echo(f"{'='*60}")
+        click.echo(f"  Spans:  {summary['completed_spans']}/{summary['total_spans']} completed")
+        click.echo(f"  Gates:  {summary['gates_passed']} passed, {summary['gates_failed']} failed")
+
+        if summary["blocked_spans"]:
+            click.echo(f"  Blocked: {', '.join(summary['blocked_spans'])}")
+
+        if summary["errors"]:
+            click.echo(f"  Errors: {len(summary['errors'])}")
+            for err in summary["errors"]:
+                click.echo(f"    - {err}")
+
+        click.echo(f"\n  Evidence: {evidence_path}")
+        click.echo()
+
+    if fail_on_block and not result.is_success:
+        sys.exit(1)

@@ -58,6 +58,11 @@ from contextcore.contracts.a2a.gates import (
     check_mapping_completeness,
     check_gap_parity,
 )
+from contextcore.contracts.a2a.pilot import (
+    PilotRunner,
+    PilotSeed,
+    PilotResult,
+)
 
 __all__ = [
     # Models
@@ -86,4 +91,8 @@ __all__ = [
     "check_checksum_chain",
     "check_mapping_completeness",
     "check_gap_parity",
+    # Pilot
+    "PilotRunner",
+    "PilotSeed",
+    "PilotResult",
 ]
