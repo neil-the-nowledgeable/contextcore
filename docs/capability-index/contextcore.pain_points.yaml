@@ -1,0 +1,2120 @@
+# ContextCore Pain Points Manifest
+# Version: 2.2.0
+# Created: 2026-01-30
+# Updated: 2026-02-11
+#
+# PURPOSE: Reverse-engineered from contextcore.benefits.yaml v1.2.0.
+# Captures the pain points, frictions, and costs that ContextCore benefits address.
+# Organized by persona as the primary dimension.
+#
+# v2.0 ADDITIONS:
+# - Order-of-magnitude ROI estimates for every pain point
+# - Three org-size profiles: startup, mid-market, enterprise
+# - Per-persona and cross-persona annual cost rollups
+# - Risk-adjusted estimates for non-time-based pains
+# - Methodology documented and auditable per pain point
+
+manifest_id: contextcore.pain_points
+name: ContextCore Pain Points
+version: "2.2.0"
+description: |
+  Pain points, frictions, and costs experienced by ContextCore personas,
+  reverse-engineered from the benefits manifest. Each pain traces to
+  the benefit(s) that address it. v2.0 adds order-of-magnitude ROI
+  estimates across three org-size profiles.
+
+owner: force-multiplier-labs
+
+benefits_manifest_ref: contextcore.benefits v1.2.0
+
+# ==============================================================================
+# ORG-SIZE PROFILES
+# ==============================================================================
+# Three reference profiles for ROI estimation. All estimates are
+# order-of-magnitude — not forecasts. Actual costs depend on org-specific
+# factors: adoption rate, workflow mix, tooling maturity, incident frequency.
+
+org_profiles:
+
+  startup:
+    label: "Startup / Small Team"
+    headcount:
+      developers: 5
+      project_managers: 1
+      engineering_leaders: 1
+      sres: 1
+      compliance_officers: 1
+      ai_agent_users: 5         # developers using AI agents
+    rates_usd_per_hour:
+      developer: 100
+      project_manager: 90
+      engineering_leader: 130
+      sre: 110
+      compliance_officer: 95
+    working_weeks_per_year: 50
+    sprints_per_year: 26        # biweekly
+    new_integrations_per_year: 2
+    incidents_per_month: 2
+    audits_per_year: 4
+    downtime_cost_usd_per_hour: 500
+
+  mid_market:
+    label: "Mid-Market"
+    headcount:
+      developers: 25
+      project_managers: 3
+      engineering_leaders: 3
+      sres: 3
+      compliance_officers: 1
+      ai_agent_users: 25
+    rates_usd_per_hour:
+      developer: 100
+      project_manager: 90
+      engineering_leader: 130
+      sre: 110
+      compliance_officer: 95
+    working_weeks_per_year: 50
+    sprints_per_year: 26
+    new_integrations_per_year: 4
+    incidents_per_month: 4
+    audits_per_year: 4
+    downtime_cost_usd_per_hour: 2000
+
+  enterprise:
+    label: "Enterprise"
+    headcount:
+      developers: 100
+      project_managers: 10
+      engineering_leaders: 10
+      sres: 10
+      compliance_officers: 3
+      ai_agent_users: 100
+    rates_usd_per_hour:
+      developer: 100
+      project_manager: 90
+      engineering_leader: 130
+      sre: 110
+      compliance_officer: 95
+    working_weeks_per_year: 50
+    sprints_per_year: 26
+    new_integrations_per_year: 8
+    incidents_per_month: 8
+    audits_per_year: 4
+    downtime_cost_usd_per_hour: 10000
+
+# ==============================================================================
+# FRICTION CATEGORIES
+# ==============================================================================
+
+friction_categories:
+
+  redundant_effort:
+    name: Redundant Effort
+    description: Same work repeated across tools, contexts, or sessions
+    cost_type: time
+    examples:
+      - Updating status in 3 tools
+      - Re-explaining context to AI every session
+
+  context_fragmentation:
+    name: Context Fragmentation
+    description: Information scattered across tools, requiring manual reassembly
+    cost_type: time
+    examples:
+      - Compiling status from 4 different sources
+      - Opening 5 tools to see portfolio state
+
+  delayed_feedback:
+    name: Delayed Feedback
+    description: Problems discovered too late to prevent or correct cheaply
+    cost_type: risk
+    examples:
+      - Cycle time only visible at sprint end
+      - Dependencies discovered at deploy time
+      - Truncation found at compile time
+
+  blind_spots:
+    name: Blind Spots
+    description: Important state invisible to stakeholders who need it
+    cost_type: opportunity
+    examples:
+      - No visibility into AI agent decisions
+      - No portfolio view across projects
+      - Agent activity opaque to leaders
+
+  interoperability_tax:
+    name: Interoperability Tax
+    description: Custom adapters, glue code, or manual bridging between systems
+    cost_type: time
+    examples:
+      - Custom adapter per agent framework
+      - Non-standard telemetry formats
+      - Agents can't communicate cross-framework
+
+  trust_deficit:
+    name: Trust Deficit
+    description: Status or output can't be relied upon without manual verification
+    cost_type: quality
+    examples:
+      - "Done" status doesn't mean deliverables exist
+      - Generated code silently truncated
+
+  crisis_friction:
+    name: Crisis Friction
+    description: Slow response when speed matters most (incidents, audits)
+    cost_type: risk
+    examples:
+      - 2am alert with no service context
+      - Weeks to compile audit evidence
+
+# ==============================================================================
+# PAIN POINTS BY PERSONA
+# ==============================================================================
+
+personas:
+
+  # ============================================================================
+  # DEVELOPER
+  # ============================================================================
+
+  developer:
+    name: Developer
+    description: Individual contributor writing code
+    total_pain_points: 10
+
+    persona_roi_summary:
+      method: sum of individual pain point estimates
+      annual_cost_usd:
+        startup: 66_000
+        mid_market: 307_000
+        enterprise: 1_136_000
+      magnitude:
+        startup: "~$70K"
+        mid_market: "~$310K"
+        enterprise: "~$1.1M"
+      top_cost_drivers:
+        - pain_id: dev.context_reexplanation
+          pct_of_persona: 19     # $12.5K of $66K
+        - pain_id: dev.redundant_status_updates
+          pct_of_persona: 17
+        - pain_id: dev.cross_framework_isolation
+          pct_of_persona: 15
+
+    pain_points:
+
+      - pain_id: dev.redundant_status_updates
+        name: "Triple Status Update Tax"
+        description: "I update Jira, then GitHub, then Slack—same info 3 places"
+        friction_category: redundant_effort
+
+        severity: high
+        emotional_weight: frustration
+
+        cost_model:
+          frequency: 5
+          frequency_unit: per_week
+          unit_cost: 6
+          unit_cost_basis: minutes
+          affected_pct: 90
+          baseline_statement: "30+ minutes per developer per week on status updates across tools"
+          compounding: false
+
+        roi_estimate:
+          method: time_based
+          formula: "devs × 5/wk × 0.1hr × 50wk × 90% × $100/hr"
+          per_person_annual:
+            hours: 22.5
+            cost_usd: 2_250
+          annual_cost_usd:
+            startup: 11_250       # 5 devs × $2,250
+            mid_market: 56_250    # 25 devs × $2,250
+            enterprise: 225_000   # 100 devs × $2,250
+          magnitude:
+            startup: "~$11K"
+            mid_market: "~$56K"
+            enterprise: "~$225K"
+          confidence: high        # Time-based, well-documented baseline
+
+        current_workaround: "Manually update each tool sequentially"
+        workaround_quality: poor
+
+        addressed_by:
+          - benefit_id: time.status_updates_eliminated
+            relief: full
+
+        evidence_source:
+          type: user_interview
+          ref: "ContextCore user research 2025"
+
+      - pain_id: dev.context_reexplanation
+        name: "Session Context Amnesia"
+        description: "Every Claude session, I re-explain what we decided last week"
+        friction_category: redundant_effort
+
+        severity: high
+        emotional_weight: tedium
+
+        cost_model:
+          frequency: 5
+          frequency_unit: per_week
+          unit_cost: 7.5
+          unit_cost_basis: minutes
+          affected_pct: 80
+          baseline_statement: "5-10 minutes per session re-establishing context"
+          compounding: true
+
+        roi_estimate:
+          method: time_based
+          formula: "devs × 5/wk × 0.125hr × 50wk × 80% × $100/hr"
+          per_person_annual:
+            hours: 25.0
+            cost_usd: 2_500
+          annual_cost_usd:
+            startup: 12_500
+            mid_market: 62_500
+            enterprise: 250_000
+          magnitude:
+            startup: "~$13K"
+            mid_market: "~$63K"
+            enterprise: "~$250K"
+          confidence: high
+          note: "Compounding: grows as project history lengthens"
+
+        current_workaround: "Paste prior conversation snippets or maintain manual notes"
+        workaround_quality: poor
+
+        addressed_by:
+          - benefit_id: ai.memory_persistent
+            relief: full
+
+        evidence_source:
+          type: agent_insight
+          ref: "Claude Code session observation"
+
+      - pain_id: dev.custom_telemetry_adapters
+        name: "Telemetry Format Mismatch"
+        description: "ContextCore telemetry format differs from industry standards, requiring custom integration code"
+        friction_category: interoperability_tax
+
+        severity: medium
+        emotional_weight: annoyance
+
+        cost_model:
+          frequency: 1
+          frequency_unit: per_integration
+          unit_cost: 8
+          unit_cost_basis: hours
+          affected_pct: 30
+          baseline_statement: "Custom adapter required for each new agent observability tool"
+          compounding: true
+
+        roi_estimate:
+          method: time_based
+          formula: "(new_integrations × 8hr + existing_adapters × 2hr_maintenance) × $100/hr"
+          per_person_annual: null  # Team-level, not per-person
+          annual_cost_usd:
+            startup: 2_000        # 2 new × 8hr + 2 existing × 2hr = 20hr
+            mid_market: 4_800     # 4 new × 8hr + 8 existing × 2hr = 48hr
+            enterprise: 9_600     # 8 new × 8hr + 16 existing × 2hr = 96hr
+          magnitude:
+            startup: "~$2K"
+            mid_market: "~$5K"
+            enterprise: "~$10K"
+          confidence: medium
+          note: "Compounding: maintenance burden grows with each new adapter"
+
+        current_workaround: "Write and maintain custom adapter code"
+        workaround_quality: acceptable
+
+        addressed_by:
+          - benefit_id: interop.aos_compliance
+            relief: full
+
+        evidence_source:
+          type: vision
+          ref: "OWASP AOS specification analysis"
+
+      - pain_id: dev.cross_framework_isolation
+        name: "Agent Framework Silos"
+        description: "My agents can't talk to agents built with other frameworks"
+        friction_category: interoperability_tax
+
+        severity: high
+        emotional_weight: limitation
+
+        cost_model:
+          frequency: 2
+          frequency_unit: per_month
+          unit_cost: 16
+          unit_cost_basis: hours
+          affected_pct: 25
+          baseline_statement: "Custom adapter required for each agent framework"
+          compounding: true
+
+        roi_estimate:
+          method: time_based
+          formula: "bridge_attempts/yr × 16hr × $100/hr (scales sub-linearly with org size)"
+          per_person_annual: null  # Team-level
+          annual_cost_usd:
+            startup: 9_600        # 6/yr × 16hr × $100
+            mid_market: 38_400    # 24/yr × 16hr × $100
+            enterprise: 76_800    # 48/yr × 16hr × $100
+          magnitude:
+            startup: "~$10K"
+            mid_market: "~$38K"
+            enterprise: "~$77K"
+          confidence: low
+          note: "High variance. Zero cost if no cross-framework work attempted."
+
+        current_workaround: "Build custom bridges or avoid cross-framework scenarios"
+        workaround_quality: poor
+
+        addressed_by:
+          - benefit_id: interop.a2a_protocol
+            relief: full
+          - benefit_id: ai.orchestration_multi
+            relief: partial
+
+        evidence_source:
+          type: vision
+          ref: "Phase 4 Unified Alignment - A2A protocol support"
+
+      - pain_id: dev.ai_specialization_wasted
+        name: "Best-AI-for-Job Inaccessible"
+        description: "Different AIs are better at different things, but they don't talk to each other"
+        friction_category: blind_spots
+
+        severity: medium
+        emotional_weight: resignation
+
+        cost_model:
+          frequency: 3
+          frequency_unit: per_week
+          unit_cost: 15
+          unit_cost_basis: minutes
+          affected_pct: 40
+          baseline_statement: "Manual context transfer between AI tools"
+          compounding: false
+
+        roi_estimate:
+          method: time_based
+          formula: "devs × 3/wk × 0.25hr × 50wk × 40% × $100/hr"
+          per_person_annual:
+            hours: 15.0
+            cost_usd: 1_500
+          annual_cost_usd:
+            startup: 7_500
+            mid_market: 37_500
+            enterprise: 150_000
+          magnitude:
+            startup: "~$8K"
+            mid_market: "~$38K"
+            enterprise: "~$150K"
+          confidence: medium
+          note: "Increases with multi-LLM adoption. Zero if single-LLM shop."
+
+        current_workaround: "Copy/paste context between AI tools manually"
+        workaround_quality: poor
+
+        addressed_by:
+          - benefit_id: ai.orchestration_multi
+            relief: full
+
+        evidence_source:
+          type: vision
+          ref: "ContextCore agent roadmap"
+
+      - pain_id: dev.agent_decisions_opaque
+        name: "Prior Agent Decisions Buried"
+        description: "I can't see what Claude decided in previous sessions without reading transcripts"
+        friction_category: blind_spots
+
+        severity: high
+        emotional_weight: frustration
+
+        cost_model:
+          frequency: 3
+          frequency_unit: per_week
+          unit_cost: 10
+          unit_cost_basis: minutes
+          affected_pct: 70
+          baseline_statement: "Read chat transcripts or grep Tempo raw spans manually"
+          compounding: true
+
+        roi_estimate:
+          method: time_based
+          formula: "devs × 3/wk × 0.167hr × 50wk × 70% × $100/hr"
+          per_person_annual:
+            hours: 17.5
+            cost_usd: 1_750
+          annual_cost_usd:
+            startup: 8_750
+            mid_market: 43_750
+            enterprise: 175_000
+          magnitude:
+            startup: "~$9K"
+            mid_market: "~$44K"
+            enterprise: "~$175K"
+          confidence: medium
+          note: "Compounding: more sessions → more decisions buried in transcripts"
+
+        current_workaround: "Search through chat transcripts or trace data manually"
+        workaround_quality: poor
+
+        addressed_by:
+          - benefit_id: visibility.agent_insights
+            relief: full
+
+        evidence_source:
+          type: agent_insight
+          ref: "Phase 4 Unified Alignment — gen_ai.* attributes emitted but no dashboard"
+
+      - pain_id: dev.false_completion_status
+        name: "Done ≠ Actually Done"
+        description: "Tasks show 'done' but expected outputs weren't actually created"
+        friction_category: trust_deficit
+
+        severity: high
+        emotional_weight: distrust
+
+        cost_model:
+          frequency: 2
+          frequency_unit: per_week
+          unit_cost: 20
+          unit_cost_basis: minutes
+          affected_pct: 50
+          baseline_statement: "Task 'done' = execution ran, no deliverable check"
+          compounding: false
+
+        roi_estimate:
+          method: time_based
+          formula: "devs × 2/wk × 0.333hr × 50wk × 50% × $100/hr"
+          per_person_annual:
+            hours: 16.7
+            cost_usd: 1_667
+          annual_cost_usd:
+            startup: 8_335
+            mid_market: 41_675
+            enterprise: 166_700
+          magnitude:
+            startup: "~$8K"
+            mid_market: "~$42K"
+            enterprise: "~$167K"
+          confidence: medium
+
+        current_workaround: "Manually verify outputs after each task completion"
+        workaround_quality: acceptable
+
+        addressed_by:
+          - benefit_id: quality.deliverable_verification
+            relief: full
+
+        evidence_source:
+          type: agent_insight
+          ref: "P2 risk — execution ≠ completion discovered via phase tasks"
+
+      - pain_id: dev.deploy_time_dependency_surprise
+        name: "Deploy-Time Dependency Discovery"
+        description: "Dashboard references a Grafana plugin that isn't installed—discovered at deploy time"
+        friction_category: delayed_feedback
+
+        severity: high
+        emotional_weight: surprise_then_frustration
+
+        cost_model:
+          frequency: 1
+          frequency_unit: per_sprint
+          unit_cost: 45
+          unit_cost_basis: minutes
+          affected_pct: 40
+          baseline_statement: "Dependencies discovered only at deploy time (P2 risk)"
+          compounding: false
+
+        roi_estimate:
+          method: time_plus_risk
+          formula: "sprints/yr × 0.75hr × 2_people × 40% × $100 + rollback_risk"
+          per_person_annual: null  # Team-level incident
+          components:
+            direct_labor:
+              formula: "26 sprints × 0.75hr × 2 people × 40% × $100/hr"
+              annual_usd: 1_560
+            rollback_and_downtime:
+              formula: "26 × 40% × avg_rollback_cost"
+              startup: 1_040       # 10.4 × $100
+              mid_market: 2_080    # 10.4 × $200
+              enterprise: 5_200    # 10.4 × $500
+          annual_cost_usd:
+            startup: 2_600
+            mid_market: 3_640
+            enterprise: 6_760
+          magnitude:
+            startup: "~$3K"
+            mid_market: "~$4K"
+            enterprise: "~$7K"
+          confidence: medium
+          note: "Understates true cost. Excludes downstream customer impact from failed deploys."
+
+        current_workaround: "Discover and fix during deployment; rollback if severe"
+        workaround_quality: poor
+
+        addressed_by:
+          - benefit_id: devex.dependency_validation
+            relief: full
+
+        evidence_source:
+          type: incident
+          ref: "Beaver dashboard referenced yesoreyeram-infinity-datasource plugin not configured"
+
+      - pain_id: dev.silent_code_truncation
+        name: "Silent Code Truncation"
+        description: "Generated code was silently truncated, causing downstream failures"
+        friction_category: delayed_feedback
+
+        severity: medium
+        emotional_weight: confusion
+
+        cost_model:
+          frequency: 1
+          frequency_unit: per_week
+          unit_cost: 30
+          unit_cost_basis: minutes
+          affected_pct: 30
+          baseline_statement: "Truncation discovered only when generated code fails to compile"
+          compounding: false
+
+        roi_estimate:
+          method: time_based
+          formula: "devs × 1/wk × 0.5hr × 50wk × 30% × $100/hr"
+          per_person_annual:
+            hours: 7.5
+            cost_usd: 750
+          annual_cost_usd:
+            startup: 3_750
+            mid_market: 18_750
+            enterprise: 75_000
+          magnitude:
+            startup: "~$4K"
+            mid_market: "~$19K"
+            enterprise: "~$75K"
+          confidence: low
+          note: "Highly variable. Depends on code generation volume and output sizes."
+
+        current_workaround: "Manually inspect generated code; decompose large requests"
+        workaround_quality: acceptable
+
+        addressed_by:
+          - benefit_id: devex.codegen_health
+            relief: full
+
+        evidence_source:
+          type: agent_insight
+          ref: "Span-based generation contracts design"
+
+      - pain_id: dev.context_scattered_across_tools
+        name: "Business Context in Wiki, Config in Repo"
+        description: "I update K8s config but business context lives in a wiki somewhere else"
+        friction_category: context_fragmentation
+
+        severity: high
+        emotional_weight: frustration
+
+        cost_model:
+          frequency: 3
+          frequency_unit: per_week
+          unit_cost: 12
+          unit_cost_basis: minutes
+          affected_pct: 70
+          baseline_statement: "Search wiki, Jira, Slack, code comments—5-15 minutes to find context"
+          compounding: true
+
+        roi_estimate:
+          method: time_based
+          formula: "devs × 3/wk × 0.2hr × 50wk × 70% × $100/hr"
+          per_person_annual:
+            hours: 21.0
+            cost_usd: 2_100
+          annual_cost_usd:
+            startup: 10_500
+            mid_market: 52_500
+            enterprise: 210_000
+          magnitude:
+            startup: "~$11K"
+            mid_market: "~$53K"
+            enterprise: "~$210K"
+          confidence: medium
+          note: "Compounding: grows worse as project history lengthens and more context accumulates across tools"
+
+        current_workaround: "Search across wiki, Jira, Slack, and code comments until context found"
+        workaround_quality: poor
+
+        addressed_by:
+          - benefit_id: context.unified_source_of_truth
+            relief: full
+
+        evidence_source:
+          type: design_decision
+          ref: "Context Manifest design session 2026-02-05"
+
+  # ============================================================================
+  # PROJECT MANAGER
+  # ============================================================================
+
+  project_manager:
+    name: Project Manager
+    description: Responsible for project delivery and reporting
+    total_pain_points: 6
+
+    persona_roi_summary:
+      method: sum of individual pain point estimates
+      annual_cost_usd:
+        startup: 20_225
+        mid_market: 62_175
+        enterprise: 222_250
+      magnitude:
+        startup: "~$20K"
+        mid_market: "~$62K"
+        enterprise: "~$222K"
+      top_cost_drivers:
+        - pain_id: pm.monday_status_compilation
+          pct_of_persona: 40     # $8.1K of $20K
+        - pain_id: pm.sprint_end_cycle_time
+          pct_of_persona: 10     # risk-based, high leverage
+        - pain_id: pm.status_chasing
+          pct_of_persona: 18
+
+    pain_points:
+
+      - pain_id: pm.status_chasing
+        name: "Developer Status Chasing"
+        description: "I chase developers for status updates"
+        friction_category: redundant_effort
+
+        severity: high
+        emotional_weight: nagging_guilt
+
+        cost_model:
+          frequency: 5
+          frequency_unit: per_week
+          unit_cost: 10
+          unit_cost_basis: minutes
+          affected_pct: 95
+          baseline_statement: "30+ minutes per developer per week on status updates across tools"
+          compounding: true
+
+        roi_estimate:
+          method: time_based
+          formula: "PMs × 5/wk × 0.167hr × 50wk × 95% × $90/hr"
+          per_person_annual:
+            hours: 39.6
+            cost_usd: 3_564
+          annual_cost_usd:
+            startup: 3_564        # 1 PM
+            mid_market: 10_692    # 3 PMs
+            enterprise: 35_640    # 10 PMs
+          magnitude:
+            startup: "~$4K"
+            mid_market: "~$11K"
+            enterprise: "~$36K"
+          confidence: high
+
+        current_workaround: "Slack DMs, standup follow-ups, calendar reminders"
+        workaround_quality: poor
+
+        addressed_by:
+          - benefit_id: time.status_updates_eliminated
+            relief: full
+
+        evidence_source:
+          type: user_interview
+          ref: "ContextCore user research 2025"
+
+      - pain_id: pm.monday_status_compilation
+        name: "Monday Morning Status Assembly"
+        description: "I spend 2 hours every Monday compiling status from 4 different tools"
+        friction_category: context_fragmentation
+
+        severity: critical
+        emotional_weight: dread
+
+        cost_model:
+          frequency: 1
+          frequency_unit: per_week
+          unit_cost: 120
+          unit_cost_basis: minutes
+          affected_pct: 90
+          baseline_statement: "2 hours/week compiling from Jira, GitHub, Slack, Google Docs"
+          compounding: true
+
+        roi_estimate:
+          method: time_based
+          formula: "PMs × 1/wk × 2hr × 50wk × 90% × $90/hr"
+          per_person_annual:
+            hours: 90.0
+            cost_usd: 8_100
+          annual_cost_usd:
+            startup: 8_100        # 1 PM
+            mid_market: 24_300    # 3 PMs
+            enterprise: 81_000    # 10 PMs
+          magnitude:
+            startup: "~$8K"
+            mid_market: "~$24K"
+            enterprise: "~$81K"
+          confidence: high
+          note: "Largest single PM pain. 90 hours/yr = 2.25 full work-weeks on status alone."
+
+        current_workaround: "Open 4 tools, manually cross-reference, copy into template"
+        workaround_quality: poor
+
+        addressed_by:
+          - benefit_id: time.status_compilation_eliminated
+            relief: full
+
+        evidence_source:
+          type: user_interview
+          ref: "PM feedback session 2026-01"
+
+      - pain_id: pm.no_single_health_view
+        name: "Project Health Fragmented Across Tools"
+        description: "No single view of project health"
+        friction_category: context_fragmentation
+
+        severity: high
+        emotional_weight: anxiety
+
+        cost_model:
+          frequency: 10
+          frequency_unit: per_week
+          unit_cost: 5
+          unit_cost_basis: minutes
+          affected_pct: 85
+          baseline_statement: "Average 5 tools to see full project status"
+          compounding: false
+
+        roi_estimate:
+          method: time_based
+          formula: "PMs × 10/wk × 0.083hr × 50wk × 85% × $90/hr"
+          per_person_annual:
+            hours: 35.4
+            cost_usd: 3_186
+          annual_cost_usd:
+            startup: 3_186
+            mid_market: 9_558
+            enterprise: 31_860
+          magnitude:
+            startup: "~$3K"
+            mid_market: "~$10K"
+            enterprise: "~$32K"
+          confidence: high
+
+        current_workaround: "Maintain mental model across multiple tools"
+        workaround_quality: acceptable
+
+        addressed_by:
+          - benefit_id: visibility.portfolio_unified
+            relief: full
+
+        evidence_source:
+          type: user_interview
+          ref: "Engineering leader interviews 2025"
+
+      - pain_id: pm.sprint_end_cycle_time
+        name: "Cycle Time Too Late to Act"
+        description: "Cycle time calculated at sprint end when it's too late to act"
+        friction_category: delayed_feedback
+
+        severity: high
+        emotional_weight: helplessness
+
+        cost_model:
+          frequency: 1
+          frequency_unit: per_sprint
+          unit_cost: null
+          unit_cost_basis: opportunity_cost
+          affected_pct: 75
+          baseline_statement: "Metrics calculated once per sprint (2 weeks)"
+          compounding: false
+
+        roi_estimate:
+          method: risk_based
+          rationale: |
+            Late velocity detection → ~1 misjudged sprint/PM/year.
+            Sprint value = team_per_PM × 80hrs × dev_rate.
+            Waste rate: 5% of sprint capacity misallocated.
+          formula: "PMs × 1_misjudged_sprint/yr × sprint_value × 5%_waste"
+          components:
+            sprint_value:
+              startup: 40_000     # 5 devs × 80hr × $100
+              mid_market: 67_000  # ~8 devs/PM × 80hr × $100
+              enterprise: 80_000  # ~10 devs/PM × 80hr × $100
+            waste_rate: 0.05
+          annual_cost_usd:
+            startup: 2_000        # 1 × $40K × 5%
+            mid_market: 10_050    # 3 × $67K × 5%
+            enterprise: 40_000    # 10 × $80K × 5%
+          magnitude:
+            startup: "~$2K"
+            mid_market: "~$10K"
+            enterprise: "~$40K"
+          confidence: low
+          note: "Indirect. Real cost is misallocated team capacity, not PM time."
+
+        current_workaround: "Gut feel mid-sprint; formal metrics only at retrospective"
+        workaround_quality: poor
+
+        addressed_by:
+          - benefit_id: visibility.cycle_time_realtime
+            relief: full
+
+        evidence_source:
+          type: vision
+          ref: "ContextCore product vision"
+
+      - pain_id: pm.unverifiable_completion
+        name: "Can't Verify What Was Delivered"
+        description: "Status shows complete but I can't verify what was actually delivered"
+        friction_category: trust_deficit
+
+        severity: critical
+        emotional_weight: uncertainty
+
+        cost_model:
+          frequency: 5
+          frequency_unit: per_week
+          unit_cost: 15
+          unit_cost_basis: minutes
+          affected_pct: 60
+          baseline_statement: "Task 'done' = execution ran, no deliverable check"
+          compounding: false
+
+        roi_estimate:
+          method: time_based
+          formula: "PMs × 5/wk × 0.25hr × 50wk × 60% × $90/hr"
+          per_person_annual:
+            hours: 37.5
+            cost_usd: 3_375
+          annual_cost_usd:
+            startup: 3_375
+            mid_market: 10_125
+            enterprise: 33_750
+          magnitude:
+            startup: "~$3K"
+            mid_market: "~$10K"
+            enterprise: "~$34K"
+          confidence: medium
+
+        current_workaround: "Ask developers to demo or spot-check outputs manually"
+        workaround_quality: acceptable
+
+        addressed_by:
+          - benefit_id: quality.deliverable_verification
+            relief: full
+
+        evidence_source:
+          type: agent_insight
+          ref: "P2 risk — execution ≠ completion discovered via phase tasks"
+
+      - pain_id: pm.strategy_config_disconnect
+        name: "Roadmap, Strategy, and Infra Config Disconnected"
+        description: "Roadmap, strategy, and infrastructure config are disconnected across tools"
+        friction_category: context_fragmentation
+
+        severity: high
+        emotional_weight: disconnect
+
+        cost_model:
+          frequency: 2
+          frequency_unit: per_week
+          unit_cost: 20
+          unit_cost_basis: minutes
+          affected_pct: 80
+          baseline_statement: "Strategy in roadmap doc, tactics in Jira, config in Git—no single view"
+          compounding: true
+
+        roi_estimate:
+          method: time_based
+          formula: "PMs × 2/wk × 0.333hr × 50wk × 80% × $90/hr"
+          per_person_annual:
+            hours: 26.6
+            cost_usd: 2_394
+          annual_cost_usd:
+            startup: 2_394
+            mid_market: 7_182
+            enterprise: 23_940
+          magnitude:
+            startup: "~$2K"
+            mid_market: "~$7K"
+            enterprise: "~$24K"
+          confidence: medium
+          note: "Particularly painful during planning cycles when strategy↔config alignment is critical"
+
+        current_workaround: "Manually cross-reference roadmap, Jira, and Git during planning"
+        workaround_quality: poor
+
+        addressed_by:
+          - benefit_id: context.unified_source_of_truth
+            relief: full
+
+        evidence_source:
+          type: design_decision
+          ref: "Context Manifest design session 2026-02-05"
+
+  # ============================================================================
+  # ENGINEERING LEADER
+  # ============================================================================
+
+  engineering_leader:
+    name: Engineering Leader
+    description: Manages multiple teams/projects
+    total_pain_points: 4
+
+    persona_roi_summary:
+      method: sum of individual pain point estimates
+      annual_cost_usd:
+        startup: 29_000
+        mid_market: 100_250
+        enterprise: 372_500
+      magnitude:
+        startup: "~$29K"
+        mid_market: "~$100K"
+        enterprise: "~$373K"
+      top_cost_drivers:
+        - pain_id: lead.audit_team_disruption
+          pct_of_persona: 55     # Team disruption is the dominant cost
+        - pain_id: lead.five_tool_portfolio_view
+          pct_of_persona: 34
+
+    pain_points:
+
+      - pain_id: lead.five_tool_portfolio_view
+        name: "5-Tool Portfolio Assembly"
+        description: "I can't see across all projects without opening 5 tools"
+        friction_category: context_fragmentation
+
+        severity: critical
+        emotional_weight: overwhelm
+
+        cost_model:
+          frequency: 5
+          frequency_unit: per_week
+          unit_cost: 20
+          unit_cost_basis: minutes
+          affected_pct: 90
+          baseline_statement: "Average 5 tools to see full project status"
+          compounding: true
+
+        roi_estimate:
+          method: time_based
+          formula: "leaders × 5/wk × 0.333hr × 50wk × 90% × $130/hr"
+          per_person_annual:
+            hours: 75.0
+            cost_usd: 9_750
+          annual_cost_usd:
+            startup: 9_750
+            mid_market: 29_250
+            enterprise: 97_500
+          magnitude:
+            startup: "~$10K"
+            mid_market: "~$29K"
+            enterprise: "~$98K"
+          confidence: high
+          note: "75 hours/yr = nearly 2 full work-weeks in tool-switching."
+
+        current_workaround: "Open Jira, GitHub, Slack, Grafana, Google Docs in parallel"
+        workaround_quality: poor
+
+        addressed_by:
+          - benefit_id: visibility.portfolio_unified
+            relief: full
+
+        evidence_source:
+          type: user_interview
+          ref: "Engineering leader interviews 2025"
+
+      - pain_id: lead.retrospective_only_velocity
+        name: "Velocity Only Visible in Retrospect"
+        description: "Velocity trends only visible in retrospect"
+        friction_category: delayed_feedback
+
+        severity: medium
+        emotional_weight: blindness
+
+        cost_model:
+          frequency: 1
+          frequency_unit: per_sprint
+          unit_cost: null
+          unit_cost_basis: opportunity_cost
+          affected_pct: 70
+          baseline_statement: "Metrics calculated once per sprint (2 weeks)"
+          compounding: false
+
+        roi_estimate:
+          method: risk_based
+          rationale: |
+            Portfolio-level misallocation from stale velocity data.
+            Leaders reallocate people/priorities less effectively.
+            Estimate: 2 suboptimal allocation decisions/yr × impact.
+          formula: "leaders × 2_decisions/yr × portfolio_impact × 5%_waste"
+          annual_cost_usd:
+            startup: 1_250        # 1 × 2 × $12.5K impact × 5%
+            mid_market: 5_000     # 3 × 2 × $16.7K × 5%
+            enterprise: 15_000    # 10 × 2 × $15K × 5%
+          magnitude:
+            startup: "~$1K"
+            mid_market: "~$5K"
+            enterprise: "~$15K"
+          confidence: low
+          note: "Strategic cost. Difficult to measure directly."
+
+        current_workaround: "Wait for sprint retrospective; use intuition mid-sprint"
+        workaround_quality: poor
+
+        addressed_by:
+          - benefit_id: visibility.cycle_time_realtime
+            relief: full
+
+        evidence_source:
+          type: vision
+          ref: "ContextCore product vision"
+
+      - pain_id: lead.audit_team_disruption
+        name: "Audit Prep Disrupts Teams for Weeks"
+        description: "Preparing audit evidence disrupts team for weeks"
+        friction_category: crisis_friction
+
+        severity: high
+        emotional_weight: resentment
+
+        cost_model:
+          frequency: 1
+          frequency_unit: per_quarter
+          unit_cost: 80
+          unit_cost_basis: hours
+          affected_pct: 50
+          baseline_statement: "2-3 weeks to compile audit evidence manually"
+          compounding: true
+
+        roi_estimate:
+          method: time_based
+          rationale: |
+            80 hours of team time per audit cycle, 4 cycles/yr, 50% of teams affected.
+            Cost is primarily developer time pulled from feature work, at dev rate.
+            Leader coordination overhead is additional but smaller.
+          formula: "leaders × 4/yr × 80hr × 50% × $100/hr (dev rate for team disruption)"
+          components:
+            team_labor:
+              per_leader: 160      # 4 × 80 × 50% = 160 hrs/yr of team time
+              rate: 100
+            leader_coordination:
+              per_leader: 16       # 4 × 8hr × 50% = 16 hrs/yr
+              rate: 130
+          per_person_annual:
+            hours: 176             # team + leader coordination
+            cost_usd: 18_080      # 160 × $100 + 16 × $130
+          annual_cost_usd:
+            startup: 16_000       # 1 leader's team: 160hr × $100 (small team, less coord)
+            mid_market: 48_000    # 3 leaders × 160hr × $100
+            enterprise: 160_000   # 10 leaders × 160hr × $100
+          magnitude:
+            startup: "~$16K"
+            mid_market: "~$48K"
+            enterprise: "~$160K"
+          confidence: medium
+          note: |
+            Partial overlap with compl.audit_evidence_grep (compliance officer's direct time).
+            This captures the TEAM disruption cost; compliance captures the officer's labor.
+
+        current_workaround: "Pull engineers off feature work to compile evidence"
+        workaround_quality: poor
+
+        addressed_by:
+          - benefit_id: compliance.audit_instant
+            relief: full
+
+        evidence_source:
+          type: support_ticket
+          ref: "SUPPORT-2025-892: Audit preparation taking too long"
+
+      - pain_id: lead.ai_activity_invisible
+        name: "AI Agent Activity Invisible Across Projects"
+        description: "I have no visibility into what AI agents are doing across projects"
+        friction_category: blind_spots
+
+        severity: high
+        emotional_weight: unease
+
+        cost_model:
+          frequency: null
+          frequency_unit: ongoing
+          unit_cost: null
+          unit_cost_basis: risk_exposure
+          affected_pct: 60
+          baseline_statement: "Read chat transcripts or grep Tempo raw spans manually"
+          compounding: true
+
+        roi_estimate:
+          method: risk_based
+          rationale: |
+            Undetected bad AI decisions → rework, tech debt, incorrect artifacts.
+            Risk increases with AI adoption rate.
+            P(undetected bad decision/yr) × rework_impact.
+          formula: "leaders × P(event) × avg_rework_cost"
+          components:
+            probability_per_leader_per_year:
+              startup: 0.15
+              mid_market: 0.25
+              enterprise: 0.35     # More agents = higher probability
+            avg_rework_cost:
+              startup: 13_000
+              mid_market: 24_000
+              enterprise: 29_000
+          annual_cost_usd:
+            startup: 2_000        # 1 × 15% × $13K
+            mid_market: 18_000    # 3 × 25% × $24K
+            enterprise: 100_000   # 10 × 35% × $29K
+          magnitude:
+            startup: "~$2K"
+            mid_market: "~$18K"
+            enterprise: "~$100K"
+          confidence: low
+          note: "Highest uncertainty. Grows rapidly with AI adoption."
+
+        current_workaround: "Ask developers what AI decided; no systematic way to audit"
+        workaround_quality: poor
+
+        addressed_by:
+          - benefit_id: visibility.agent_insights
+            relief: full
+
+        evidence_source:
+          type: agent_insight
+          ref: "Phase 4 Unified Alignment — gen_ai.* attributes emitted but no dashboard"
+
+  # ============================================================================
+  # OPERATOR / SRE
+  # ============================================================================
+
+  operator:
+    name: Operator / SRE
+    description: Maintains production systems
+    total_pain_points: 3
+
+    persona_roi_summary:
+      method: sum of individual pain point estimates
+      annual_cost_usd:
+        startup: 13_390
+        mid_market: 49_260
+        enterprise: 209_600
+      magnitude:
+        startup: "~$13K"
+        mid_market: "~$49K"
+        enterprise: "~$210K"
+      top_cost_drivers:
+        - pain_id: ops.undeclared_dependency_failures
+          pct_of_persona: 59     # Downtime cost dominates
+        - pain_id: ops.2am_no_context
+          pct_of_persona: 27
+
+    pain_points:
+
+      - pain_id: ops.2am_no_context
+        name: "2am Alert With Zero Context"
+        description: "Alert fires at 2am, I don't know why this service matters"
+        friction_category: crisis_friction
+
+        severity: critical
+        emotional_weight: panic
+
+        cost_model:
+          frequency: 2
+          frequency_unit: per_month
+          unit_cost: 15
+          unit_cost_basis: minutes
+          affected_pct: 100
+          baseline_statement: "Average 15 minutes to identify owner and criticality"
+          compounding: false
+
+        roi_estimate:
+          method: time_plus_risk
+          rationale: |
+            Direct SRE labor: 15 min/incident finding context.
+            MTTR impact: same 15 min delay × downtime cost/hr.
+            Both scale with incident frequency.
+          formula: "SREs × incidents/yr × (labor_cost + downtime_cost_per_incident)"
+          components:
+            direct_labor:
+              per_sre_annual_hours: 6.0    # 24 incidents × 0.25hr
+              per_sre_annual_usd: 660      # 6hr × $110
+            mttr_downtime:
+              per_incident_delay_hours: 0.25
+              startup: 125                 # 0.25hr × $500/hr
+              mid_market: 500              # 0.25hr × $2,000/hr
+              enterprise: 2_500            # 0.25hr × $10,000/hr
+          annual_cost_usd:
+            startup: 3_660        # 1 SRE × ($660 + 24 × $125)
+            mid_market: 25_980    # 3 SREs × ($660 + 48 × $500)
+            enterprise: 246_600   # 10 SREs × ($660 + 96 × $2,500)
+          magnitude:
+            startup: "~$4K"
+            mid_market: "~$26K"
+            enterprise: "~$247K"
+          confidence: medium
+          note: "Downtime cost is the dominant component at enterprise scale."
+
+        current_workaround: "Search Slack, check runbooks, page someone who might know"
+        workaround_quality: poor
+
+        addressed_by:
+          - benefit_id: incident.context_instant
+            relief: full
+
+        evidence_source:
+          type: incident
+          ref: "Post-incident review 2025-11"
+
+      - pain_id: ops.incompatible_agent_telemetry
+        name: "Incompatible Agent Telemetry Formats"
+        description: "Different agent frameworks emit incompatible telemetry formats"
+        friction_category: interoperability_tax
+
+        severity: high
+        emotional_weight: annoyance
+
+        cost_model:
+          frequency: 1
+          frequency_unit: per_integration
+          unit_cost: 16
+          unit_cost_basis: hours
+          affected_pct: 40
+          baseline_statement: "Custom adapter required for each new agent observability tool"
+          compounding: true
+
+        roi_estimate:
+          method: time_based
+          formula: "new_integrations/yr × 16hr × $110/hr"
+          per_person_annual: null  # Team-level
+          annual_cost_usd:
+            startup: 1_760        # 1 integration × 16hr × $110
+            mid_market: 5_280     # 3 integrations × 16hr × $110
+            enterprise: 14_080    # 8 integrations × 16hr × $110
+          magnitude:
+            startup: "~$2K"
+            mid_market: "~$5K"
+            enterprise: "~$14K"
+          confidence: medium
+
+        current_workaround: "Build per-framework telemetry normalization"
+        workaround_quality: acceptable
+
+        addressed_by:
+          - benefit_id: interop.aos_compliance
+            relief: full
+
+        evidence_source:
+          type: vision
+          ref: "OWASP AOS specification analysis"
+
+      - pain_id: ops.undeclared_dependency_failures
+        name: "Undeclared Dependency Deploy Failures"
+        description: "Deployment fails because implicit dependencies weren't declared"
+        friction_category: delayed_feedback
+
+        severity: high
+        emotional_weight: anger
+
+        cost_model:
+          frequency: 1
+          frequency_unit: per_sprint
+          unit_cost: 60
+          unit_cost_basis: minutes
+          affected_pct: 50
+          baseline_statement: "Dependencies discovered only at deploy time (P2 risk)"
+          compounding: false
+
+        roi_estimate:
+          method: time_plus_risk
+          formula: "sprints/yr × 50% × (SRE_labor + rollback_downtime)"
+          components:
+            sre_labor:
+              per_incident_hours: 1.0
+              annual_incidents: 13          # 26 sprints × 50%
+              per_sre_annual_usd: 1_430     # 13hr × $110
+            rollback_downtime:
+              avg_rollback_hours: 0.5
+              startup: 250                  # 0.5hr × $500
+              mid_market: 1_000             # 0.5hr × $2,000
+              enterprise: 5_000             # 0.5hr × $10,000
+          annual_cost_usd:
+            startup: 7_930        # 1 SRE × ($1,430 + 13 × $250 + $3,250 rollback)
+            mid_market: 18_000    # 3 SREs × ($1,430 + 13 × $1,000)
+            enterprise: 79_300    # 10 SREs × ($1,430 + 13 × $5,000)
+          magnitude:
+            startup: "~$8K"
+            mid_market: "~$18K"
+            enterprise: "~$79K"
+          confidence: medium
+
+        current_workaround: "Rollback, manually trace dependency, add to manifest, redeploy"
+        workaround_quality: poor
+
+        addressed_by:
+          - benefit_id: devex.dependency_validation
+            relief: full
+
+        evidence_source:
+          type: incident
+          ref: "Beaver dashboard referenced yesoreyeram-infinity-datasource plugin not configured"
+
+  # ============================================================================
+  # COMPLIANCE OFFICER
+  # ============================================================================
+
+  compliance:
+    name: Compliance Officer
+    description: Ensures regulatory compliance
+    total_pain_points: 1
+
+    persona_roi_summary:
+      method: sum of individual pain point estimates
+      annual_cost_usd:
+        startup: 15_200
+        mid_market: 15_200
+        enterprise: 45_600
+      magnitude:
+        startup: "~$15K"
+        mid_market: "~$15K"
+        enterprise: "~$46K"
+      top_cost_drivers:
+        - pain_id: compl.audit_evidence_grep
+          pct_of_persona: 100
+
+    pain_points:
+
+      - pain_id: compl.audit_evidence_grep
+        name: "Grepping Chat Logs for Audit Evidence"
+        description: "Audit asks for project history, I grep through chat logs for days"
+        friction_category: crisis_friction
+
+        severity: critical
+        emotional_weight: dread
+
+        cost_model:
+          frequency: 1
+          frequency_unit: per_quarter
+          unit_cost: 40
+          unit_cost_basis: hours
+          affected_pct: 100
+          baseline_statement: "2-3 weeks to compile audit evidence manually"
+          compounding: true
+
+        roi_estimate:
+          method: time_based
+          formula: "officers × 4/yr × 40hr × 100% × $95/hr"
+          per_person_annual:
+            hours: 160.0
+            cost_usd: 15_200
+          annual_cost_usd:
+            startup: 15_200       # 1 officer
+            mid_market: 15_200    # 1 officer
+            enterprise: 45_600    # 3 officers
+          magnitude:
+            startup: "~$15K"
+            mid_market: "~$15K"
+            enterprise: "~$46K"
+          confidence: high
+          note: |
+            160 hours/yr = 4 full work-weeks on audit evidence compilation.
+            Partial overlap with lead.audit_team_disruption (team side of same problem).
+
+        current_workaround: "Search Slack, email, Jira, Git logs; compile into spreadsheet"
+        workaround_quality: poor
+
+        addressed_by:
+          - benefit_id: compliance.audit_instant
+            relief: full
+
+        evidence_source:
+          type: support_ticket
+          ref: "SUPPORT-2025-892: Audit preparation taking too long"
+
+  # ============================================================================
+  # AI AGENT
+  # ============================================================================
+
+  ai_agent:
+    name: AI Agent
+    description: Claude, GPT, or other AI assistants
+    total_pain_points: 6
+
+    persona_roi_summary:
+      method: sum of individual pain point estimates (token cost + human rework cost)
+      annual_cost_usd:
+        startup: 19_800
+        mid_market: 98_750
+        enterprise: 430_000
+      magnitude:
+        startup: "~$20K"
+        mid_market: "~$99K"
+        enterprise: "~$430K"
+      top_cost_drivers:
+        - pain_id: agent.context_rediscovery
+          pct_of_persona: 53     # Highest-frequency agent pain
+        - pain_id: agent.framework_isolation
+          pct_of_persona: 25
+      note: "Agent costs are primarily human rework costs, not token costs."
+
+    pain_points:
+
+      - pain_id: agent.context_rediscovery
+        name: "Context Rediscovery Every Session"
+        description: "I rediscover context every session"
+        friction_category: redundant_effort
+
+        severity: critical
+        emotional_weight: inefficiency
+
+        cost_model:
+          frequency: 5
+          frequency_unit: per_day
+          unit_cost: 2000
+          unit_cost_basis: tokens
+          affected_pct: 100
+          baseline_statement: "5-10 minutes per session re-establishing context"
+          compounding: true
+
+        roi_estimate:
+          method: composite
+          rationale: |
+            Two cost components:
+            1. Token waste: 2K tokens × 5 sessions/day × 250 days = 2.5M tokens/yr
+            2. Quality degradation: 5% of sessions produce degraded output → human rework
+            Human rework dominates.
+          components:
+            token_waste:
+              formula: "agents × 2.5M tokens/yr × $3/1M"
+              per_agent: 7.50
+              startup: 38           # 5 agents
+              mid_market: 188       # 25 agents
+              enterprise: 750       # 100 agents
+            quality_rework:
+              formula: "agents × 5% × 1250 sessions/yr × 10min rework × $100/hr"
+              per_agent: 1_042      # 62.5 sessions × 0.167hr × $100
+              startup: 5_210
+              mid_market: 26_050
+              enterprise: 104_200
+          annual_cost_usd:
+            startup: 5_250        # Token cost is negligible vs rework
+            mid_market: 26_250
+            enterprise: 105_000
+          magnitude:
+            startup: "~$5K"
+            mid_market: "~$26K"
+            enterprise: "~$105K"
+          confidence: medium
+          note: "Token cost is <1% of total. Human rework from incomplete context is the real cost."
+
+        current_workaround: "User pastes context or agent reads CLAUDE.md / lessons learned"
+        workaround_quality: acceptable
+
+        addressed_by:
+          - benefit_id: ai.memory_persistent
+            relief: full
+
+        evidence_source:
+          type: agent_insight
+          ref: "Claude Code session observation"
+
+      - pain_id: agent.nonstandard_events
+        name: "Non-Standard Event Format"
+        description: "My events don't follow standard formats, limiting cross-tool compatibility"
+        friction_category: interoperability_tax
+
+        severity: high
+        emotional_weight: limitation
+
+        cost_model:
+          frequency: null
+          frequency_unit: ongoing
+          unit_cost: null
+          unit_cost_basis: ecosystem_exclusion
+          affected_pct: 100
+          baseline_statement: "Custom adapter required for each new agent observability tool"
+          compounding: true
+
+        roi_estimate:
+          method: opportunity_based
+          rationale: |
+            Non-standard events lock out integration with AOS-compliant tools.
+            Cost = integration opportunities forgone + adapter maintenance.
+            Modeled as fraction of observability tool spend wasted on adapters.
+          annual_cost_usd:
+            startup: 2_000
+            mid_market: 10_000
+            enterprise: 50_000
+          magnitude:
+            startup: "~$2K"
+            mid_market: "~$10K"
+            enterprise: "~$50K"
+          confidence: low
+          note: "Strategic cost. Ecosystem exclusion limits tool choice."
+
+        current_workaround: "Emit custom events; rely on adapter code for compatibility"
+        workaround_quality: acceptable
+
+        addressed_by:
+          - benefit_id: interop.aos_compliance
+            relief: full
+
+        evidence_source:
+          type: vision
+          ref: "OWASP AOS specification analysis"
+
+      - pain_id: agent.framework_isolation
+        name: "Can't Communicate Outside ContextCore"
+        description: "I can't communicate with agents outside ContextCore"
+        friction_category: interoperability_tax
+
+        severity: critical
+        emotional_weight: isolation
+
+        cost_model:
+          frequency: null
+          frequency_unit: ongoing
+          unit_cost: null
+          unit_cost_basis: capability_ceiling
+          affected_pct: 100
+          baseline_statement: "Custom adapter required for each agent framework"
+          compounding: true
+
+        roi_estimate:
+          method: opportunity_based
+          rationale: |
+            Cross-framework tasks are either dropped (opportunity cost) or
+            manually bridged by humans (labor cost). Modeled as tasks not
+            attempted × value of those tasks.
+          annual_cost_usd:
+            startup: 5_000
+            mid_market: 25_000
+            enterprise: 100_000
+          magnitude:
+            startup: "~$5K"
+            mid_market: "~$25K"
+            enterprise: "~$100K"
+          confidence: low
+          note: "Hardest to estimate. Zero if no cross-framework needs; very high if agent ecosystem is diverse."
+
+        current_workaround: "No workaround; tasks requiring cross-framework coordination are dropped"
+        workaround_quality: none
+
+        addressed_by:
+          - benefit_id: interop.a2a_protocol
+            relief: full
+
+        evidence_source:
+          type: vision
+          ref: "Phase 4 Unified Alignment - A2A protocol support"
+
+      - pain_id: agent.single_agent_limitation
+        name: "Working in Isolation From Other Agents"
+        description: "I work in isolation from other agents"
+        friction_category: blind_spots
+
+        severity: high
+        emotional_weight: limitation
+
+        cost_model:
+          frequency: null
+          frequency_unit: ongoing
+          unit_cost: null
+          unit_cost_basis: quality_ceiling
+          affected_pct: 100
+          baseline_statement: "Manual context transfer between AI tools"
+          compounding: false
+
+        roi_estimate:
+          method: opportunity_based
+          rationale: |
+            Single-agent results are suboptimal for multi-domain tasks.
+            Model as: % of tasks that would benefit from multi-agent × quality delta.
+          annual_cost_usd:
+            startup: 3_000
+            mid_market: 15_000
+            enterprise: 75_000
+          magnitude:
+            startup: "~$3K"
+            mid_market: "~$15K"
+            enterprise: "~$75K"
+          confidence: low
+
+        current_workaround: "Human manually bridges context between AI sessions"
+        workaround_quality: poor
+
+        addressed_by:
+          - benefit_id: ai.orchestration_multi
+            relief: full
+
+        evidence_source:
+          type: vision
+          ref: "ContextCore agent roadmap"
+
+      - pain_id: agent.decisions_not_browsable
+        name: "Decisions in Traces, Not Dashboards"
+        description: "My decisions are in trace data but humans can't easily browse them"
+        friction_category: blind_spots
+
+        severity: medium
+        emotional_weight: frustration
+
+        cost_model:
+          frequency: null
+          frequency_unit: ongoing
+          unit_cost: null
+          unit_cost_basis: trust_erosion
+          affected_pct: 100
+          baseline_statement: "Read chat transcripts or grep Tempo raw spans manually"
+          compounding: true
+
+        roi_estimate:
+          method: opportunity_based
+          rationale: |
+            Trust erosion → slower AI adoption → delayed productivity gains.
+            Modeled as adoption drag: weeks of delayed AI value realization.
+          annual_cost_usd:
+            startup: 2_000
+            mid_market: 10_000
+            enterprise: 50_000
+          magnitude:
+            startup: "~$2K"
+            mid_market: "~$10K"
+            enterprise: "~$50K"
+          confidence: low
+          note: "Second-order effect. Trust deficit slows AI adoption velocity."
+
+        current_workaround: "Emit decisions as span attributes; no human-friendly view"
+        workaround_quality: poor
+
+        addressed_by:
+          - benefit_id: visibility.agent_insights
+            relief: full
+
+        evidence_source:
+          type: agent_insight
+          ref: "Phase 4 Unified Alignment — gen_ai.* attributes emitted but no dashboard"
+
+      - pain_id: agent.output_truncation_blind
+        name: "Can't Detect Own Output Truncation"
+        description: "I can't tell if my output was truncated or incomplete"
+        friction_category: delayed_feedback
+
+        severity: high
+        emotional_weight: blindness
+
+        cost_model:
+          frequency: 1
+          frequency_unit: per_day
+          unit_cost: null
+          unit_cost_basis: downstream_failure_risk
+          affected_pct: 50
+          baseline_statement: "Truncation discovered only when generated code fails to compile"
+          compounding: false
+
+        roi_estimate:
+          method: risk_based
+          rationale: |
+            Undetected truncation → compile failure → debug cycle.
+            P(truncation) × debug_cost.
+            At 1/day with 50% affected, ~125 truncation events/yr per agent.
+            10% reach compile stage before detection.
+          formula: "agents × 125 events/yr × 10% reach compile × 30min debug × $100/hr"
+          annual_cost_usd:
+            startup: 2_500        # 5 agents × $500
+            mid_market: 12_500    # 25 agents × $500
+            enterprise: 50_000    # 100 agents × $500
+          magnitude:
+            startup: "~$3K"
+            mid_market: "~$13K"
+            enterprise: "~$50K"
+          confidence: low
+
+        current_workaround: "No detection; user discovers truncation at compile/runtime"
+        workaround_quality: none
+
+        addressed_by:
+          - benefit_id: devex.codegen_health
+            relief: full
+
+        evidence_source:
+          type: agent_insight
+          ref: "Span-based generation contracts design"
+
+# ==============================================================================
+# CROSS-CUTTING ANALYSIS
+# ==============================================================================
+
+summary:
+  total_pain_points: 30
+  unique_pain_themes: 15
+
+  by_friction_category:
+    redundant_effort: 4
+    context_fragmentation: 3
+    delayed_feedback: 5
+    blind_spots: 4
+    interoperability_tax: 5
+    trust_deficit: 2
+    crisis_friction: 3
+
+  by_severity:
+    critical: 8
+    high: 14
+    medium: 5
+    low: 1
+
+  highest_frequency_pains:
+    - pain_id: pm.no_single_health_view
+      frequency: "10/week"
+      note: "PM checks project health across tools constantly"
+    - pain_id: dev.redundant_status_updates
+      frequency: "5/week"
+      note: "Every status update hits 3 tools"
+    - pain_id: dev.context_reexplanation
+      frequency: "5/week"
+      note: "Every AI session starts with recap"
+    - pain_id: agent.context_rediscovery
+      frequency: "5/day"
+      note: "Agents start even more sessions than humans"
+
+  worst_workarounds:
+    - pain_id: agent.framework_isolation
+      note: "No workaround—cross-framework tasks simply don't happen"
+    - pain_id: agent.output_truncation_blind
+      note: "No detection—user discovers failure downstream"
+
+# ==============================================================================
+# ROI ROLLUP (v2.0)
+# ==============================================================================
+
+roi_rollup:
+
+  # --------------------------------------------------------------------------
+  # PER-PERSONA ANNUAL COST
+  # --------------------------------------------------------------------------
+
+  by_persona:
+    developer:
+      startup: 66_000
+      mid_market: 307_000
+      enterprise: 1_136_000
+    project_manager:
+      startup: 20_225
+      mid_market: 62_175
+      enterprise: 222_250
+    engineering_leader:
+      startup: 29_000
+      mid_market: 100_250
+      enterprise: 372_500
+    operator:
+      startup: 13_390
+      mid_market: 49_260
+      enterprise: 340_000       # Dominated by downtime costs at scale
+    compliance:
+      startup: 15_200
+      mid_market: 15_200
+      enterprise: 45_600
+    ai_agent:
+      startup: 19_800
+      mid_market: 98_750
+      enterprise: 430_000
+
+  # --------------------------------------------------------------------------
+  # TOTAL ANNUAL COST OF PAIN (all personas combined)
+  # --------------------------------------------------------------------------
+
+  total_annual_cost:
+    startup:
+      usd: 163_000
+      magnitude: "~$160K"
+    mid_market:
+      usd: 633_000
+      magnitude: "~$630K"
+    enterprise:
+      usd: 2_546_000
+      magnitude: "~$2.5M"
+
+  # --------------------------------------------------------------------------
+  # BY FRICTION CATEGORY (approximate allocation)
+  # --------------------------------------------------------------------------
+
+  by_friction_category:
+    redundant_effort:
+      description: "Status updates, context re-explanation, agent rediscovery"
+      startup: 32_500
+      mid_market: 155_500
+      enterprise: 584_000
+      pct_of_total:
+        startup: 20
+        mid_market: 25
+        enterprise: 23
+
+    context_fragmentation:
+      description: "Status compilation, tool-switching, portfolio assembly"
+      startup: 21_000
+      mid_market: 63_000
+      enterprise: 211_000
+      pct_of_total:
+        startup: 13
+        mid_market: 10
+        enterprise: 8
+
+    delayed_feedback:
+      description: "Late cycle time, deploy-time discovery, truncation"
+      startup: 17_000
+      mid_market: 55_000
+      enterprise: 218_000
+      pct_of_total:
+        startup: 10
+        mid_market: 9
+        enterprise: 9
+
+    blind_spots:
+      description: "Agent decisions opaque, AI specialization unused, isolation"
+      startup: 23_000
+      mid_market: 132_000
+      enterprise: 550_000
+      pct_of_total:
+        startup: 14
+        mid_market: 21
+        enterprise: 22
+
+    interoperability_tax:
+      description: "Custom adapters, framework bridges, non-standard events"
+      startup: 21_000
+      mid_market: 84_000
+      enterprise: 251_000
+      pct_of_total:
+        startup: 13
+        mid_market: 13
+        enterprise: 10
+
+    trust_deficit:
+      description: "Unverified completions, false 'done' status"
+      startup: 12_000
+      mid_market: 52_000
+      enterprise: 200_000
+      pct_of_total:
+        startup: 7
+        mid_market: 8
+        enterprise: 8
+
+    crisis_friction:
+      description: "Incident context, audit evidence, team disruption"
+      startup: 35_000
+      mid_market: 89_000
+      enterprise: 452_000
+      pct_of_total:
+        startup: 21
+        mid_market: 14
+        enterprise: 18
+
+  # --------------------------------------------------------------------------
+  # DELIVERED vs GAP SPLIT
+  # --------------------------------------------------------------------------
+  # Cross-referenced with contextcore.benefits delivery_status
+
+  by_delivery_status:
+    delivered:
+      description: "Pain points addressed by delivered benefits"
+      benefit_ids:
+        - time.status_updates_eliminated
+        - visibility.portfolio_unified
+        - incident.context_instant
+        - compliance.audit_instant
+        - ai.memory_persistent
+        - interop.a2a_protocol
+        - devex.dependency_validation    # Added 2026-02-04
+        - visibility.agent_insights      # Added 2026-02-11 (dashboard provisioned)
+        - visibility.cycle_time_realtime # Added 2026-02-11 (recording rules deployed)
+      annual_cost_addressed:
+        startup: 117_000
+        mid_market: 419_600
+        enterprise: 1_807_500
+      magnitude:
+        startup: "~$117K"
+        mid_market: "~$420K"
+        enterprise: "~$1.8M"
+      pct_of_total:
+        startup: 72
+        mid_market: 66
+        enterprise: 71
+
+    partial:
+      description: "Pain points partially addressed"
+      benefit_ids:
+        - ai.orchestration_multi
+        - quality.deliverable_verification    # Tracker done, dashboard pending
+      annual_cost_addressed:
+        startup: 22_500
+        mid_market: 107_000
+        enterprise: 425_000
+      magnitude:
+        startup: "~$23K"
+        mid_market: "~$107K"
+        enterprise: "~$425K"
+      pct_of_total:
+        startup: 14
+        mid_market: 17
+        enterprise: 17
+
+    gap:
+      description: "Pain points not yet addressed"
+      benefit_ids:
+        - time.status_compilation_eliminated
+        - interop.aos_compliance
+        - devex.codegen_health
+      annual_cost_unaddressed:
+        startup: 23_500
+        mid_market: 106_400
+        enterprise: 313_000
+      magnitude:
+        startup: "~$24K"
+        mid_market: "~$106K"
+        enterprise: "~$313K"
+      pct_of_total:
+        startup: 14
+        mid_market: 17
+        enterprise: 12
+
+  # --------------------------------------------------------------------------
+  # GAP PRIORITIZATION BY ROI
+  # --------------------------------------------------------------------------
+
+  gap_roi_ranking:
+    description: |
+      Remaining gaps ranked by annual cost addressed, helping prioritize roadmap.
+      Effort estimates from contextcore.benefits.yaml.
+      Previously ranked items now delivered: visibility.agent_insights, devex.dependency_validation.
+      See partial section for quality.deliverable_verification (tracker done, dashboard pending).
+
+    ranked:
+      - rank: 1
+        benefit_id: time.status_compilation_eliminated
+        effort: medium
+        annual_cost_addressed:
+          startup: 8_100
+          mid_market: 24_300
+          enterprise: 81_000
+        magnitude: "~$8K / ~$24K / ~$81K"
+        roi_signal: "HIGH — large time savings, medium effort"
+
+      - rank: 2
+        benefit_id: devex.codegen_health
+        effort: medium
+        annual_cost_addressed:
+          startup: 6_250
+          mid_market: 31_250
+          enterprise: 125_000
+        magnitude: "~$6K / ~$31K / ~$125K"
+        roi_signal: "MEDIUM — growing with AI code generation adoption"
+
+      - rank: 3
+        benefit_id: interop.aos_compliance
+        effort: medium
+        annual_cost_addressed:
+          startup: 5_760          # dev + ops + agent adapters
+          mid_market: 20_080
+          enterprise: 73_680
+        magnitude: "~$6K / ~$20K / ~$74K"
+        roi_signal: "MEDIUM — strategic but lower immediate $ impact"
+
+# ==============================================================================
+# ROI METHODOLOGY
+# ==============================================================================
+
+roi_methodology:
+  version: "2.0"
+
+  estimation_approach: |
+    All estimates are ORDER OF MAGNITUDE. They represent the approximate
+    annual cost of pain before ContextCore addresses it. Actual ROI depends
+    on adoption rate, workflow coverage, and org-specific factors.
+
+    Three estimation methods used:
+
+    1. TIME-BASED (highest confidence)
+       annual_cost = headcount × frequency × unit_cost_hours × weeks/yr × affected_pct × hourly_rate
+       Used for: redundant_effort, context_fragmentation, trust_deficit pains
+
+    2. RISK-BASED (medium confidence)
+       annual_cost = frequency × P(realization) × impact_if_realized
+       Used for: delayed_feedback, crisis_friction pains
+       Includes downtime cost multiplier for production-impacting pains
+
+    3. OPPORTUNITY-BASED (lowest confidence)
+       annual_cost = capability_delta × adoption_drag × value_per_unit
+       Used for: blind_spots, interoperability_tax (especially agent pains)
+       These are strategic costs with high variance
+
+  key_assumptions:
+    - "Blended hourly rates include salary + benefits + overhead (not just salary)"
+    - "Working weeks = 50 (accounts for PTO/holidays)"
+    - "Sprints = 26/yr (biweekly)"
+    - "Downtime costs scale with org size ($500/hr startup → $10K/hr enterprise)"
+    - "AI agent frequency scales with number of active AI users"
+    - "Integration frequency scales sub-linearly with org size"
+
+  limitations:
+    - "Opportunity-based estimates have 3-5x uncertainty range"
+    - "Risk-based estimates assume industry-average incident rates"
+    - "No accounting for morale / retention impact (real but unquantifiable)"
+    - "Partial overlap between some persona pains (audit: compliance + leader)"
+    - "Assumes current tool landscape; pain decreases if orgs consolidate tools"
+
+  confidence_scale:
+    high: "Time-based with documented baselines. ±30% range."
+    medium: "Time-based with estimated frequencies, or risk-based with known parameters. ±50% range."
+    low: "Opportunity-based or risk-based with estimated probabilities. ±3-5x range."
+
+# ==============================================================================
+# CHANGELOG
+# ==============================================================================
+
+changelog:
+  - version: "2.2.0"
+    date: "2026-02-11"
+    changes:
+      - "Synced delivery statuses with contextcore.benefits v1.6.0"
+      - "Moved visibility.agent_insights from gap to delivered (dashboard provisioned 2026-02-04)"
+      - "Moved visibility.cycle_time_realtime from partial to delivered (Loki recording rules deployed 2026-02-04)"
+      - "Updated by_delivery_status cost rollups: delivered ~$117K/~$420K/~$1.8M, partial ~$23K/~$107K/~$425K, gap ~$24K/~$106K/~$313K"
+      - "gap_roi_ranking reduced from 6 to 3 items (removed delivered: agent_insights, dependency_validation; moved to partial: deliverable_verification)"
+  - version: "2.1.0"
+    date: "2026-02-05"
+    changes:
+      - "Added 2 new pain points for Context Manifest capability"
+      - "dev.context_scattered_across_tools: Business context in wiki, config in repo (context_fragmentation)"
+      - "pm.strategy_config_disconnect: Roadmap, strategy, and infra config disconnected (context_fragmentation)"
+      - "Both addressed by new benefit: context.unified_source_of_truth"
+      - "30 total pain points (was 28)"
+      - "Developer pain points: 10 (was 9)"
+      - "Project Manager pain points: 6 (was 5)"
+  - version: "2.0.0"
+    date: "2026-01-30"
+    changes:
+      - "MAJOR: Added roi_estimate block to every pain point (28 estimates)"
+      - "Added org_profiles section with startup/mid-market/enterprise parameters"
+      - "Added persona_roi_summary per persona with top cost drivers"
+      - "Added roi_rollup with per-persona, per-friction-category, and total aggregates"
+      - "Added delivered vs gap cost split cross-referenced with benefits manifest"
+      - "Added gap_roi_ranking prioritizing roadmap items by ROI signal"
+      - "Added roi_methodology documenting estimation approach and limitations"
+      - "Three estimation methods: time_based, risk_based, opportunity_based"
+      - "Total annual cost of pain: ~$160K (startup) / ~$630K (mid) / ~$2.5M (enterprise)"
+      - "56% of cost addressed by delivered benefits; 33% remains in gaps"
+  - version: "1.0.0"
+    date: "2026-01-30"
+    changes:
+      - "Initial pain points manifest, reverse-engineered from contextcore.benefits v1.2.0"
+      - "28 pain point entries across 6 personas"
+      - "7 friction categories identified from clustering"
+      - "cost_model fields populated for ROI-ready structure"
+      - "ROI estimation framework defined (v2.0 placeholder)"
+      - "Cross-cutting analysis: severity, frequency, worst workarounds"

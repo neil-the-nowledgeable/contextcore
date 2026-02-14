@@ -1,14 +1,14 @@
 # ContextCore Benefits Manifest
-# Version: 1.6.0
+# Version: 1.7.1
 # Created: 2026-01-28
-# Updated: 2026-02-11
+# Updated: 2026-02-14
 #
 # PURPOSE: First-class user benefits that drive capability creation.
 # Benefits with delivery_status: "gap" represent roadmap opportunities.
 
 manifest_id: contextcore.benefits
 name: ContextCore User Benefits
-version: "1.6.0"
+version: "1.7.1"
 description: |
   User benefits for ContextCore, articulated independently of implementation.
   Benefits drive capability design; gaps become roadmap items.
@@ -674,6 +674,80 @@ benefits:
       - "CRD validates against existing ProjectContext schema"
 
   # ============================================================================
+  # CATEGORY: PIPELINE INTEGRITY
+  # ============================================================================
+
+  - benefit_id: pipeline.governance_gates
+    name: "A2A Governance Gate Validation"
+    value_statement: "Users can validate pipeline handoffs at every boundary so defects don't cascade silently from export through plan ingestion to contractor execution"
+
+    personas:
+      - persona_id: developer
+        pain_point: "I ran the export, then plan ingestion, but the contractor built the wrong artifacts"
+        value_received: "Gate 1 catches export defects before ingestion; Gate 2 catches translation errors before execution"
+        importance: critical
+      - persona_id: ai_agent
+        pain_point: "I receive an export bundle but can't tell if it's structurally valid before processing"
+        value_received: "7 automated integrity checks validate structure, checksums, provenance, coverage, and parameter resolvability"
+        importance: high
+
+    measurable_outcome: "Zero silent pipeline defect cascades"
+    measurement_method: "Count of contractor failures traceable to export/ingestion defects"
+    baseline: "Defects discovered only at contractor execution stage"
+
+    origin:
+      type: design_decision
+      ref: "A2A governance-aware pipeline design 2026-02"
+      date: 2026-02-13
+
+    delivered_by:
+      - contextcore.pipeline.check_pipeline
+      - contextcore.pipeline.diagnose
+    delivery_status: delivered
+    delivered_at: "2026-02-13"
+
+    acceptance_criteria:
+      - "Gate 1 runs 7 integrity checks on export output (+ optional --min-coverage enforcement)"
+      - "Gate 2 runs Three Questions diagnostic across pipeline layers"
+      - "Both gates support --fail-on-* flags for CI integration"
+      - "Skippable gates for absent optional data (e.g., no provenance file)"
+
+  - benefit_id: pipeline.contract_first_planning
+    name: "Contract-First Artifact Planning"
+    value_statement: "Users can declare what observability artifacts are needed from business metadata so they get correct artifacts without manually specifying dashboard panels and alert rules"
+
+    personas:
+      - persona_id: developer
+        pain_point: "I need monitoring for my service but don't know which dashboards, alerts, and rules to create"
+        value_received: "Export derives the artifact contract from .contextcore.yaml — business criticality drives what's needed"
+        importance: high
+      - persona_id: project_manager
+        pain_point: "Teams deploy services without proper observability, then we find out during incidents"
+        value_received: "Manifest export guarantees an artifact plan exists before code reaches production"
+        importance: critical
+
+    measurable_outcome: "100% of services have export-derived artifact contracts before deployment"
+    measurement_method: "Ratio of services with artifact manifests to total services"
+    baseline: "Ad-hoc observability setup, inconsistent across teams"
+
+    origin:
+      type: vision
+      ref: "Context Manifest export design 2026-01"
+      date: 2026-01-15
+
+    delivered_by:
+      - contextcore.manifest.export_provenance
+      - contextcore.manifest.export_onboarding
+    delivery_status: delivered
+    delivered_at: "2026-02-12"
+
+    acceptance_criteria:
+      - "Export produces artifact manifest with derived artifact declarations"
+      - "Coverage gaps identified automatically from business metadata"
+      - "Onboarding metadata bridges 'what' to 'how' for plan ingestion"
+      - "Provenance audit trail enables end-to-end freshness verification"
+
+  # ============================================================================
   # CATEGORY: DEVELOPER EXPERIENCE
   # ============================================================================
 
@@ -772,8 +846,8 @@ benefits:
 # ==============================================================================
 
 gap_summary:
-  total_benefits: 16
-  delivered: 11
+  total_benefits: 18
+  delivered: 13
   partial: 2
   gaps: 3
 
@@ -804,6 +878,18 @@ gap_summary:
 # ==============================================================================
 
 changelog:
+  - version: "1.7.1"
+    date: "2026-02-14"
+    changes:
+      - "pipeline.governance_gates: Updated Gate 1 from 6 to 7 integrity checks (added parameter-resolvability), added --min-coverage enforcement"
+  - version: "1.7.0"
+    date: "2026-02-14"
+    changes:
+      - "New category: PIPELINE INTEGRITY with 2 delivered benefits"
+      - "pipeline.governance_gates (new, delivered): A2A Gate 1 and Gate 2 validation at pipeline handoffs"
+      - "pipeline.contract_first_planning (new, delivered): Export-derived artifact contracts from business metadata"
+      - "Updated gap_summary: 13 delivered, 2 partial, 3 gaps (was 11/2/3)"
+      - "18 total benefits across 9 categories"
   - version: "1.6.0"
     date: "2026-02-11"
     changes:

@@ -1,0 +1,194 @@
+# Tasks as Spans — Core Insight
+# A concept diagram for ADR documentation
+# Render: d2 tasks-as-spans-concept.d2 -t 102 tasks-as-spans-concept.svg
+# (Theme 102 = "Grape soda" for a distinct look)
+
+direction: down
+
+title: |md
+  ## The Core Insight
+  *Tasks and Spans share the same structure*
+| {
+  near: top-center
+}
+
+# ============================================================================
+# THE PARALLEL STRUCTURE
+# ============================================================================
+
+comparison: {
+  style: {
+    fill: transparent
+    stroke: transparent
+  }
+
+  task: Project Task {
+    style: {
+      fill: "#FEF3C7"
+      stroke: "#D97706"
+      stroke-width: 2
+      font-color: "#92400E"
+      border-radius: 10
+    }
+
+    start: 📅 start_time
+    end: ⏱️ end_time  
+    status: ✅ status
+    parent: 📦 parent_id
+    events: 📌 events[]
+    attrs: 🏷️ attributes
+  }
+
+  equals: "≡" {
+    style: {
+      font-size: 48
+      fill: transparent
+      stroke: transparent
+      font-color: "#6B7280"
+    }
+  }
+
+  span: OTel Span {
+    style: {
+      fill: "#DBEAFE"
+      stroke: "#2563EB"
+      stroke-width: 2
+      font-color: "#1E40AF"
+      border-radius: 10
+    }
+
+    start: 📅 start_time
+    end: ⏱️ end_time
+    status: ✅ status_code
+    parent: 📦 parent_span_id
+    events: 📌 span_events[]
+    attrs: 🏷️ attributes
+  }
+
+  task -> equals
+  equals -> span
+}
+
+# ============================================================================
+# BENEFITS SECTION
+# ============================================================================
+
+benefits: Benefits {
+  style: {
+    fill: "#ECFDF5"
+    stroke: "#10B981"
+    stroke-width: 2
+    font-color: "#065F46"
+    border-radius: 12
+  }
+
+  unified: |md
+    **Unified Querying**
+    TraceQL for project hierarchy
+  |
+
+  timeseries: |md
+    **Time-Series Native**
+    Built-in retention, aggregation
+  |
+
+  correlation: |md
+    **Runtime Correlation**
+    Link tasks to actual traces
+  |
+
+  ecosystem: |md
+    **OTel Ecosystem**
+    Any OTLP-compatible backend
+  |
+}
+
+# ============================================================================
+# THE FLOW
+# ============================================================================
+
+flow: {
+  style: {
+    fill: transparent
+    stroke: transparent
+  }
+
+  before: Before {
+    style: {
+      fill: "#FEE2E2"
+      stroke: "#EF4444"
+      font-color: "#991B1B"
+      border-radius: 8
+    }
+    
+    jira: Jira/Linear
+    sheets: Spreadsheets
+    standup: Manual Standups
+    reports: Status Reports
+
+    jira -> sheets: copy/paste {
+      style.stroke: "#EF4444"
+    }
+    sheets -> standup: sync {
+      style.stroke: "#EF4444"
+    }
+    standup -> reports: summarize {
+      style.stroke: "#EF4444"
+    }
+  }
+
+  arrow: "→" {
+    style: {
+      font-size: 36
+      fill: transparent
+      stroke: transparent
+    }
+  }
+
+  after: After (ContextCore) {
+    style: {
+      fill: "#D1FAE5"
+      stroke: "#10B981"
+      font-color: "#065F46"
+      border-radius: 8
+    }
+
+    artifacts: Git/CI/Artifacts
+    derive: Derived Status
+    grafana: Grafana Dashboard
+
+    artifacts -> derive: automatic {
+      style: {
+        stroke: "#10B981"
+        animated: true
+      }
+    }
+    derive -> grafana: real-time {
+      style: {
+        stroke: "#10B981"
+        animated: true
+      }
+    }
+  }
+
+  before -> arrow
+  arrow -> after
+}
+
+# ============================================================================
+# LAYOUT CONNECTIONS
+# ============================================================================
+
+comparison -> benefits: enables {
+  style: {
+    stroke: "#9CA3AF"
+    stroke-dash: 5
+  }
+}
+
+benefits -> flow: transforms {
+  style: {
+    stroke: "#9CA3AF"
+    stroke-dash: 5
+  }
+}

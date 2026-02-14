@@ -1,14 +1,14 @@
 # ContextCore User-Facing Capability Index
-# Version: 1.2.0
+# Version: 1.3.1
 # Created: 2026-01-28
-# Updated: 2026-02-11
+# Updated: 2026-02-14
 # Audience: Users (primary), GTM (secondary)
 #
 # Complement to: contextcore.agent.yaml (technical/agent-focused)
 
 manifest_id: contextcore.user
 name: ContextCore User-Facing Capabilities
-version: "1.2.0"
+version: "1.3.1"
 description: |
   User-facing capabilities for ContextCore, organized by value delivered.
   Project management as observability—eliminate the PM data silo by treating tasks as telemetry.
@@ -481,6 +481,15 @@ capabilities:
       - type: example
         ref: examples/02_agent_insights.py
         description: Working example of insight emission and query
+      - type: doc
+        ref: docs/agent-semantic-conventions.md
+        description: Agent memory semantic conventions — insight attributes, span structure, cross-session queries
+      - type: doc
+        ref: docs/agent-communication-protocol.md
+        description: Insight emission and query protocols for persistent agent knowledge
+      - type: doc
+        ref: docs/migration-guides.md
+        description: "Migration Guide 2: Adding Agent Memory — InsightEmitter, InsightQuerier setup"
 
     confidence: 0.85
 
@@ -630,7 +639,117 @@ capabilities:
     measurable_outcome: "Cross-agent task delegation via A2A protocol"
 
   # ============================================================================
-  # CATEGORY 5: COMPLIANCE & AUDIT
+  # CATEGORY 5: PIPELINE GOVERNANCE
+  # ============================================================================
+
+  - capability_id: contextcore.pipeline.manifest_to_artifacts
+    category: action
+    maturity: stable
+    summary: Go from business context file to validated artifact plan in one pipeline
+
+    audiences: [human, gtm]
+
+    description:
+      human: |
+        Define your project's business context in `.contextcore.yaml` and ContextCore
+        derives what observability artifacts you need—dashboards, alerts, recording rules.
+        The pipeline: manifest init → validate → export → Gate 1 check → plan ingestion
+        → Gate 2 diagnostic → contractor execution → final verification. Each step validates
+        the previous one's output. You never manually specify which dashboard panels to create;
+        the business metadata (criticality, SLOs, team ownership) drives the derivation.
+      gtm: |
+        Zero-config observability setup. Describe your service in one YAML file and
+        ContextCore generates the complete observability artifact plan—dashboards,
+        alerts, and recording rules derived from your business requirements.
+        Governance gates catch defects before they cascade.
+
+    user_benefit: |
+      From business context to artifact plan without manual specification.
+      Governance gates prevent silent pipeline failures.
+
+    triggers:
+      - "manifest to artifacts"
+      - "artifact pipeline"
+      - "governance pipeline"
+      - "export and validate"
+      - "contextcore pipeline"
+
+    evidence:
+      - type: code
+        ref: src/contextcore/cli/manifest.py
+        description: manifest init, validate, export CLI commands
+      - type: code
+        ref: src/contextcore/contracts/a2a/pipeline_checker.py
+        description: Gate 1 — 7-gate structural integrity checker + min-coverage enforcement
+      - type: code
+        ref: src/contextcore/contracts/a2a/three_questions.py
+        description: Gate 2 — Three Questions diagnostic
+      - type: doc
+        ref: docs/MANIFEST_EXPORT_REQUIREMENTS.md
+        description: Export and validate requirements
+      - type: doc
+        ref: docs/A2A_GATE_REQUIREMENTS.md
+        description: Gate 1 and Gate 2 requirements
+      - type: doc
+        ref: docs/OPERATOR_PIPELINE_QUICKSTART.md
+        description: Operator quickstart for running the pipeline in CI/production
+
+    confidence: 0.9
+
+    personas: [developer, project_manager, operator]
+    measurable_outcome: "100% of services have validated artifact contracts before deployment"
+
+  - capability_id: contextcore.pipeline.quality_gates
+    category: validate
+    maturity: stable
+    summary: Automated governance gates catch pipeline defects before they cascade
+
+    audiences: [human, gtm]
+
+    description:
+      human: |
+        Two governance gates validate your pipeline at critical handoff points:
+        - **Gate 1** (after export): 7 structural integrity checks—structure, checksums,
+          provenance, mapping, gap parity, design calibration, and parameter resolvability
+          — plus optional --min-coverage threshold enforcement
+        - **Gate 2** (after plan ingestion): Three Questions diagnostic—Is the contract
+          complete? Was it translated correctly? Was the plan executed faithfully?
+        Gates stop at the first failure. If the export is bad, there's no point checking
+        downstream steps. Use `--fail-on-unhealthy` in CI to block bad handoffs.
+      gtm: |
+        Defense-in-depth for your observability pipeline. Governance gates automatically
+        validate each step before proceeding, so you never discover a bad export
+        three steps later during contractor execution.
+
+    user_benefit: |
+      Catch pipeline problems at the source, not at the end.
+      CI-friendly exit codes for automated quality enforcement.
+
+    triggers:
+      - "quality gates"
+      - "pipeline validation"
+      - "gate check"
+      - "defense in depth"
+      - "pipeline integrity"
+
+    evidence:
+      - type: code
+        ref: src/contextcore/cli/contract.py
+        description: a2a-check-pipeline and a2a-diagnose CLI commands
+      - type: doc
+        ref: docs/A2A_GATE_REQUIREMENTS.md
+        description: Formal gate requirements
+      - type: doc
+        ref: docs/OPERATOR_PIPELINE_QUICKSTART.md
+        description: Operator quickstart for running the pipeline in CI/production
+
+    confidence: 0.9
+
+    personas: [developer, operator]
+    measurable_outcome: "Zero silent defect cascades in the artifact pipeline"
+
+  # ============================================================================
+  # CATEGORY 6: COMPLIANCE & AUDIT
   # ============================================================================
 
   - capability_id: contextcore.audit.full_trail
@@ -824,6 +943,18 @@ gtm_guidelines:
 # ==============================================================================
 
 changelog:
+  - version: "1.3.1"
+    date: "2026-02-14"
+    changes:
+      - "pipeline.quality_gates: Updated Gate 1 description from 6 to 7 integrity checks (added parameter-resolvability) + --min-coverage enforcement"
+  - version: "1.3.0"
+    date: "2026-02-14"
+    changes:
+      - "New category: PIPELINE GOVERNANCE (2 capabilities)"
+      - "pipeline.manifest_to_artifacts (new, stable): End-to-end pipeline from business context to validated artifact plan"
+      - "pipeline.quality_gates (new, stable): Gate 1 + Gate 2 governance validation at pipeline handoffs"
+      - "Cross-referenced new requirements docs: MANIFEST_EXPORT_REQUIREMENTS.md, A2A_GATE_REQUIREMENTS.md"
+      - "18 capabilities across 6 categories (was 16 across 5)"
   - version: "1.2.0"
     date: "2026-02-11"
     changes:

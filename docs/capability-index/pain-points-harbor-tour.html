@@ -1,0 +1,1631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Harbor Tour | ContextCore Pain Points Manifest</title>
+    <style>
+        :root {
+            --water-dark: #0a1628;
+            --water-mid: #0d2137;
+            --water-light: #1a3a5c;
+            --sunset-orange: #f97316;
+            --sunset-gold: #fbbf24;
+            --sunset-pink: #f472b6;
+            --sail-white: #f8fafc;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --stable-color: #22c55e;
+            --beta-color: #eab308;
+            --draft-color: #a855f7;
+            --deprecated-color: #ef4444;
+            --pain-red: #ef4444;
+            --pain-orange: #f97316;
+            --pain-yellow: #eab308;
+            --relief-green: #22c55e;
+            --relief-partial: #3b82f6;
+            --friction-redundant: #ef4444;
+            --friction-blindspots: #8b5cf6;
+            --friction-crisis: #f97316;
+            --friction-interop: #06b6d4;
+            --friction-delayed: #eab308;
+            --friction-context: #3b82f6;
+            --friction-trust: #ec4899;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(180deg, var(--water-dark) 0%, var(--water-mid) 50%, var(--water-light) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* Header */
+        .harbor-header {
+            background: linear-gradient(180deg,
+                #1e1b4b 0%,
+                #312e81 20%,
+                #4c1d95 40%,
+                #7c2d12 60%,
+                var(--sunset-orange) 80%,
+                var(--sunset-gold) 100%);
+            padding: 4rem 2rem 6rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .harbor-header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 100px;
+            background: linear-gradient(180deg, transparent, var(--water-dark));
+        }
+
+        .harbor-title {
+            font-size: 3.5rem;
+            font-weight: 300;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        .harbor-subtitle {
+            font-size: 1.25rem;
+            color: var(--sunset-gold);
+            font-style: italic;
+            margin-bottom: 0.5rem;
+        }
+
+        .harbor-badge {
+            display: inline-block;
+            background: rgba(0,0,0,0.3);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+
+        .philosophy-quote {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 1.5rem;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            border-left: 4px solid var(--sunset-gold);
+        }
+
+        .philosophy-quote p {
+            font-size: 1.1rem;
+            font-style: italic;
+            color: var(--sail-white);
+        }
+
+        .philosophy-quote .attribution {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+            font-style: normal;
+        }
+
+        /* Main content */
+        .harbor-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Section titles */
+        .section-title {
+            font-size: 2rem;
+            color: var(--sail-white);
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--water-light);
+        }
+
+        .section-subtitle {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Key Numbers Banner */
+        .key-numbers {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .key-number-card {
+            background: linear-gradient(145deg, var(--water-mid), var(--water-dark));
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            border: 1px solid var(--water-light);
+            transition: transform 0.3s ease;
+        }
+
+        .key-number-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .key-number-value {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .key-number-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .key-number-sublabel {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        /* Problem/Solution Opener */
+        .problem-solution {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .problem-card, .solution-card {
+            padding: 2rem;
+            border-radius: 16px;
+        }
+
+        .problem-card {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05));
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .solution-card {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05));
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .problem-card h2 { color: #ef4444; }
+        .solution-card h2 { color: var(--stable-color); }
+
+        .problem-card h2, .solution-card h2 {
+            font-size: 1.4rem;
+            margin-bottom: 1rem;
+        }
+
+        .problem-card ul, .solution-card ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .problem-card li, .solution-card li {
+            padding: 0.4rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .problem-card li::before {
+            content: '\2717';
+            position: absolute;
+            left: 0;
+            color: #ef4444;
+        }
+
+        .solution-card li::before {
+            content: '\2713';
+            position: absolute;
+            left: 0;
+            color: var(--stable-color);
+        }
+
+        /* Friction Categories */
+        .friction-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .friction-card {
+            background: linear-gradient(145deg, var(--water-mid), var(--water-dark));
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid var(--water-light);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .friction-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.3);
+        }
+
+        .friction-card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .friction-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--water-dark);
+        }
+
+        .friction-card h3 {
+            font-size: 1.05rem;
+            color: var(--sail-white);
+        }
+
+        .friction-pct {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .friction-description {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .friction-examples {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .friction-bar {
+            height: 4px;
+            border-radius: 2px;
+            margin-top: 1rem;
+            background: rgba(255,255,255,0.1);
+            overflow: hidden;
+        }
+
+        .friction-bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 1s ease-out;
+        }
+
+        /* Persona Cards */
+        .persona-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .persona-card {
+            background: linear-gradient(145deg, var(--water-mid), var(--water-dark));
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--water-light);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .persona-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+
+        .persona-header {
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .persona-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .persona-titles h3 {
+            font-size: 1.3rem;
+            color: var(--sail-white);
+        }
+
+        .persona-titles .tagline {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 0.15rem;
+        }
+
+        .persona-roi {
+            padding: 1rem 1.5rem;
+            background: rgba(0,0,0,0.2);
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            text-align: center;
+        }
+
+        .roi-tier {
+            padding: 0.5rem;
+        }
+
+        .roi-tier-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+
+        .roi-tier-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--sunset-gold);
+        }
+
+        .persona-body { padding: 1.5rem; }
+
+        .pain-item {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .pain-item:last-child {
+            border-bottom: none;
+        }
+
+        .pain-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.25rem;
+        }
+
+        .pain-name {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--sail-white);
+        }
+
+        .severity-badge {
+            font-size: 0.7rem;
+            padding: 0.15rem 0.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            flex-shrink: 0;
+        }
+
+        .severity-critical {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+        }
+
+        .severity-high {
+            background: rgba(249, 115, 22, 0.2);
+            color: #f97316;
+            border: 1px solid rgba(249, 115, 22, 0.4);
+        }
+
+        .severity-medium {
+            background: rgba(234, 179, 8, 0.2);
+            color: #eab308;
+            border: 1px solid rgba(234, 179, 8, 0.4);
+        }
+
+        .pain-description {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-style: italic;
+            margin-bottom: 0.35rem;
+        }
+
+        .pain-cost {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .pain-cost strong {
+            color: var(--sunset-gold);
+        }
+
+        /* ROI Breakdown */
+        .roi-section {
+            background: linear-gradient(135deg, rgba(249, 115, 22, 0.08), rgba(251, 191, 36, 0.05));
+            border: 1px solid rgba(249, 115, 22, 0.2);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .roi-section h2 {
+            color: var(--sunset-gold);
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .roi-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1.5rem;
+        }
+
+        .roi-table th {
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--water-light);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .roi-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .roi-table tr:hover td {
+            background: rgba(255,255,255,0.02);
+        }
+
+        .roi-table .total-row td {
+            border-top: 2px solid var(--water-light);
+            font-weight: 700;
+            color: var(--sunset-gold);
+            font-size: 1rem;
+        }
+
+        .roi-table .cost-cell {
+            text-align: right;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Delivery Status */
+        .delivery-section {
+            margin-bottom: 3rem;
+        }
+
+        .delivery-bar-container {
+            margin-bottom: 2rem;
+        }
+
+        .delivery-bar-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .delivery-bar {
+            display: flex;
+            height: 40px;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 0.75rem;
+        }
+
+        .delivery-bar .segment {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--water-dark);
+            transition: width 1s ease-out;
+        }
+
+        .delivery-bar .delivered-seg { background: var(--stable-color); }
+        .delivery-bar .partial-seg { background: var(--beta-color); }
+        .delivery-bar .gap-seg { background: var(--pain-red); }
+
+        .delivery-legend {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .delivery-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .delivery-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .delivery-dot.delivered { background: var(--stable-color); }
+        .delivery-dot.partial { background: var(--beta-color); }
+        .delivery-dot.gap { background: var(--pain-red); }
+
+        /* Gap Priorities */
+        .gap-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .gap-card {
+            background: linear-gradient(145deg, var(--water-mid), var(--water-dark));
+            border-radius: 12px;
+            padding: 1.5rem;
+            border-left: 4px solid;
+            transition: transform 0.3s ease;
+        }
+
+        .gap-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .gap-card.rank-1 { border-left-color: var(--sunset-gold); }
+        .gap-card.rank-2 { border-left-color: var(--sunset-orange); }
+        .gap-card.rank-3 { border-left-color: var(--sunset-pink); }
+        .gap-card.rank-4 { border-left-color: var(--draft-color); }
+        .gap-card.rank-5 { border-left-color: var(--text-muted); }
+
+        .gap-rank {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .gap-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--sail-white);
+            margin-bottom: 0.5rem;
+        }
+
+        .gap-meta {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.75rem;
+        }
+
+        .gap-tag {
+            font-size: 0.75rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--water-light);
+            color: var(--text-secondary);
+        }
+
+        .gap-tag.effort-small { border-color: var(--stable-color); color: var(--stable-color); }
+        .gap-tag.effort-medium { border-color: var(--beta-color); color: var(--beta-color); }
+        .gap-tag.effort-large { border-color: var(--pain-red); color: var(--pain-red); }
+
+        .gap-signal {
+            font-size: 0.85rem;
+            color: var(--sunset-gold);
+            font-weight: 600;
+        }
+
+        .gap-cost {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+        }
+
+        /* Methodology */
+        .methodology-section {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(59, 130, 246, 0.05));
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .methodology-section h2 {
+            color: var(--draft-color);
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .method-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .method-card {
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .method-card h3 {
+            font-size: 1rem;
+            color: var(--sail-white);
+            margin-bottom: 0.5rem;
+        }
+
+        .method-confidence {
+            font-size: 0.8rem;
+            padding: 0.15rem 0.5rem;
+            border-radius: 12px;
+            display: inline-block;
+            margin-bottom: 0.75rem;
+        }
+
+        .method-confidence.high {
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--stable-color);
+        }
+
+        .method-confidence.medium {
+            background: rgba(234, 179, 8, 0.2);
+            color: var(--beta-color);
+        }
+
+        .method-confidence.low {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--pain-red);
+        }
+
+        .method-formula {
+            font-family: 'Courier New', monospace;
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            background: rgba(0,0,0,0.3);
+            padding: 0.5rem;
+            border-radius: 4px;
+            margin-bottom: 0.75rem;
+        }
+
+        .method-used-for {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* How To Use */
+        .how-to-use {
+            background: var(--water-dark);
+            border-radius: 16px;
+            padding: 2rem;
+            border: 1px solid var(--water-light);
+            margin-bottom: 3rem;
+        }
+
+        .use-case-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .use-case-item {
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            padding: 1.25rem;
+            border-left: 3px solid var(--sunset-gold);
+        }
+
+        .use-case-item h4 {
+            color: var(--sunset-gold);
+            font-size: 0.95rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .use-case-item p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .use-case-item code {
+            background: rgba(0,0,0,0.3);
+            padding: 0.1rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.82rem;
+            color: var(--sunset-gold);
+        }
+
+        /* Companion Files */
+        .companion-section {
+            background: rgba(0,0,0,0.2);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 3rem;
+            border: 1px solid var(--water-light);
+        }
+
+        .companion-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .companion-file {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .companion-file .file-icon {
+            font-size: 1.2rem;
+        }
+
+        .companion-file .file-name {
+            color: var(--sunset-gold);
+        }
+
+        .companion-file .file-desc {
+            color: var(--text-muted);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-size: 0.8rem;
+        }
+
+        /* Footer */
+        .harbor-footer {
+            text-align: center;
+            padding: 3rem 2rem;
+            border-top: 1px solid var(--water-light);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .harbor-footer a {
+            color: var(--sunset-gold);
+            text-decoration: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .harbor-title { font-size: 2rem; }
+            .problem-solution { grid-template-columns: 1fr; }
+            .persona-grid { grid-template-columns: 1fr; }
+            .friction-grid { grid-template-columns: 1fr; }
+            .gap-grid { grid-template-columns: 1fr; }
+            .method-grid { grid-template-columns: 1fr; }
+            .key-numbers { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ========================================================================== -->
+<!-- HEADER -->
+<!-- ========================================================================== -->
+
+<header class="harbor-header">
+    <h1 class="harbor-title">Pain Points Manifest</h1>
+    <p class="harbor-subtitle">Who hurts, how, and how much &mdash; before ContextCore</p>
+    <span class="harbor-badge">contextcore.pain_points.yaml v2.0.0 &bull; 28 pain points &bull; 6 personas</span>
+
+    <div class="philosophy-quote">
+        <p>"Benefits are product-centric: organized by deliverable. Pain points are customer-centric: organized by persona. Both views are needed for product decisions."</p>
+        <div class="attribution">&mdash; ContextCore Capability Index</div>
+    </div>
+</header>
+
+<!-- ========================================================================== -->
+<!-- MAIN CONTENT -->
+<!-- ========================================================================== -->
+
+<main class="harbor-content">
+
+    <!-- KEY NUMBERS -->
+    <section>
+        <h2 class="section-title">Key Numbers</h2>
+        <div class="key-numbers">
+            <div class="key-number-card">
+                <div class="key-number-value" style="color: var(--pain-red);">$2.5M</div>
+                <div class="key-number-label">Total Annual Pain Cost</div>
+                <div class="key-number-sublabel">Enterprise (100 devs)</div>
+            </div>
+            <div class="key-number-card">
+                <div class="key-number-value" style="color: var(--stable-color);">56%</div>
+                <div class="key-number-label">Already Addressed</div>
+                <div class="key-number-sublabel">~$1.4M delivered</div>
+            </div>
+            <div class="key-number-card">
+                <div class="key-number-value" style="color: var(--sunset-gold);">33%</div>
+                <div class="key-number-label">Remaining Gaps</div>
+                <div class="key-number-sublabel">~$835K opportunity</div>
+            </div>
+            <div class="key-number-card">
+                <div class="key-number-value" style="color: var(--draft-color);">28</div>
+                <div class="key-number-label">Pain Points Indexed</div>
+                <div class="key-number-sublabel">Across 6 personas</div>
+            </div>
+            <div class="key-number-card">
+                <div class="key-number-value" style="color: var(--friction-crisis);">$1.1M</div>
+                <div class="key-number-label">Largest Persona Cost</div>
+                <div class="key-number-sublabel">Developer (enterprise)</div>
+            </div>
+            <div class="key-number-card">
+                <div class="key-number-value" style="color: var(--friction-interop);">160 hrs</div>
+                <div class="key-number-label">Highest Per-Person Cost</div>
+                <div class="key-number-sublabel">Compliance officer/yr</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PROBLEM / SOLUTION -->
+    <section>
+        <h2 class="section-title">The Problem &amp; The Solution</h2>
+        <div class="problem-solution">
+            <div class="problem-card">
+                <h2>Without ContextCore</h2>
+                <ul>
+                    <li>Developers update Jira, GitHub, and Slack &mdash; same info 3 places</li>
+                    <li>PMs spend 2 hours every Monday compiling status</li>
+                    <li>Engineering leaders open 5 tools to see portfolio state</li>
+                    <li>SREs get 2am alerts with no service context</li>
+                    <li>Compliance officers spend weeks assembling audit evidence</li>
+                    <li>AI agents forget everything between sessions</li>
+                </ul>
+            </div>
+            <div class="solution-card">
+                <h2>With ContextCore</h2>
+                <ul>
+                    <li>Status derived automatically from Git activity</li>
+                    <li>Real-time dashboards replace manual compilation</li>
+                    <li>Single portfolio view in Grafana</li>
+                    <li>Alerts enriched with business context and ownership</li>
+                    <li>Complete audit trail queryable via Loki</li>
+                    <li>Agent insights persist as OTel spans</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- FRICTION CATEGORIES -->
+    <section>
+        <h2 class="section-title">7 Friction Categories</h2>
+        <p class="section-subtitle">Pain points cluster into seven friction types, each with a distinct cost model</p>
+
+        <div class="friction-grid">
+            <div class="friction-card">
+                <div class="friction-card-header">
+                    <div class="friction-icon" style="background: linear-gradient(135deg, var(--friction-redundant), #dc2626);">RE</div>
+                    <div>
+                        <h3>Redundant Effort</h3>
+                        <span class="friction-pct">23% of enterprise cost</span>
+                    </div>
+                </div>
+                <div class="friction-description">Same work repeated across tools, contexts, or sessions</div>
+                <div class="friction-examples">Triple status updates, context re-explanation, status chasing</div>
+                <div class="friction-bar"><div class="friction-bar-fill" style="width: 23%; background: var(--friction-redundant);"></div></div>
+            </div>
+
+            <div class="friction-card">
+                <div class="friction-card-header">
+                    <div class="friction-icon" style="background: linear-gradient(135deg, var(--friction-blindspots), #6d28d9);">BS</div>
+                    <div>
+                        <h3>Blind Spots</h3>
+                        <span class="friction-pct">22% of enterprise cost</span>
+                    </div>
+                </div>
+                <div class="friction-description">Important state invisible to stakeholders who need it</div>
+                <div class="friction-examples">AI decisions opaque, no portfolio view, agent activity hidden</div>
+                <div class="friction-bar"><div class="friction-bar-fill" style="width: 22%; background: var(--friction-blindspots);"></div></div>
+            </div>
+
+            <div class="friction-card">
+                <div class="friction-card-header">
+                    <div class="friction-icon" style="background: linear-gradient(135deg, var(--friction-crisis), #ea580c);">CF</div>
+                    <div>
+                        <h3>Crisis Friction</h3>
+                        <span class="friction-pct">18% of enterprise cost</span>
+                    </div>
+                </div>
+                <div class="friction-description">Slow response when speed matters most</div>
+                <div class="friction-examples">2am alerts without context, weeks of audit prep, MTTR extension</div>
+                <div class="friction-bar"><div class="friction-bar-fill" style="width: 18%; background: var(--friction-crisis);"></div></div>
+            </div>
+
+            <div class="friction-card">
+                <div class="friction-card-header">
+                    <div class="friction-icon" style="background: linear-gradient(135deg, var(--friction-interop), #0891b2);">IT</div>
+                    <div>
+                        <h3>Interoperability Tax</h3>
+                        <span class="friction-pct">10% of enterprise cost</span>
+                    </div>
+                </div>
+                <div class="friction-description">Custom adapters, glue code, or manual bridging</div>
+                <div class="friction-examples">Custom adapter per framework, non-standard telemetry, agent silos</div>
+                <div class="friction-bar"><div class="friction-bar-fill" style="width: 10%; background: var(--friction-interop);"></div></div>
+            </div>
+
+            <div class="friction-card">
+                <div class="friction-card-header">
+                    <div class="friction-icon" style="background: linear-gradient(135deg, var(--friction-delayed), #ca8a04);">DF</div>
+                    <div>
+                        <h3>Delayed Feedback</h3>
+                        <span class="friction-pct">9% of enterprise cost</span>
+                    </div>
+                </div>
+                <div class="friction-description">Problems discovered too late to prevent cheaply</div>
+                <div class="friction-examples">Cycle time at sprint end, dependencies at deploy, silent truncation</div>
+                <div class="friction-bar"><div class="friction-bar-fill" style="width: 9%; background: var(--friction-delayed);"></div></div>
+            </div>
+
+            <div class="friction-card">
+                <div class="friction-card-header">
+                    <div class="friction-icon" style="background: linear-gradient(135deg, var(--friction-context), #2563eb);">CF</div>
+                    <div>
+                        <h3>Context Fragmentation</h3>
+                        <span class="friction-pct">8% of enterprise cost</span>
+                    </div>
+                </div>
+                <div class="friction-description">Information scattered across tools requiring reassembly</div>
+                <div class="friction-examples">Status from 4 sources, 5-tool portfolio view, audit evidence scattered</div>
+                <div class="friction-bar"><div class="friction-bar-fill" style="width: 8%; background: var(--friction-context);"></div></div>
+            </div>
+
+            <div class="friction-card">
+                <div class="friction-card-header">
+                    <div class="friction-icon" style="background: linear-gradient(135deg, var(--friction-trust), #db2777);">TD</div>
+                    <div>
+                        <h3>Trust Deficit</h3>
+                        <span class="friction-pct">8% of enterprise cost</span>
+                    </div>
+                </div>
+                <div class="friction-description">Status or output can't be relied upon without verification</div>
+                <div class="friction-examples">"Done" without deliverables, truncated code, unverifiable completion</div>
+                <div class="friction-bar"><div class="friction-bar-fill" style="width: 8%; background: var(--friction-trust);"></div></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PERSONA BREAKDOWN -->
+    <section>
+        <h2 class="section-title">Pain by Persona</h2>
+        <p class="section-subtitle">Each persona's pain points, written in their voice, with order-of-magnitude ROI estimates</p>
+
+        <div class="persona-grid">
+
+            <!-- Developer -->
+            <div class="persona-card">
+                <div class="persona-header">
+                    <div class="persona-icon" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">DEV</div>
+                    <div class="persona-titles">
+                        <h3>Developer</h3>
+                        <span class="tagline">9 pain points &bull; Largest total cost</span>
+                    </div>
+                </div>
+                <div class="persona-roi">
+                    <div class="roi-tier">
+                        <div class="roi-tier-label">Startup</div>
+                        <div class="roi-tier-value">$66K</div>
+                    </div>
+                    <div class="roi-tier">
+                        <div class="roi-tier-label">Mid-Market</div>
+                        <div class="roi-tier-value">$307K</div>
+                    </div>
+                    <div class="roi-tier">
+                        <div class="roi-tier-label">Enterprise</div>
+                        <div class="roi-tier-value">$1.1M</div>
+                    </div>
+                </div>
+                <div class="persona-body">
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">Session Context Amnesia</span>
+                            <span class="severity-badge severity-high">high</span>
+                        </div>
+                        <div class="pain-description">"Every Claude session, I re-explain what we decided last week"</div>
+                        <div class="pain-cost">Enterprise: <strong>$250K/yr</strong> &bull; 19% of persona</div>
+                    </div>
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">Triple Status Update Tax</span>
+                            <span class="severity-badge severity-high">high</span>
+                        </div>
+                        <div class="pain-description">"I update Jira, then GitHub, then Slack &mdash; same info 3 places"</div>
+                        <div class="pain-cost">Enterprise: <strong>$225K/yr</strong> &bull; 17% of persona</div>
+                    </div>
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">Prior Agent Decisions Buried</span>
+                            <span class="severity-badge severity-high">high</span>
+                        </div>
+                        <div class="pain-description">"I can't see what Claude decided without reading transcripts"</div>
+                        <div class="pain-cost">Enterprise: <strong>$175K/yr</strong></div>
+                    </div>
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">Done &#8800; Actually Done</span>
+                            <span class="severity-badge severity-high">high</span>
+                        </div>
+                        <div class="pain-description">"Tasks show 'done' but expected outputs weren't created"</div>
+                        <div class="pain-cost">Enterprise: <strong>$167K/yr</strong></div>
+                    </div>
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">Best-AI-for-Job Inaccessible</span>
+                            <span class="severity-badge severity-medium">medium</span>
+                        </div>
+                        <div class="pain-description">"Different AIs are better at different things, but they don't talk"</div>
+                        <div class="pain-cost">Enterprise: <strong>$150K/yr</strong></div>
+                    </div>
+                    <div class="pain-item" style="color: var(--text-muted); font-size: 0.82rem; padding-top: 0.5rem;">
+                        + 4 more: Agent Silos ($77K), Silent Code Truncation ($75K), Deploy-Time Dependencies ($7K), Telemetry Mismatch ($10K)
+                    </div>
+                </div>
+            </div>
+
+            <!-- Engineering Leader -->
+            <div class="persona-card">
+                <div class="persona-header">
+                    <div class="persona-icon" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);">ENG</div>
+                    <div class="persona-titles">
+                        <h3>Engineering Leader</h3>
+                        <span class="tagline">4 pain points &bull; Strategic visibility gap</span>
+                    </div>
+                </div>
+                <div class="persona-roi">
+                    <div class="roi-tier">
+                        <div class="roi-tier-label">Startup</div>
+                        <div class="roi-tier-value">$29K</div>
+                    </div>
+                    <div class="roi-tier">
+                        <div class="roi-tier-label">Mid-Market</div>
+                        <div class="roi-tier-value">$100K</div>
+                    </div>
+                    <div class="roi-tier">
+                        <div class="roi-tier-label">Enterprise</div>
+                        <div class="roi-tier-value">$373K</div>
+                    </div>
+                </div>
+                <div class="persona-body">
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">Audit Prep Disrupts Teams</span>
+                            <span class="severity-badge severity-high">high</span>
+                        </div>
+                        <div class="pain-description">"Preparing audit evidence disrupts team for weeks"</div>
+                        <div class="pain-cost">Enterprise: <strong>$210K/yr</strong> &bull; 55% of persona</div>
+                    </div>
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">5-Tool Portfolio Assembly</span>
+                            <span class="severity-badge severity-critical">critical</span>
+                        </div>
+                        <div class="pain-description">"I can't see across all projects without opening 5 tools"</div>
+                        <div class="pain-cost">Enterprise: <strong>$98K/yr</strong> &bull; 34% of persona</div>
+                    </div>
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">Agent Activity Opaque to Leadership</span>
+                            <span class="severity-badge severity-medium">medium</span>
+                        </div>
+                        <div class="pain-description">"I have no visibility into what AI agents are doing"</div>
+                        <div class="pain-cost">Enterprise: <strong>$50K/yr</strong></div>
+                    </div>
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">Velocity Only Visible in Retrospect</span>
+                            <span class="severity-badge severity-medium">medium</span>
+                        </div>
+                        <div class="pain-description">"Velocity trends only visible in retrospect"</div>
+                        <div class="pain-cost">Enterprise: <strong>$15K/yr</strong></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Project Manager -->
+            <div class="persona-card">
+                <div class="persona-header">
+                    <div class="persona-icon" style="background: linear-gradient(135deg, #f97316, #ea580c);">PM</div>
+                    <div class="persona-titles">
+                        <h3>Project Manager</h3>
+                        <span class="tagline">5 pain points &bull; Status compilation dominates</span>
+                    </div>
+                </div>
+                <div class="persona-roi">
+                    <div class="roi-tier">
+                        <div class="roi-tier-label">Startup</div>
+                        <div class="roi-tier-value">$20K</div>
+                    </div>
+                    <div class="roi-tier">
+                        <div class="roi-tier-label">Mid-Market</div>
+                        <div class="roi-tier-value">$62K</div>
+                    </div>
+                    <div class="roi-tier">
+                        <div class="roi-tier-label">Enterprise</div>
+                        <div class="roi-tier-value">$222K</div>
+                    </div>
+                </div>
+                <div class="persona-body">
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">Monday Morning Status Assembly</span>
+                            <span class="severity-badge severity-critical">critical</span>
+                        </div>
+                        <div class="pain-description">"I spend 2 hours every Monday compiling status from 4 tools"</div>
+                        <div class="pain-cost">Enterprise: <strong>$81K/yr</strong> &bull; 40% of persona</div>
+                    </div>
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">Developer Status Chasing</span>
+                            <span class="severity-badge severity-high">high</span>
+                        </div>
+                        <div class="pain-description">"I chase developers for status updates"</div>
+                        <div class="pain-cost">Enterprise: <strong>$36K/yr</strong></div>
+                    </div>
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">Can't Verify What Was Delivered</span>
+                            <span class="severity-badge severity-critical">critical</span>
+                        </div>
+                        <div class="pain-description">"Status shows complete but I can't verify what was delivered"</div>
+                        <div class="pain-cost">Enterprise: <strong>$34K/yr</strong></div>
+                    </div>
+                    <div class="pain-item" style="color: var(--text-muted); font-size: 0.82rem; padding-top: 0.5rem;">
+                        + 2 more: Health Fragmented ($32K), Cycle Time Too Late ($40K)
+                    </div>
+                </div>
+            </div>
+
+            <!-- SRE / Operator -->
+            <div class="persona-card">
+                <div class="persona-header">
+                    <div class="persona-icon" style="background: linear-gradient(135deg, #ef4444, #dc2626);">SRE</div>
+                    <div class="persona-titles">
+                        <h3>Operator / SRE</h3>
+                        <span class="tagline">4 pain points &bull; Dominated by downtime risk</span>
+                    </div>
+                </div>
+                <div class="persona-roi">
+                    <div class="roi-tier">
+                        <div class="roi-tier-label">Startup</div>
+                        <div class="roi-tier-value">$20K</div>
+                    </div>
+                    <div class="roi-tier">
+                        <div class="roi-tier-label">Mid-Market</div>
+                        <div class="roi-tier-value">$109K</div>
+                    </div>
+                    <div class="roi-tier">
+                        <div class="roi-tier-label">Enterprise</div>
+                        <div class="roi-tier-value">$471K</div>
+                    </div>
+                </div>
+                <div class="persona-body">
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">2am Triage Without Context</span>
+                            <span class="severity-badge severity-critical">critical</span>
+                        </div>
+                        <div class="pain-description">"Alert fires at 2am, I don't know why this service matters"</div>
+                        <div class="pain-cost">Enterprise: <strong>$240K/yr</strong> (downtime-dominated)</div>
+                    </div>
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">Recent Changes Unknown During Incident</span>
+                            <span class="severity-badge severity-high">high</span>
+                        </div>
+                        <div class="pain-description">"During outage, I can't quickly see what changed recently"</div>
+                        <div class="pain-cost">Enterprise: <strong>$192K/yr</strong></div>
+                    </div>
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">Wrong Escalation Path</span>
+                            <span class="severity-badge severity-medium">medium</span>
+                        </div>
+                        <div class="pain-description">"I page the wrong team because I don't know who owns this"</div>
+                        <div class="pain-cost">Enterprise: <strong>$26K/yr</strong></div>
+                    </div>
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">Non-Critical Alerts Page at 2am</span>
+                            <span class="severity-badge severity-medium">medium</span>
+                        </div>
+                        <div class="pain-description">"Internal tool alerts page me like critical services"</div>
+                        <div class="pain-cost">Enterprise: <strong>$13K/yr</strong></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Compliance Officer -->
+            <div class="persona-card">
+                <div class="persona-header">
+                    <div class="persona-icon" style="background: linear-gradient(135deg, #22c55e, #16a34a);">COM</div>
+                    <div class="persona-titles">
+                        <h3>Compliance Officer</h3>
+                        <span class="tagline">3 pain points &bull; Highest per-person cost</span>
+                    </div>
+                </div>
+                <div class="persona-roi">
+                    <div class="roi-tier">
+                        <div class="roi-tier-label">Startup</div>
+                        <div class="roi-tier-value">$15K</div>
+                    </div>
+                    <div class="roi-tier">
+                        <div class="roi-tier-label">Mid-Market</div>
+                        <div class="roi-tier-value">$15K</div>
+                    </div>
+                    <div class="roi-tier">
+                        <div class="roi-tier-label">Enterprise</div>
+                        <div class="roi-tier-value">$46K</div>
+                    </div>
+                </div>
+                <div class="persona-body">
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">Audit Evidence Assembly</span>
+                            <span class="severity-badge severity-critical">critical</span>
+                        </div>
+                        <div class="pain-description">"2-3 weeks to compile audit evidence from scattered sources"</div>
+                        <div class="pain-cost"><strong>160 hrs/yr</strong> per officer &bull; Highest per-person burden</div>
+                    </div>
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">Chat Log Archaeology</span>
+                            <span class="severity-badge severity-high">high</span>
+                        </div>
+                        <div class="pain-description">"Audit asks for decision history, I grep through chat logs"</div>
+                    </div>
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">No Verifiable Evidence Chain</span>
+                            <span class="severity-badge severity-medium">medium</span>
+                        </div>
+                        <div class="pain-description">"I can't prove decision &rarr; code &rarr; test traceability"</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Agent -->
+            <div class="persona-card">
+                <div class="persona-header">
+                    <div class="persona-icon" style="background: linear-gradient(135deg, #06b6d4, #0891b2);">AI</div>
+                    <div class="persona-titles">
+                        <h3>AI Agent</h3>
+                        <span class="tagline">3 pain points &bull; Opportunity-cost dominated</span>
+                    </div>
+                </div>
+                <div class="persona-roi">
+                    <div class="roi-tier">
+                        <div class="roi-tier-label">Startup</div>
+                        <div class="roi-tier-value">$13K</div>
+                    </div>
+                    <div class="roi-tier">
+                        <div class="roi-tier-label">Mid-Market</div>
+                        <div class="roi-tier-value">$55K</div>
+                    </div>
+                    <div class="roi-tier">
+                        <div class="roi-tier-label">Enterprise</div>
+                        <div class="roi-tier-value">$275K</div>
+                    </div>
+                </div>
+                <div class="persona-body">
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">Constraint Violations from Ignorance</span>
+                            <span class="severity-badge severity-high">high</span>
+                        </div>
+                        <div class="pain-description">"I violate team rules because I can't see them"</div>
+                    </div>
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">No Institutional Memory</span>
+                            <span class="severity-badge severity-high">high</span>
+                        </div>
+                        <div class="pain-description">"Every session starts from zero &mdash; I rediscover what was decided"</div>
+                    </div>
+                    <div class="pain-item">
+                        <div class="pain-item-header">
+                            <span class="pain-name">Can't Delegate to Right Specialist</span>
+                            <span class="severity-badge severity-medium">medium</span>
+                        </div>
+                        <div class="pain-description">"I can't hand tasks to agents better suited for them"</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- DELIVERY STATUS -->
+    <section class="delivery-section">
+        <h2 class="section-title">Delivery Status: How Much Pain Is Already Addressed?</h2>
+
+        <div class="delivery-bar-container">
+            <div class="delivery-bar-label">Enterprise Annual Cost Distribution</div>
+            <div class="delivery-bar">
+                <div class="segment delivered-seg" style="width: 56%;">56% Delivered</div>
+                <div class="segment partial-seg" style="width: 11%;">11%</div>
+                <div class="segment gap-seg" style="width: 33%;">33% Gap</div>
+            </div>
+            <div class="delivery-legend">
+                <div class="delivery-legend-item">
+                    <div class="delivery-dot delivered"></div>
+                    Delivered: ~$1.4M addressed
+                </div>
+                <div class="delivery-legend-item">
+                    <div class="delivery-dot partial"></div>
+                    Partial: ~$280K partially addressed
+                </div>
+                <div class="delivery-legend-item">
+                    <div class="delivery-dot gap"></div>
+                    Gap: ~$835K still hurting
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ROI BY PERSONA -->
+    <section class="roi-section">
+        <h2>Annual Cost by Persona</h2>
+        <table class="roi-table">
+            <thead>
+                <tr>
+                    <th>Persona</th>
+                    <th># Pain Points</th>
+                    <th class="cost-cell">Startup</th>
+                    <th class="cost-cell">Mid-Market</th>
+                    <th class="cost-cell">Enterprise</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Developer</td>
+                    <td>9</td>
+                    <td class="cost-cell">$66,000</td>
+                    <td class="cost-cell">$307,000</td>
+                    <td class="cost-cell">$1,136,000</td>
+                </tr>
+                <tr>
+                    <td>Operator / SRE</td>
+                    <td>4</td>
+                    <td class="cost-cell">$20,000</td>
+                    <td class="cost-cell">$109,000</td>
+                    <td class="cost-cell">$471,000</td>
+                </tr>
+                <tr>
+                    <td>Engineering Leader</td>
+                    <td>4</td>
+                    <td class="cost-cell">$29,000</td>
+                    <td class="cost-cell">$100,000</td>
+                    <td class="cost-cell">$373,000</td>
+                </tr>
+                <tr>
+                    <td>AI Agent</td>
+                    <td>3</td>
+                    <td class="cost-cell">$13,000</td>
+                    <td class="cost-cell">$55,000</td>
+                    <td class="cost-cell">$275,000</td>
+                </tr>
+                <tr>
+                    <td>Project Manager</td>
+                    <td>5</td>
+                    <td class="cost-cell">$20,000</td>
+                    <td class="cost-cell">$62,000</td>
+                    <td class="cost-cell">$222,000</td>
+                </tr>
+                <tr>
+                    <td>Compliance Officer</td>
+                    <td>3</td>
+                    <td class="cost-cell">$15,000</td>
+                    <td class="cost-cell">$15,000</td>
+                    <td class="cost-cell">$46,000</td>
+                </tr>
+                <tr class="total-row">
+                    <td>TOTAL</td>
+                    <td>28</td>
+                    <td class="cost-cell">~$163,000</td>
+                    <td class="cost-cell">~$648,000</td>
+                    <td class="cost-cell">~$2,523,000</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- GAP PRIORITIES -->
+    <section>
+        <h2 class="section-title">Top Gaps by ROI: What to Build Next</h2>
+        <p class="section-subtitle">Ranked by annual cost addressed relative to implementation effort</p>
+
+        <div class="gap-grid">
+            <div class="gap-card rank-1">
+                <div class="gap-rank">#1 Quick Win</div>
+                <div class="gap-name">Agent Decision Visibility Dashboard</div>
+                <div class="gap-meta">
+                    <span class="gap-tag effort-small">Small Effort</span>
+                    <span class="gap-tag">visibility.agent_insights</span>
+                </div>
+                <div class="gap-signal">HIGHEST ROI &mdash; large savings, small effort</div>
+                <div class="gap-cost">Enterprise: $275K/yr addressed</div>
+            </div>
+
+            <div class="gap-card rank-2">
+                <div class="gap-rank">#2 High Value</div>
+                <div class="gap-name">A2A Protocol Multi-Agent Orchestration</div>
+                <div class="gap-meta">
+                    <span class="gap-tag effort-medium">Medium Effort</span>
+                    <span class="gap-tag">ai.orchestration_multi</span>
+                </div>
+                <div class="gap-signal">HIGH ROI &mdash; large savings, reasonable effort</div>
+                <div class="gap-cost">Enterprise: $227K/yr addressed</div>
+            </div>
+
+            <div class="gap-card rank-3">
+                <div class="gap-rank">#3 Strategic</div>
+                <div class="gap-name">Real-Time Cycle Time &amp; Velocity</div>
+                <div class="gap-meta">
+                    <span class="gap-tag effort-medium">Medium Effort</span>
+                    <span class="gap-tag">visibility.cycle_time_realtime</span>
+                </div>
+                <div class="gap-signal">MODERATE ROI &mdash; moderate savings, clear path</div>
+                <div class="gap-cost">Enterprise: $55K/yr addressed</div>
+            </div>
+
+            <div class="gap-card rank-4">
+                <div class="gap-rank">#4 Standards</div>
+                <div class="gap-name">AOS Compliance Adapters</div>
+                <div class="gap-meta">
+                    <span class="gap-tag effort-small">Small Effort</span>
+                    <span class="gap-tag">interop.aos_compliance</span>
+                </div>
+                <div class="gap-signal">MODERATE ROI &mdash; removes interop tax</div>
+                <div class="gap-cost">Enterprise: $10K/yr addressed</div>
+            </div>
+
+            <div class="gap-card rank-5">
+                <div class="gap-rank">#5 Quality</div>
+                <div class="gap-name">Deliverable Verification System</div>
+                <div class="gap-meta">
+                    <span class="gap-tag effort-medium">Medium Effort</span>
+                    <span class="gap-tag">quality.deliverable_verification</span>
+                </div>
+                <div class="gap-signal">MODERATE ROI &mdash; trust improvement</div>
+                <div class="gap-cost">Enterprise: $200K/yr addressed</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ESTIMATION METHODOLOGY -->
+    <section class="methodology-section">
+        <h2>Estimation Methodology</h2>
+        <p class="section-subtitle" style="color: var(--text-secondary);">Three methods, explicit confidence levels. Order of magnitude, not forecasts.</p>
+
+        <div class="method-grid">
+            <div class="method-card">
+                <h3>Time-Based</h3>
+                <span class="method-confidence high">High confidence (&plusmn;30%)</span>
+                <div class="method-formula">headcount &times; frequency &times; hours &times; rate</div>
+                <div class="method-used-for">Used for: Redundant effort, context fragmentation, trust deficit</div>
+            </div>
+
+            <div class="method-card">
+                <h3>Risk-Based</h3>
+                <span class="method-confidence medium">Medium confidence (&plusmn;50%)</span>
+                <div class="method-formula">frequency &times; P(event) &times; impact</div>
+                <div class="method-used-for">Used for: Delayed feedback, crisis friction, downtime</div>
+            </div>
+
+            <div class="method-card">
+                <h3>Opportunity-Based</h3>
+                <span class="method-confidence low">Low confidence (&plusmn;3-5x)</span>
+                <div class="method-formula">capability_delta &times; adoption_drag</div>
+                <div class="method-used-for">Used for: Blind spots, interoperability tax, agent pains</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- HOW TO USE -->
+    <section class="how-to-use">
+        <h2 class="section-title">How to Use This Manifest</h2>
+
+        <div class="use-case-list">
+            <div class="use-case-item">
+                <h4>1. Understand Persona Pain Burden</h4>
+                <p>Look at <code>persona_roi_summary</code> for each persona. Sort by annual cost to prioritize which persona to serve first.</p>
+            </div>
+            <div class="use-case-item">
+                <h4>2. Prioritize Roadmap by ROI</h4>
+                <p>Use <code>roi_rollup.gap_roi_ranking</code> to find the highest-value gaps. #1 gap: Agent decision visibility ($275K, small effort).</p>
+            </div>
+            <div class="use-case-item">
+                <h4>3. Communicate Value to Audiences</h4>
+                <p>Each pain point is written in the persona's voice with emotional weight. Use their language for sales and investor conversations.</p>
+            </div>
+            <div class="use-case-item">
+                <h4>4. Assess Delivered Value</h4>
+                <p>The <code>by_delivery_status</code> section shows 56% of pain already addressed. Track this as benefits move from gap to delivered.</p>
+            </div>
+            <div class="use-case-item">
+                <h4>5. Adjust for Your Org</h4>
+                <p>Replace <code>org_profiles</code> values with your headcounts and rates. Recompute using the documented formulas per pain point.</p>
+            </div>
+            <div class="use-case-item">
+                <h4>6. Track Pain Reduction Over Time</h4>
+                <p>As benefits ship, update <code>by_delivery_status</code>. Pain points stay (documenting what WAS painful); only the rollup changes.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- COMPANION FILES -->
+    <section class="companion-section">
+        <h2 class="section-title">Companion Files</h2>
+        <div class="companion-grid">
+            <div class="companion-file">
+                <span class="file-icon">&#128196;</span>
+                <div>
+                    <div class="file-name">contextcore.pain_points.yaml</div>
+                    <div class="file-desc">Full manifest with 28 pain points and ROI estimates</div>
+                </div>
+            </div>
+            <div class="companion-file">
+                <span class="file-icon">&#128214;</span>
+                <div>
+                    <div class="file-name">PAIN_POINTS_GUIDE.md</div>
+                    <div class="file-desc">Detailed usage guide and maintenance instructions</div>
+                </div>
+            </div>
+            <div class="companion-file">
+                <span class="file-icon">&#128200;</span>
+                <div>
+                    <div class="file-name">contextcore.benefits.yaml</div>
+                    <div class="file-desc">Product-centric benefits (companion to pain points)</div>
+                </div>
+            </div>
+            <div class="companion-file">
+                <span class="file-icon">&#128295;</span>
+                <div>
+                    <div class="file-name">contextcore.user.yaml</div>
+                    <div class="file-desc">User-facing capability index (16 capabilities)</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<!-- ========================================================================== -->
+<!-- FOOTER -->
+<!-- ========================================================================== -->
+
+<footer class="harbor-footer">
+    <p>ContextCore Pain Points Manifest v2.0.0 &bull; 28 pain points &bull; 6 personas &bull; 7 friction categories</p>
+    <p style="margin-top: 0.5rem;">
+        <a href="contextcore.pain_points.yaml">YAML Source</a> &bull;
+        <a href="PAIN_POINTS_GUIDE.md">Usage Guide</a> &bull;
+        <a href="contextcore.benefits.yaml">Benefits Manifest</a>
+    </p>
+</footer>
+
+</body>
+</html>

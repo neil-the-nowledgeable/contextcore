@@ -29,21 +29,21 @@ document_types:
   session: Session logs, meeting notes, retrospectives
   governance: Policies, licenses, governance rules
 summary:
-  total_documents: 154
-  referenced_by_capabilities: 9
-  orphaned: 145
+  total_documents: 156
+  referenced_by_capabilities: 13
+  orphaned: 143
   by_type:
     adr: 3
-    analysis: 22
+    analysis: 23
     design: 28
     governance: 3
-    operational: 18
+    operational: 19
     plan: 56
     reference: 14
     requirements: 9
     session: 1
-  cross_references: 167
-  documents_with_cross_references: 42
+  cross_references: 168
+  documents_with_cross_references: 43
   external_evidence_refs: 12
 documents:
 - doc_id: contextcore.docs.a2a_7_day_execution_checklist
@@ -265,9 +265,10 @@ documents:
   maturity: stable
   referenced: true
   title: Documentation Index Requirements
-  line_count: 237
+  line_count: 317
   scope_keywords:
   - contextcore docs audit
+  - contextcore docs curate
   - contextcore docs index
   - contextcore docs show
   - pipeline step 1
@@ -278,8 +279,20 @@ documents:
     role: Formal requirements for docs index and show commands
   - capability_id: contextcore.docs.audit
     role: Formal requirements including FR-D-200 series for audit command
+  - capability_id: contextcore.docs.curate
+    role: Formal requirements including FR-D-300 series for curate command
   references:
   - docs/MANIFEST_EXPORT_REQUIREMENTS.md
+- doc_id: contextcore.docs.documentation_gap_analysis
+  path: docs/DOCUMENTATION_GAP_ANALYSIS.md
+  type: analysis
+  maturity: active
+  referenced: false
+  title: Documentation Gap Analysis
+  line_count: 64
+  scope_keywords:
+  - contextcore docs audit
+  - contextcore docs curate
 - doc_id: contextcore.docs.equitable_use_license_draft
   path: docs/EQUITABLE_USE_LICENSE_DRAFT.md
   type: governance
@@ -626,6 +639,35 @@ documents:
   - contextcore ops health
   - contextcore ops restore
   - contextcore ops smoke-test
+- doc_id: contextcore.docs.operator_pipeline_quickstart
+  path: docs/OPERATOR_PIPELINE_QUICKSTART.md
+  type: operational
+  maturity: active
+  referenced: true
+  title: Operator Pipeline Quickstart
+  line_count: 255
+  scope_keywords:
+  - contextcore - name
+  - contextcore contract a2a-check-pipeline
+  - contextcore contract a2a-diagnose
+  - contextcore install init
+  - contextcore install status
+  - contextcore install verify
+  - contextcore manifest export
+  - contextcore manifest migrate
+  - contextcore manifest validate
+  - pipeline step 0
+  governs_capabilities:
+  - capability_id: contextcore.pipeline.check_pipeline
+    role: Operator quickstart for running and troubleshooting the ContextCore pipeline
+  - capability_id: contextcore.pipeline.diagnose
+    role: Operator quickstart for running and troubleshooting the ContextCore pipeline
+  - capability_id: contextcore.pipeline.manifest_to_artifacts
+    role: Operator quickstart for running the pipeline in CI/production
+  - capability_id: contextcore.pipeline.quality_gates
+    role: Operator quickstart for running the pipeline in CI/production
+  references:
+  - docs/MANIFEST_ONBOARDING_GUIDE.md
 - doc_id: contextcore.docs.otel_conventions_audit
   path: docs/OTEL_CONVENTIONS_AUDIT.md
   type: analysis
@@ -876,6 +918,18 @@ documents:
   governs_capabilities:
   - capability_id: contextcore.a2a.server
     role: Protocol 7 A2A Interoperability documentation
+  - capability_id: contextcore.a2a.client
+    role: 'Protocol 7: A2A interoperability — A2AClient, agent card discovery, send-and-await'
+  - capability_id: contextcore.a2a.task_adapter
+    role: 'Protocol 7: TaskAdapter bidirectional conversion, status mapping tables'
+  - capability_id: contextcore.a2a.content_model
+    role: A2A content model — Part/Message/Artifact types, serialization, PartType taxonomy
+  - capability_id: contextcore.handoff.input_request
+    role: Input Request Protocol — request/response flow, input types, handoff state transitions
+  - capability_id: contextcore.api.unified
+    role: Unified API — JSON-RPC → HandoffsAPI mapping, InsightsAPI, SkillsAPI patterns
+  - capability_id: contextcore.agent.persistent_memory
+    role: Insight emission and query protocols for persistent agent knowledge
   - capability_id: contextcore.agent.constraints
     role: Constraint definition guide
   - capability_id: contextcore.agent.cross_collaboration
@@ -884,9 +938,12 @@ documents:
   path: docs/agent-semantic-conventions.md
   type: reference
   maturity: active
-  referenced: false
+  referenced: true
   title: Agent Semantic Conventions
   line_count: 353
+  governs_capabilities:
+  - capability_id: contextcore.agent.persistent_memory
+    role: Agent memory semantic conventions — insight attributes, span structure, cross-session queries
 - doc_id: contextcore.docs.blueprint_implementation_guide
   path: docs/blueprint-implementation-guide.md
   type: operational
@@ -985,9 +1042,9 @@ documents:
   path: docs/design/contextcore-a2a-comms-design.md
   type: design
   maturity: active
-  referenced: false
+  referenced: true
   title: ContextCore A2A Communications Design
-  line_count: 414
+  line_count: 566
   scope_keywords:
   - contextcore contract
   - contextcore contract a2a-check-pipeline
@@ -996,9 +1053,12 @@ documents:
   - contextcore contract a2a-pilot
   - contextcore contract a2a-validate
   - contextcore install init
+  - contextcore install verify
   - contextcore manifest export
   - pipeline step 0
-  - pipeline step 1
+  governs_capabilities:
+  - capability_id: contextcore.a2a.client
+    role: A2A governance design — contract chain, trust boundaries, gate architecture
   references:
   - docs/A2A_7_DAY_EXECUTION_CHECKLIST.md
   - docs/A2A_CONTRACTS_DESIGN.md
@@ -1151,7 +1211,7 @@ documents:
   path: docs/migration-guides.md
   type: reference
   maturity: active
-  referenced: false
+  referenced: true
   title: Migration Guides
   line_count: 539
   scope_keywords:
@@ -1165,6 +1225,9 @@ documents:
   - contextcore task start
   - contextcore task update
   - contextcore validate --project
+  governs_capabilities:
+  - capability_id: contextcore.agent.persistent_memory
+    role: 'Migration Guide 2: Adding Agent Memory — InsightEmitter, InsightQuerier setup'
 - doc_id: contextcore.docs.otel_semconv_wg_proposal
   path: docs/otel-semconv-wg-proposal.md
   type: reference

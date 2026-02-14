@@ -2,7 +2,7 @@
 
 **File**: `docs/EXPORT_PIPELINE_ANALYSIS_GUIDE.md`
 
-**Description**: A technical reference guide for plan ingestion and artisan workflow developers that explains the 7-step A2A governance-aware flow — ContextCore install init, ContextCore export, A2A pipeline checker (Gate 1), startd8-sdk plan ingestion, A2A diagnostic (Gate 2), contractor execution, and finalize verification (Gate 3) — as a single data flow, then layers defense-in-depth principles on top for issue analysis. Covers what `init` validates and seeds, the four export output files plus enrichment fields, the 5-phase plan ingestion pipeline with complexity-score routing, the 7-phase artisan workflow with design calibration, A2A governance gates and contract types, a symptom-based troubleshooting matrix, and six defense-in-depth principles (boundary validation, adversarial thinking, checksum circuit breakers, backward failure tracing, calibration guards, and the "Three Questions" diagnostic ordering).
+**Description**: A technical reference guide for plan ingestion and artisan workflow developers that explains the 7-step A2A governance-aware flow — ContextCore install init, ContextCore export, A2A pipeline checker (Gate 1), startd8-sdk plan ingestion, A2A diagnostic (Gate 2), contractor execution, and finalize verification (Gate 3) — as a single data flow, then layers defense-in-depth principles on top for issue analysis. Covers pre-pipeline manifest lifecycle (init → validate → export), what `init` validates and seeds, the six export output files plus enrichment fields, the 5-phase plan ingestion pipeline with complexity-score routing, the 7-phase artisan workflow with design calibration, A2A governance gates and contract types, a symptom-based troubleshooting matrix, and six defense-in-depth principles (boundary validation, adversarial thinking, checksum circuit breakers, backward failure tracing, calibration guards, and the "Three Questions" diagnostic ordering). Cross-references formal requirements documents for each pipeline step.
 
 ---
 
@@ -15,6 +15,20 @@ How `contextcore install init` and `contextcore manifest export` feed the Plan I
 - `startd8.workflow.capabilities.yaml` — workflow capabilities including `plan_ingestion` and `artisan_orchestrator`
 - `startd8.sdk.capabilities.yaml` — SDK core capabilities including ContextCore integration
 - `startd8.observability.manifest.yaml` — telemetry surface
+
+**Related capability manifests** (ContextCore):
+
+- `docs/capability-index/contextcore.agent.yaml` — agent capabilities including `pipeline.check_pipeline`, `pipeline.diagnose`, `docs.index`
+- `docs/capability-index/contextcore.user.yaml` — user capabilities including `pipeline.manifest_to_artifacts`, `pipeline.quality_gates`
+- `docs/capability-index/contextcore.benefits.yaml` — benefits including `pipeline.governance_gates`, `pipeline.contract_first_planning`
+
+**Formal requirements documents** (governing the pipeline steps described here):
+
+- [`docs/MANIFEST_BOOTSTRAP_REQUIREMENTS.md`](MANIFEST_BOOTSTRAP_REQUIREMENTS.md) — FR/NFR for `manifest init` and `manifest migrate` (pre-pipeline)
+- [`docs/MANIFEST_EXPORT_REQUIREMENTS.md`](MANIFEST_EXPORT_REQUIREMENTS.md) — FR/NFR for `manifest export` and `manifest validate` (Steps 1–2)
+- [`docs/A2A_GATE_REQUIREMENTS.md`](A2A_GATE_REQUIREMENTS.md) — FR/NFR for `a2a-check-pipeline` (Gate 1) and `a2a-diagnose` (Gate 2) (Steps 3, 5)
+- [`docs/MANIFEST_CREATE_REQUIREMENTS.md`](MANIFEST_CREATE_REQUIREMENTS.md) — FR/NFR for `manifest create` (manifest authoring)
+- [`docs/DOCS_INDEX_REQUIREMENTS.md`](DOCS_INDEX_REQUIREMENTS.md) — FR/NFR for `contextcore docs index` and `contextcore docs show` (documentation index)
 
 ---
 
@@ -45,11 +59,18 @@ Each step has a well-defined responsibility:
 | ---- | ------- | -------------- | ------- |
 | **1. Init** | `contextcore install init` | Verifies installation readiness, emits telemetry, provides entry points | Opening the jobsite and confirming tools are available |
 | **2. Export** | `contextcore manifest export --emit-provenance` | Declares *what* artifacts are needed, with enrichment metadata and checksum chain | The architect's blueprint |
-| **3. Gate 1** | `contextcore contract a2a-check-pipeline` | Validates export integrity: structural, checksums, provenance, mapping, gaps, calibration (6 checks) | Building inspector checks the blueprint |
+| **3. Gate 1** | `contextcore contract a2a-check-pipeline` | Validates export integrity: structural, checksums, provenance, mapping, gaps, calibration, parameter resolvability (7 checks) + optional --min-coverage | Building inspector checks the blueprint |
 | **4. Ingestion** | `startd8 workflow run plan-ingestion` | Converts blueprint into actionable work items and routes by complexity | The general contractor's estimate and crew assignment |
 | **5. Gate 2** | `contextcore contract a2a-diagnose` | Three Questions diagnostic: contract complete? faithfully translated? faithfully executed? | Mid-build quality audit |
 | **6. Execution** | Prime or Artisan contractor | Structured build with design review, implementation, testing | The specialist crew doing the work |
 | **7. Gate 3** | Finalize verification | Per-artifact checksums, provenance chain verification, status rollup | Final inspection |
+
+**Pre-pipeline steps** (not numbered, run before Step 1):
+
+- `contextcore manifest init` / `manifest init-from-plan` / `manifest migrate` — create or update the `.contextcore.yaml` manifest (see [`MANIFEST_BOOTSTRAP_REQUIREMENTS.md`](MANIFEST_BOOTSTRAP_REQUIREMENTS.md))
+- `contextcore manifest validate` — verify the manifest against the Pydantic schema before exporting (see [`MANIFEST_EXPORT_REQUIREMENTS.md`](MANIFEST_EXPORT_REQUIREMENTS.md))
+
+The canonical lifecycle order is: **init → validate → export → A2A governance**.
 
 ---
 
@@ -70,15 +91,17 @@ The critical insight: **ContextCore knows WHAT artifacts are needed** (derived f
 
 **Additional export flags** (not shown in this guide's examples): `--embed-provenance` (inline provenance in artifact manifest), `--emit-quality-report` / `--strict-quality` (quality gate report), `--deterministic-output` (stable ordering), `--format yaml|json`, `--namespace`, `--existing artifact_id:path` (mark individual artifacts as existing). Run `contextcore manifest export --help` for the full list.
 
+> **Requirements reference**: See [`MANIFEST_EXPORT_REQUIREMENTS.md`](MANIFEST_EXPORT_REQUIREMENTS.md) for the formal FR/NFR governing export pre-flight checks, output artifacts, derivation rules, and quality safeguards.
+
 ### Key fields in onboarding-metadata.json
 
 | Field | What it tells downstream | Used by |
 | ----- | ----------------------- | ------- |
 | `artifact_types` | Output conventions, file extensions, example snippets per type | Artisan SCAFFOLD, IMPLEMENT |
-| `parameter_sources` | Which manifest/CRD field each parameter comes from | Artisan DESIGN, IMPLEMENT |
+| `parameter_sources` | Which manifest/CRD field each parameter comes from | Available for: Artisan DESIGN, IMPLEMENT (not yet consumed — see startd8-sdk code fix plan) |
 | `parameter_schema` | Expected parameter keys per artifact type | Plan Ingester ASSESS, Artisan validation |
 | `coverage.gaps` | Which artifacts are missing and need generation | Plan Ingester PARSE, Artisan PLAN |
-| `semantic_conventions` | Metric names, label conventions for dashboards/rules | Artisan DESIGN, IMPLEMENT |
+| `semantic_conventions` | Metric names, label conventions for dashboards/rules | Available for: Artisan DESIGN, IMPLEMENT (not yet consumed — see startd8-sdk code fix plan) |
 | `artifact_manifest_checksum` | SHA-256 of the artifact manifest content | Integrity verification at every handoff |
 | `project_context_checksum` | SHA-256 of the CRD content | Integrity verification |
 | `source_checksum` | SHA-256 of the source `.contextcore.yaml` | Full provenance chain verification |
@@ -105,21 +128,21 @@ The export output is the primary input for A2A governance validation. Two CLI co
 
 | Command | Gate | What it validates | When to run |
 | ------- | ---- | ----------------- | ----------- |
-| `contextcore contract a2a-check-pipeline <export-dir>` | Gate 1 | 6 checks: structural integrity, checksum chain, provenance consistency, mapping completeness, gap parity, design calibration | After export, before plan ingestion |
+| `contextcore contract a2a-check-pipeline <export-dir>` | Gate 1 | 7 checks: structural integrity, checksum chain, provenance consistency, mapping completeness, gap parity, design calibration, parameter resolvability (+ optional --min-coverage) | After export, before plan ingestion |
 | `contextcore contract a2a-diagnose <export-dir>` | Gate 2 | Three Questions: contract complete? faithfully translated? faithfully executed? | After plan ingestion, before contractor execution |
 
-Gate 1 runs 6 checks; checksum-chain uses checksums from `onboarding-metadata.json` (always present). The provenance-consistency gate (1 of 6) is skipped if `provenance.json` is absent — use `--emit-provenance` for full 6/6 gate coverage. Gate 2 requires `export_dir`; `--ingestion-dir` and `--artisan-dir` are optional (questions are skipped without them).
+Gate 1 runs 7 checks; checksum-chain uses checksums from `onboarding-metadata.json` (always present). The provenance-consistency gate (1 of 7) is skipped if `provenance.json` is absent — use `--emit-provenance` for full 7/7 gate coverage. Optional `--min-coverage` enforces a coverage threshold (blocking FAIL if below). Gate 2 requires `export_dir`; `--ingestion-dir` and `--artisan-dir` are optional (questions are skipped without them).
 
 The A2A governance layer uses four contract types at phase boundaries:
 
 | Contract | Purpose | Emitted by |
 | -------- | ------- | ---------- |
-| `TaskSpanContract` | Task/subtask lifecycle as trace spans | Export (optional `--emit-task-spans`), Plan Ingestion EMIT |
+| `TaskSpanContract` | Task/subtask lifecycle as trace spans | Export (planned — `--emit-task-spans` not yet implemented), Plan Ingestion EMIT |
 | `ArtifactIntent` | Declares planned artifact work before generation | Plan Ingestion TRANSFORM |
 | `GateResult` | Phase boundary check outcomes | Pipeline checker, Three Questions diagnostic |
 | `HandoffContract` | Agent-to-agent delegation | Plan Ingestion TRANSFORM (routing decision) |
 
-See `docs/design/contextcore-a2a-comms-design.md` for the full A2A governance architecture and `docs/A2A_V1_GOVERNANCE_POLICY.md` for schema versioning policy.
+See `docs/design/contextcore-a2a-comms-design.md` for the full A2A governance architecture, `docs/A2A_V1_GOVERNANCE_POLICY.md` for schema versioning policy, and `docs/A2A_GATE_REQUIREMENTS.md` for the formal functional and non-functional requirements governing Gate 1 and Gate 2.
 
 ---
 
@@ -181,7 +204,7 @@ The artifact manifest's derivation rules (how business criticality maps to alert
 
 ### Phase 4 — IMPLEMENT
 
-The `ImplementPhaseHandler` wired to `LeadContractorCodeGenerator` reads existing files (60KB cap) and dependency outputs as context. The `parameter_sources` from onboarding metadata tell the generator exactly which manifest or CRD fields to read for each parameter.
+The `ImplementPhaseHandler` wired to `LeadContractorCodeGenerator` reads existing files (60KB cap) and dependency outputs as context. The `parameter_sources` from onboarding metadata *are available to* tell the generator which manifest or CRD fields to read for each parameter (consumption not yet implemented in startd8-sdk).
 
 ### Phase 5 — TEST
 
@@ -193,7 +216,11 @@ Multi-agent review via the 3-tier cost model (Haiku drafter, Sonnet validator, O
 
 ### Phase 7 — FINALIZE
 
-Produces the final report with sha256 checksums per artifact, per-task status rollup, and cost aggregation. The provenance chain (`source_checksum` from export → onboarding → seed → finalize) enables end-to-end verification.
+Produces the final report with sha256 checksums per artifact, per-task status rollup, and cost aggregation. 
+
+**Implemented:** Per-artifact sha256 checksums and status rollup are generated.
+
+**Planned:** Provenance chain verification (`source_checksum` comparison from export → onboarding → seed → finalize) is not yet implemented in FINALIZE phase.
 
 ---
 
@@ -236,14 +263,15 @@ Init ──[gate 0]──▶ Export ──[gate 1]──▶ Plan Ingestion ─�
 
 - Run `contextcore manifest export --dry-run` first to preview without writing files.
 - Enforce `--min-coverage` to fail early if the manifest is under-specified.
-- **Run `contextcore contract a2a-check-pipeline <export-dir>`** to validate 6 structural integrity checks:
+- **Run `contextcore contract a2a-check-pipeline <export-dir>`** to validate 7 structural integrity checks:
   - structural-integrity: all expected files present and parseable
   - checksum-chain: source → artifact manifest → CRD checksums are consistent
   - provenance-consistency: git metadata and timestamps are coherent
   - mapping-completeness: every target has corresponding artifacts
   - gap-parity: coverage gaps match parsed feature count
   - design-calibration: artifact depth tiers match type expectations
-- Check that `parameter_sources` reference fields that actually exist and are populated in the manifest. A derivation rule pointing to `manifest.spec.requirements.latencyP99` is useless if that field is empty.
+  - parameter-resolvability: `parameter_sources` reference fields that actually exist and are populated in the manifest (a derivation rule pointing to `manifest.spec.requirements.latencyP99` is useless if that field is empty)
+- Use `--min-coverage` to enforce a minimum coverage threshold — blocks with FAIL if coverage is below the specified value (0.0-1.0).
 
 **Gate 2 — Plan ingestion output validation** (before artisan begins):
 
@@ -359,13 +387,18 @@ If the answer to question 1 is "no," fixing anything in questions 2 or 3 is wast
 
 ## 7. The Contract Chain in One Sentence
 
-> `contextcore install init` validates the environment and seeds installation telemetry, the `.contextcore.yaml` manifest declares business intent, `contextcore manifest export --emit-provenance` distills that intent into an artifact contract with enrichment metadata and checksum chain, `contextcore contract a2a-check-pipeline` validates 6 structural integrity gates, the plan ingester parses and routes by complexity, `contextcore contract a2a-diagnose` runs the Three Questions diagnostic, and the contractor workflow executes the structured build — with A2A governance gates, typed contracts (`TaskSpanContract`, `ArtifactIntent`, `GateResult`, `HandoffContract`), and provenance verifiable at every handoff.
+> `contextcore install init` validates the environment and seeds installation telemetry, the `.contextcore.yaml` manifest declares business intent, `contextcore manifest export --emit-provenance` distills that intent into an artifact contract with enrichment metadata and checksum chain, `contextcore contract a2a-check-pipeline` validates 7 structural integrity gates, the plan ingester parses and routes by complexity, `contextcore contract a2a-diagnose` runs the Three Questions diagnostic, and the contractor workflow executes the structured build — with A2A governance gates, typed contracts (`TaskSpanContract`, `ArtifactIntent`, `GateResult`, `HandoffContract`), and provenance verifiable at every handoff.
 
 ---
 
 ## 8. Quick Reference: CLI Commands
 
 ```bash
+# Pre-pipeline: validate manifest before exporting
+contextcore manifest validate -p .contextcore.yaml                 # schema check
+contextcore manifest validate -p .contextcore.yaml --strict        # strict mode
+contextcore manifest validate -p .contextcore.yaml --format json   # machine-readable
+
 # Step 1: initialize installation baseline (recommended first)
 contextcore install init
 contextcore install init --endpoint localhost:4317  # explicit OTLP endpoint
@@ -376,8 +409,9 @@ contextcore manifest export -p .contextcore.yaml -o ./output --dry-run  # previe
 contextcore manifest export -p .contextcore.yaml -o ./output --task-mapping task-map.json
 contextcore manifest export -p .contextcore.yaml -o ./output --scan-existing ./k8s/observability
 
-# Step 3: Gate 1 — A2A pipeline integrity check (6 gates)
+# Step 3: Gate 1 — A2A pipeline integrity check (7 gates)
 contextcore contract a2a-check-pipeline ./output
+contextcore contract a2a-check-pipeline ./output --fail-on-unhealthy  # CI mode
 
 # Step 4: plan ingestion (startd8-sdk)
 startd8 workflow run plan-ingestion --plan_path plan.md --output_dir ./out
@@ -386,6 +420,7 @@ startd8 workflow run plan-ingestion --plan_path plan.md --output_dir ./out \
 
 # Step 5: Gate 2 — Three Questions diagnostic
 contextcore contract a2a-diagnose ./output --ingestion-dir ./out
+contextcore contract a2a-diagnose ./output --ingestion-dir ./out --fail-on-issue  # CI mode
 
 # Step 6: contractor execution (these scripts live in startd8-sdk, not ContextCore)
 python3 scripts/run_artisan_workflow.py --seed seed.json --output-dir out/ --cost-budget 10
@@ -399,4 +434,13 @@ python3 scripts/run_artisan_implement_only.py --handoff out/design-handoff.json 
 contextcore contract a2a-validate TaskSpanContract payload.json
 contextcore contract a2a-pilot                                    # PI-101-002 simulation
 contextcore contract a2a-pilot --source-checksum sha256:BAD       # failure injection
+
+# Documentation index — track and query pipeline documentation artifacts
+contextcore docs index                               # generate docs index (with git freshness)
+contextcore docs index --no-git                      # fast mode, skip git dates
+contextcore docs show                                # summary dashboard
+contextcore docs show --type requirements            # list requirements docs
+contextcore docs show --orphaned                     # unreferenced documents
+contextcore docs show --refs-for docs/MANIFEST_EXPORT_REQUIREMENTS.md  # cross-reference graph
+contextcore docs show --stale-days 30                # docs not modified in 30+ days
 ```

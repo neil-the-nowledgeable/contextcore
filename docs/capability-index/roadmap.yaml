@@ -1,13 +1,14 @@
 # ContextCore Capability Roadmap
-# Version: 1.0.0
+# Version: 2.2.0
 # Created: 2026-01-28
+# Updated: 2026-02-14
 #
 # PURPOSE: Track implementation phases for gap benefits.
 # Each phase has capabilities, dependencies, and exit criteria.
 
 manifest_id: contextcore.roadmap
 name: ContextCore Capability Roadmap
-version: "2.1.0"
+version: "2.2.0"
 
 # ==============================================================================
 # ACTIVE ROADMAP ITEMS
@@ -704,6 +705,58 @@ roadmap_items:
       actual_completion: null
 
   # ============================================================================
+  # PIPELINE: EXPORT + GATE 1 CONSOLIDATION
+  # ============================================================================
+
+  - benefit_id: pipeline.governance_gates
+    name: "Export + Gate 1 Consolidation (--verify flag)"
+    priority: high
+    total_effort: small
+    status: planned
+
+    phases:
+
+      - phase_id: "1"
+        name: "Export --verify Flag"
+        description: "Add --verify flag to manifest export that automatically runs a2a-check-pipeline on its own output"
+        status: planned
+        effort: small
+
+        capabilities:
+          - contextcore.manifest.export_provenance  # extends
+          - contextcore.pipeline.check_pipeline     # chains
+
+        functional_requirements: []
+
+        deliverables:
+          - "--verify flag on contextcore manifest export"
+          - "Chains export → Gate 1 in single invocation"
+          - "Individual commands remain available for independent use"
+          - "Exit code reflects Gate 1 result when --verify + --fail-on-unhealthy"
+
+        exit_criteria:
+          - "contextcore manifest export --verify runs both export and Gate 1"
+          - "Output identical to running commands separately"
+          - "No human decision point between export and Gate 1 on happy path"
+
+        depends_on:
+          - contextcore.pipeline.check_pipeline
+          - contextcore.manifest.export_provenance
+
+        notes: |
+          Documented in MANIFEST_EXPORT_REQUIREMENTS.md as proposed consolidation.
+          Steps 2 and 3 of the 7-step pipeline chained without losing modularity.
+
+    total_phases: 1
+    completed_phases: 0
+
+    timeline:
+      estimated_start: "2026-02"
+      estimated_completion: "2026-02"
+      actual_start: null
+      actual_completion: null
+
+  # ============================================================================
   # DEVELOPER EXPERIENCE: CODE GENERATION HEALTH
   # ============================================================================
 
@@ -778,8 +831,8 @@ roadmap_items:
 # ==============================================================================
 
 summary:
-  total_benefits: 8
-  planned: 3
+  total_benefits: 9
+  planned: 4
   in_progress: 3
   completed: 2
 
@@ -789,6 +842,11 @@ summary:
         phases: 2
         effort: medium
         status: planned
+      - benefit_id: pipeline.governance_gates
+        phases: 1
+        effort: small
+        status: planned
+        note: "Export --verify flag consolidating steps 2+3"
       - benefit_id: visibility.agent_insights
         phases: 2
         completed: 1
@@ -827,24 +885,27 @@ summary:
 
   recommended_sequence:
     - order: 1
+      benefit_id: pipeline.governance_gates
+      reason: "Small effort — single --verify flag chains export + Gate 1, requirements already documented"
+    - order: 2
       benefit_id: visibility.agent_insights
       reason: "Dashboard delivered — CLI browsing remaining (small effort)"
-    - order: 2
+    - order: 3
       benefit_id: quality.deliverable_verification
       reason: "Schema + verification done — dashboard panel remaining (small effort)"
-    - order: 3
+    - order: 4
       benefit_id: devex.dependency_validation
       reason: "CI done — runtime install verify remaining (small effort)"
-    - order: 4
+    - order: 5
       benefit_id: time.status_compilation_eliminated
       reason: "High priority, medium effort, builds on existing dashboard infrastructure"
-    - order: 5
+    - order: 6
       benefit_id: interop.aos_compliance
       reason: "Medium priority, enables ecosystem integration with OWASP AOS standard"
-    - order: 6
+    - order: 7
       benefit_id: ai.orchestration_multi
       reason: "In progress — A2A foundation delivered, task routing and aggregation are large effort"
-    - order: 7
+    - order: 8
       benefit_id: devex.codegen_health
       reason: "Low priority — defer until code generation volume increases"
 
@@ -853,6 +914,12 @@ summary:
 # ==============================================================================
 
 changelog:
+  - version: "2.2.0"
+    date: "2026-02-14"
+    changes:
+      - "New roadmap item: pipeline.governance_gates — Export --verify flag consolidating steps 2+3 (high priority, small effort)"
+      - "9 total roadmap items (was 8): 4 planned, 3 in_progress, 2 completed"
+      - "Recommended sequence reordered: --verify flag first (smallest effort, highest near-term impact)"
   - version: "2.1.0"
     date: "2026-02-11"
     changes:
