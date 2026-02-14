@@ -25,9 +25,9 @@ Align on boundaries, lock v1 contracts, assign owners, and start implementation 
 ## Pre-read (required)
 
 - `docs/A2A_7_DAY_EXECUTION_CHECKLIST.md` — week plan with implementation status
-- `docs/A2A_CONTRACTS_DESIGN.md` — conceptual design (predecessor)
-- `docs/design/contextcore-a2a-comms-design.md` — **implemented architecture reference**
-- `docs/A2A_CONTRACTS_PROJECT_PLAN.md` — project plan
+- `docs/A2A_CONTRACTS_DESIGN.md` — conceptual design (predecessor, all items implemented)
+- `docs/design/contextcore-a2a-comms-design.md` — **implemented architecture reference (current)**
+- `docs/A2A_CONTRACTS_PROJECT_PLAN.md` — project plan (predecessor, all 15 tasks complete)
 - `schemas/contracts/README.md` — schema guide
 - `docs/A2A_V1_GOVERNANCE_POLICY.md` — governance policy
 

@@ -1,5 +1,7 @@
 # A2A Truncation Prevention via Span-Based Coordination
 
+> **Status**: Implemented in `src/contextcore/agent/code_generation.py`. This design is also summarized as Protocol 4 in [Agent Communication Protocol](agent-communication-protocol.md). For the broader A2A governance architecture, see [A2A Communications Design](design/contextcore-a2a-comms-design.md).
+
 *Design document for preventing LLM output truncation through ContextCore span-based communication.*
 
 ## Problem Statement
@@ -417,15 +419,15 @@ Create a Grafana dashboard to monitor code generation health:
 
 ## Implementation Checklist
 
-- [ ] Add `max_lines`, `max_tokens`, `completeness_markers` to ExpectedOutput
-- [ ] Implement pre-flight span emission in CodeGenerationCapability
-- [ ] Add size estimation heuristics
-- [ ] Implement chunked generation with correlation
-- [ ] Add verification span with completeness check
-- [ ] Create Grafana dashboard for monitoring
-- [ ] Add TraceQL queries to CLAUDE.md
-- [ ] Document in agent-communication-protocol.md
+- [x] Add `max_lines`, `max_tokens`, `completeness_markers` to ExpectedOutput — `CodeGenerationSpec` in `code_generation.py`
+- [x] Implement pre-flight span emission in CodeGenerationCapability — `handle_handoff()` with preflight span
+- [x] Add size estimation heuristics — `_estimate_output_size()` in `CodeGenerationCapability`
+- [x] Implement chunked generation with correlation — `_decompose_and_generate()` with correlated spans
+- [x] Add verification span with completeness check — `_verify_completeness()` with syntax + export checks
+- [x] Create Grafana dashboard for monitoring — `k8s/observability/dashboards/code-generation-health.json`
+- [x] Add TraceQL queries to CLAUDE.md — referenced in agent-communication-protocol.md
+- [x] Document in agent-communication-protocol.md — Protocol 4
 
 ---
 
-*Design Version: 1.0 | Created: 2026-01-26*
+*Design Version: 1.0 | Created: 2026-01-26 | Implementation: `src/contextcore/agent/code_generation.py`*

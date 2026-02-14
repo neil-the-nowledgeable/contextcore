@@ -38,13 +38,38 @@ Fields added without a concrete query/alert justification will be rejected.
   - `next_action` (what to do about it)
   - `evidence` (supporting data for the decision)
 
-## 5. Required gates for PI-101-002 (and future pilot features)
+## 5. Required gates
+
+### Core gates (original pilot)
 
 | Gate | Phase | Blocking | Checks |
 |------|-------|----------|--------|
 | Checksum chain integrity | `CONTRACT_INTEGRITY` | Yes | `source_checksum`, `artifact_manifest_checksum`, `project_context_checksum` |
 | Mapping completeness | `CONTRACT_INTEGRITY` | Yes | All artifact IDs have task mapping entries |
 | Gap parity | `INGEST_PARSE_ASSESS` | Yes | Every gap has a corresponding feature; no orphans |
+
+### Pipeline integrity gates (added post-rollout)
+
+The pipeline checker (`a2a-check-pipeline`) runs 6 gates against real export output:
+
+| Gate | Phase | Blocking | Checks |
+|------|-------|----------|--------|
+| Structural integrity | `EXPORT_CONTRACT` | Yes | Required top-level fields exist and are well-formed |
+| Checksum chain (recomputed) | `CONTRACT_INTEGRITY` | Yes | SHA-256 recomputed from files on disk vs stored values |
+| Provenance cross-check | `CONTRACT_INTEGRITY` | Yes | Consistency between `onboarding-metadata.json` and `provenance.json` |
+| Mapping completeness | `CONTRACT_INTEGRITY` | Yes | Every `coverage.gaps` entry has a task mapping |
+| Gap parity | `INGEST_PARSE_ASSESS` | Yes | Gaps match artifact features — no drops, no orphans |
+| Design calibration | `ARTISAN_DESIGN` | No (warning) | Depth tiers match artifact type expectations |
+
+### Three Questions diagnostic gates (added post-rollout)
+
+The diagnostic (`a2a-diagnose`) validates across all pipeline layers:
+
+| Question | Layer | Blocking |
+|----------|-------|----------|
+| Q1: Is the contract complete? | Export | Yes — stops Q2/Q3 on failure |
+| Q2: Was the contract faithfully translated? | Plan Ingestion | Yes — stops Q3 on failure |
+| Q3: Was the translated plan faithfully executed? | Artisan | Yes |
 
 Additional gates may be added in future sprints following the new-field approval rule.
 
@@ -59,6 +84,15 @@ Every feature that uses A2A contracts must be queryable via the governance dashb
 | Handoff validation failures | Loki | Which contracts are rejected at boundaries? |
 | Dropped artifacts | Loki | Which artifacts were lost in parse/transform? |
 | Finalize failure trend | Loki | Is the failure rate improving? |
+
+### Required CLI checks for export pipelines
+
+| Check | Command | When to run |
+|-------|---------|-------------|
+| Pipeline integrity | `contextcore contract a2a-check-pipeline <dir>` | After every `contextcore manifest export` |
+| Three Questions diagnostic | `contextcore contract a2a-diagnose <dir>` | When troubleshooting pipeline issues |
+| Pipeline integrity (CI) | `contextcore contract a2a-check-pipeline <dir> --fail-on-unhealthy` | In CI/CD pipelines |
+| Diagnostic (CI) | `contextcore contract a2a-diagnose <dir> --fail-on-issue` | In CI/CD pipelines |
 
 ## 7. Ownership boundaries
 
@@ -97,8 +131,10 @@ No runtime duplication work enters the ContextCore scope. ContextCore consumes r
 2. Add contract payloads for each boundary crossing.
 3. Add gate checks at each phase transition.
 4. Run the pilot with `contextcore contract a2a-pilot`.
-5. Verify evidence in the governance dashboard.
-6. Once baseline is stable, tighten thresholds and automate blocking rules.
+5. Run `contextcore contract a2a-check-pipeline` on export output to verify integrity.
+6. Run `contextcore contract a2a-diagnose` to validate the full pipeline.
+7. Verify evidence in the governance dashboard.
+8. Once baseline is stable, tighten thresholds and automate blocking rules.
 
 ---
 
@@ -109,6 +145,12 @@ Before declaring a feature "A2A compliant":
 - [ ] All handoffs are schema-validated on send and receive
 - [ ] All enforced phase transitions emit `GateResult`
 - [ ] At least one full pilot trace completed with gate evidence
+- [ ] `a2a-check-pipeline` passes on export output with `--fail-on-unhealthy`
+- [ ] `a2a-diagnose` passes for all applicable pipeline layers
 - [ ] Time-to-root-cause is reduced vs prior baseline
 - [ ] No uncontrolled schema expansion during the sprint
 - [ ] New contributor can execute the pilot workflow without tribal knowledge
+
+---
+
+> **Architecture reference**: See [A2A Communications Design](design/contextcore-a2a-comms-design.md) for the full implementation details and defense-in-depth principle mappings.

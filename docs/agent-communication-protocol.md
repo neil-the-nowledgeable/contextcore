@@ -6,6 +6,28 @@ Standard protocols for agent-to-agent, agent-to-human, and human-to-agent commun
 
 ---
 
+## Related: A2A Governance Layer
+
+This document covers OTel-level agent communication protocols (insights, guidance, handoffs, personalization). For the **contract-first governance layer** that validates boundaries, enforces phase gates, and provides pipeline integrity checking, see:
+
+- [A2A Communications Design](design/contextcore-a2a-comms-design.md) — architecture reference for contracts, gates, pipeline checker, Three Questions diagnostic
+- [A2A Quickstart](A2A_QUICKSTART.md) — 5-minute getting started guide
+- [A2A v1 Governance Policy](A2A_V1_GOVERNANCE_POLICY.md) — compliance requirements
+
+The governance layer (`src/contextcore/contracts/a2a/`) provides:
+
+| Module | Purpose | Relates to protocol |
+|--------|---------|---------------------|
+| `models.py` | Typed Pydantic v2 contracts (`TaskSpanContract`, `HandoffContract`, `ArtifactIntent`, `GateResult`) | Handoff Protocol (§3) |
+| `boundary.py` | `validate_outbound()` / `validate_inbound()` at every trust boundary | Handoff Protocol (§3) |
+| `gates.py` | Checksum chain, mapping completeness, gap parity gates | Phase transitions |
+| `pipeline_checker.py` | 6-gate integrity check on real export output | Export pipeline validation |
+| `three_questions.py` | Structured diagnostic: stop at first failing layer | Pipeline troubleshooting |
+| `pilot.py` | PI-101-002 end-to-end trace simulation | Full-trace validation |
+| `queries.py` | Pre-built TraceQL/LogQL queries for governance dashboard | Dashboard queries |
+
+---
+
 ## Agent-to-Agent Communication (Machine-Readable)
 
 ### Protocol Summary
@@ -171,6 +193,8 @@ for decision in decisions:
 ## Protocol 3: Agent-to-Agent Handoff
 
 Structured task delegation between agents.
+
+> **Governance integration**: All handoffs should be validated using `validate_outbound()` before sending and `validate_inbound()` before acceptance. The `HandoffContract` Pydantic model in `src/contextcore/contracts/a2a/models.py` provides typed validation, and `boundary.py` enforces schema compliance at every trust boundary. See [A2A Governance](design/contextcore-a2a-comms-design.md).
 
 ### Handoff Message Schema
 

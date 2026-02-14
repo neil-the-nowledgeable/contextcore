@@ -28,8 +28,9 @@ This checklist turns the quick wins into a one-week rollout focused on execution
 ## Day 1: Baseline and alignment ✓
 
 - ✓ Confirm canonical docs/schemas as source of truth:
-  - `docs/A2A_CONTRACTS_DESIGN.md`
-  - `docs/A2A_CONTRACTS_PROJECT_PLAN.md`
+  - `docs/A2A_CONTRACTS_DESIGN.md` (predecessor — conceptual design)
+  - `docs/A2A_CONTRACTS_PROJECT_PLAN.md` (predecessor — project plan)
+  - `docs/design/contextcore-a2a-comms-design.md` (**current architecture reference**)
   - `schemas/contracts/*.schema.json`
 - ✓ Agree strict ownership boundaries:
   - LangChain = runtime orchestration

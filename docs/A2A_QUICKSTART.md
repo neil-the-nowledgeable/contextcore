@@ -2,6 +2,8 @@
 
 Get started with ContextCore A2A contracts in 5 minutes.
 
+> **Full architecture reference**: See [A2A Communications Design](design/contextcore-a2a-comms-design.md) for the complete design and implementation details.
+
 ## Prerequisites
 
 ```bash
@@ -37,7 +39,7 @@ contextcore contract a2a-validate TaskSpanContract /tmp/bad.json
 # FAIL  TaskSpanContract validation failed (/tmp/bad.json)
 #   [MISSING_REQUIRED_FIELD] /: 'project_id' is a required property
 #     -> Add the missing required field at '/'.
-#   [INVALID_CONST_VALUE] /schema_version: 'v1' was expected
+#   [CONST_VIOLATION] /schema_version: 'v1' was expected
 #     -> Set '/schema_version' to the required constant value.
 ```
 
@@ -155,7 +157,94 @@ Evidence is written to `out/pilot-trace.json` by default.
 
 ---
 
-## 6. View the governance dashboard
+## 6. Check pipeline integrity on real export output
+
+After running `contextcore manifest export`, validate the output with the pipeline checker:
+
+```bash
+# Run all 6 gates against an export output directory
+contextcore contract a2a-check-pipeline out/enrichment-validation
+
+# Fail CI if any blocking gate fails
+contextcore contract a2a-check-pipeline out/enrichment-validation --fail-on-unhealthy
+
+# Write a JSON report for automation
+contextcore contract a2a-check-pipeline out/enrichment-validation --report pipeline-report.json
+```
+
+The checker reads `onboarding-metadata.json` and `provenance.json` and runs:
+
+| # | Gate | Blocking? |
+|---|------|-----------|
+| 1 | Structural integrity — required fields exist | Yes |
+| 2 | Checksum chain — recompute and compare file hashes | Yes |
+| 3 | Provenance cross-check — consistency with provenance.json | Yes |
+| 4 | Mapping completeness — every gap has a task mapping | Yes |
+| 5 | Gap parity — gaps vs artifact features | Yes |
+| 6 | Design calibration — depth tiers vs artifact types | No (warning) |
+
+Or use it from Python:
+
+```python
+from contextcore.contracts.a2a import PipelineChecker
+
+checker = PipelineChecker("out/enrichment-validation")
+report = checker.run()
+
+if report.is_healthy:
+    print("All gates passed")
+else:
+    print(report.to_text())
+```
+
+---
+
+## 7. Run the Three Questions diagnostic
+
+When something goes wrong, the diagnostic walks through the pipeline in order and stops at the first failing layer:
+
+```bash
+# Check export layer only (Q1)
+contextcore contract a2a-diagnose out/enrichment-validation
+
+# Full pipeline diagnostic (Q1 + Q2 + Q3)
+contextcore contract a2a-diagnose out/enrichment-validation \
+    --ingestion-dir out/plan-ingestion \
+    --artisan-dir out/artisan
+
+# Fail CI if any question fails
+contextcore contract a2a-diagnose out/enrichment-validation --fail-on-issue
+```
+
+The three questions:
+
+| Question | Layer | What it checks |
+|----------|-------|----------------|
+| **Q1: Is the contract complete?** | Export | Pipeline checker gates + manifest population, parameter schema, `--scan-existing` |
+| **Q2: Was the contract faithfully translated?** | Plan Ingestion | PARSE coverage, complexity scoring, routing correctness |
+| **Q3: Was the translated plan faithfully executed?** | Artisan | Design fidelity, output files, test results, finalize report |
+
+If Q1 fails, Q2 and Q3 are skipped — fixing downstream when the upstream contract is broken is wasted effort.
+
+Or use it from Python:
+
+```python
+from contextcore.contracts.a2a import ThreeQuestionsDiagnostic
+
+diag = ThreeQuestionsDiagnostic(
+    "out/enrichment-validation",
+    ingestion_dir="out/plan-ingestion",
+    artisan_dir="out/artisan",
+)
+result = diag.run()
+
+if not result.all_passed:
+    print(f"Start here: {result.start_here}")
+```
+
+---
+
+## 8. View the governance dashboard
 
 Import the dashboard into Grafana:
 
@@ -202,6 +291,8 @@ All contracts enforce:
 - Use `ArtifactIntent` for planned artifact work; promote to task only when policy criteria are met.
 - Keep local debugging as span events, not contract fields.
 - Validate at write-time **and** read-time using `validate_outbound` / `validate_inbound`.
+- Run `a2a-check-pipeline` after every export to catch integrity issues before they cascade.
+- Run `a2a-diagnose` when troubleshooting — it tells you which layer to fix first.
 
 ## When to promote an artifact to a task
 
