@@ -17,6 +17,7 @@ Commands:
     contextcore insight     Agent insights (persistent memory)
     contextcore knowledge   Convert markdown to queryable telemetry
     contextcore value       Value capability tracking
+    contextcore docs        Documentation index (generate, query)
     contextcore terminology Manage Wayfinder terminology definitions
     contextcore rbac        Manage RBAC roles and permissions
     contextcore dashboards  Provision Grafana dashboards
@@ -44,6 +45,7 @@ from .insight import insight
 from .knowledge import knowledge
 from .terminology import terminology
 from .manifest import manifest
+from .docs import docs
 from .core import create, annotate, generate, runbook, controller
 
 # Phase 2 commands
@@ -92,6 +94,7 @@ main.add_command(insight)
 main.add_command(knowledge)
 main.add_command(terminology)
 main.add_command(manifest)
+main.add_command(docs)
 
 # Phase 2 command groups
 main.add_command(review)

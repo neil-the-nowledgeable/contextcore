@@ -257,7 +257,7 @@ contextcore task complete --id PROJ-123
 contextcore sprint start --id sprint-3 --name "Sprint 3"
 contextcore metrics summary --project my-project
 
-# Manifest lifecycle (init → export → validate → A2A governance)
+# Manifest lifecycle (init → validate → export → A2A governance)
 contextcore manifest init -p .contextcore.yaml --name my-project
 contextcore manifest init-from-plan --plan plan.md --requirements reqs.md
 contextcore manifest validate --path .contextcore.yaml
@@ -286,6 +286,24 @@ contextcore install verify --no-telemetry           # Skip emitting metrics
 contextcore install verify --format json            # JSON output for automation
 contextcore install verify --category infrastructure # Check specific category
 contextcore install status                          # Quick status check (no telemetry)
+
+# Documentation index
+contextcore docs index                              # Generate docs index (with git freshness)
+contextcore docs index --no-git                     # Fast mode, skip git dates
+contextcore docs index --dry-run                    # Preview without writing
+contextcore docs show                               # Summary dashboard
+contextcore docs show --type requirements           # Filter by document type
+contextcore docs show --orphaned                    # Unreferenced documents
+contextcore docs show --refs-for docs/FILE.md       # Cross-reference graph
+contextcore docs show --stale-days 30               # Docs not modified in 30+ days
+contextcore docs audit                              # Audit documentation gaps
+contextcore docs audit --min-importance 0.5         # High-importance gaps only
+contextcore docs audit --type requirements --verbose # Requirements gaps with detail
+contextcore docs curate                              # Curate persona documentation catalog
+contextcore docs curate --persona operator           # Single persona
+contextcore docs curate --category onboarding        # Onboarding docs only
+contextcore docs curate --gaps-only                  # Only show gaps
+contextcore docs curate --min-relevance 0.7          # High-relevance docs only
 
 # Terminology management
 contextcore terminology list -p terminology/        # List all terms

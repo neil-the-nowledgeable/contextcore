@@ -1,12 +1,12 @@
 # ContextCore Agent Capability Index
-# Version: 1.4.0
+# Version: 1.7.0
 # Created: 2026-01-28
-# Updated: 2026-02-05
+# Updated: 2026-02-14
 # Audience: AI Agents (primary), Developers (secondary)
 
 manifest_id: contextcore.agent
 name: ContextCore Agent Capabilities
-version: "1.4.0"
+version: "1.10.0"
 description: |
   Agent-focused capabilities for ContextCore SDK.
   Tasks as OTel spans, insights as knowledge, handoffs as coordination.
@@ -1055,19 +1055,21 @@ capabilities:
 
   - capability_id: contextcore.manifest.validate
     category: validate
-    maturity: beta
+    maturity: stable
     summary: Validate Context Manifest against schema with detailed error reporting
 
     audiences: [agent, human]
 
     description:
       agent: |
-        Validate manifest schema. In: {data: dict}. Out: {valid: bool, errors: ValidationError[]}. Checks: required fields, enum values, confidence ranges [0,1], strategy horizon enums, nested tactic structure. Uses Pydantic validation with path-based error locations.
+        Validate manifest schema. CLI: `contextcore manifest validate --path FILE [--strict] [--format text|json]`. In: {path: string, strict?: bool, format?: text|json}. Out: {valid: bool, errors: string[], warnings: string[]}. Checks: required fields, enum values, confidence ranges [0,1], strategy horizon enums, nested tactic structure. --strict fails on warnings. Exit 0 = valid, exit 1 = invalid.
       human: |
         Validates a Context Manifest against the Pydantic schema with comprehensive
         error reporting. Checks structural validity, required fields, enum constraints
         (e.g., StrategicHorizon must be now|next|later), and value ranges (e.g., confidence
-        must be 0.0-1.0). Returns detailed errors with paths to invalid fields.
+        must be 0.0-1.0). Returns detailed errors with paths to invalid fields. Supports
+        strict mode that fails on warnings. Also used as a prerequisite by `manifest export`
+        which always validates before proceeding.
 
     triggers:
       - "validate manifest"
@@ -1077,11 +1079,19 @@ capabilities:
 
     inputs:
       type: object
-      required: [data]
+      required: [path]
       properties:
-        data:
-          type: object
-          description: Dict representation of manifest to validate
+        path:
+          type: string
+          description: Path to .contextcore.yaml file
+        strict:
+          type: boolean
+          default: false
+          description: Fail on warnings (not just errors)
+        format:
+          type: string
+          enum: [text, json]
+          default: text
 
     outputs:
       type: object
@@ -1101,10 +1111,13 @@ capabilities:
         ref: src/contextcore/models/manifest.py
         description: Pydantic BaseModel with Field validators
       - type: code
-        ref: src/contextcore/models/manifest.py
-        description: StrategicHorizon enum for horizon validation (lines 23-27)
+        ref: src/contextcore/cli/manifest.py
+        description: manifest validate CLI command with --strict and --format
+      - type: doc
+        ref: docs/MANIFEST_EXPORT_REQUIREMENTS.md
+        description: Formal requirements for manifest export and validate
 
-    confidence: 0.85
+    confidence: 0.9
 
   - capability_id: contextcore.manifest.migrate
     category: transform
@@ -1115,12 +1128,13 @@ capabilities:
 
     description:
       agent: |
-        Migrate v1.1→v2. In: {v1: ContextManifest}. Out: v2_dict (ready for ContextManifestV2). Transforms: objectives→strategy.objectives, strategies.tactics→strategy.tactics (flattened), insights preserved with IDs, empty guidance section added, changelog entry appended. Non-destructive.
+        Migrate v1.1→v2. CLI: `contextcore manifest migrate --path FILE [--output FILE] [--in-place] [--dry-run]`. In: {path: string, output?: string, in_place?: bool}. Transforms: objectives→strategy.objectives, strategies.tactics→strategy.tactics (flattened), insights preserved with IDs, empty guidance section added, changelog entry appended. Creates .bak backup for --in-place. Non-destructive. Validates output against v2 schema.
       human: |
         Migrates a v1.1 Context Manifest to v2 format without data loss. Flattens the
         strategy/tactic hierarchy, preserves all existing data, adds an empty guidance
         section for agent governance, and appends a migration entry to the changelog.
-        The output is validated against the v2 schema.
+        The output is validated against the v2 schema. Supports --in-place with automatic
+        .bak backup, --dry-run for preview, and separate --output file.
 
     triggers:
       - "migrate manifest"
@@ -1130,14 +1144,21 @@ capabilities:
 
     inputs:
       type: object
-      required: [v1]
+      required: [path]
       properties:
-        v1:
-          type: object
-          description: ContextManifest (v1.1) to migrate
-        migration_note:
+        path:
           type: string
-          description: Optional note to add to changelog
+          description: Path to v1.1 manifest
+        output:
+          type: string
+          description: "Output path (default: stdout)"
+        in_place:
+          type: boolean
+          default: false
+          description: Overwrite source with .bak backup
+        dry_run:
+          type: boolean
+          default: false
 
     outputs:
       type: object
@@ -1151,14 +1172,20 @@ capabilities:
       - type: code
         ref: src/contextcore/models/manifest_migrate.py
         description: migrate_v1_to_v2(), migrate_v1_to_v2_model(), validate_migration()
+      - type: code
+        ref: src/contextcore/cli/manifest.py
+        description: manifest migrate CLI command with --in-place and --dry-run
       - type: test
         ref: tests/test_manifest_v2.py
         description: test_migrate_example_yaml_produces_valid_v2, test_migrate_preserves_changelog
+      - type: doc
+        ref: docs/MANIFEST_BOOTSTRAP_REQUIREMENTS.md
+        description: Formal requirements for manifest init and migrate
 
     confidence: 0.9
 
     anti_patterns:
-      - "Don't modify v1 input in place—migration returns new dict"
+      - "Don't modify v1 input in place without --in-place flag—migration returns new dict"
       - "Don't skip validation—always parse output as ContextManifestV2"
 
   - capability_id: contextcore.manifest.guidance.read
@@ -1376,6 +1403,9 @@ capabilities:
       - type: code
         ref: src/contextcore/cli/manifest.py
         description: export command with --emit-provenance and --embed-provenance flags
+      - type: doc
+        ref: docs/MANIFEST_EXPORT_REQUIREMENTS.md
+        description: Formal requirements for manifest export and validate
 
     confidence: 0.9
 
@@ -1384,6 +1414,592 @@ capabilities:
     anti_patterns:
       - "Don't skip provenance for production exports—it's essential for debugging"
       - "Don't rely on embedded provenance alone if auditors need separate files"
+
+  - capability_id: contextcore.manifest.init_bootstrap
+    category: action
+    maturity: stable
+    summary: Scaffold a new v2 context manifest with validated template and pipeline next steps
+
+    audiences: [agent, human]
+
+    description:
+      agent: |
+        Bootstrap manifest. CLI: `contextcore manifest init --name PROJECT`. In: {name: string, path?: string, version?: v1.1|v2, force?: bool, validate?: bool}. Out: .contextcore.yaml file. Normalizes name (strip/lower/hyphen), validates after write, prints 6-step pipeline next steps. Refuses overwrite without --force.
+      human: |
+        Creates a new `.contextcore.yaml` manifest with a starter template. The v2 template
+        includes all required sections: project, business, requirements, targets, observability,
+        risks, strategy, and guidance. After writing, validates the manifest and prints next steps
+        guiding the user through validate → export → Gate 1 → plan ingestion → Gate 2.
+
+    triggers:
+      - "init manifest"
+      - "create manifest"
+      - "bootstrap project"
+      - "new contextcore yaml"
+      - "scaffold manifest"
+
+    inputs:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: Project/manifest name (auto-normalized to lowercase-hyphen)
+        path:
+          type: string
+          default: ".contextcore.yaml"
+        version:
+          type: string
+          enum: [v1.1, v2]
+          default: v2
+        force:
+          type: boolean
+          default: false
+        validate:
+          type: boolean
+          default: true
+
+    outputs:
+      type: object
+      properties:
+        path: { type: string, description: "Path to created manifest file" }
+        version: { type: string }
+        validation_passed: { type: boolean }
+
+    evidence:
+      - type: code
+        ref: src/contextcore/cli/manifest.py
+        description: manifest init command with template generation and validation
+      - type: doc
+        ref: docs/MANIFEST_BOOTSTRAP_REQUIREMENTS.md
+        description: Formal requirements for manifest init and migrate
+
+    confidence: 0.9
+
+    anti_patterns:
+      - "Don't skip post-write validation—invalid templates indicate a bug"
+
+  # ============================================================================
+  # PIPELINE GOVERNANCE CAPABILITIES (Stable)
+  # ============================================================================
+
+  - capability_id: contextcore.pipeline.check_pipeline
+    category: validate
+    maturity: stable
+    summary: Run 6 structural integrity checks on export output before plan ingestion (Gate 1)
+
+    audiences: [agent, human]
+
+    description:
+      agent: |
+        Gate 1 pipeline check. CLI: `contextcore contract a2a-check-pipeline OUTPUT_DIR`. Reads onboarding-metadata.json + optional provenance.json. Runs 6 gates in order: 1) structural-integrity (required fields), 2) checksum-chain (SHA-256 recompute), 3) provenance-consistency (cross-check, skipped without provenance.json), 4) mapping-completeness (gaps→tasks, skipped without mapping), 5) gap-parity (gaps→features alignment), 6) design-calibration (depth hints, skipped without hints). Out: PipelineCheckReport {health: healthy|degraded|unhealthy, gates: GateResult[]}. --fail-on-unhealthy exits 1.
+      human: |
+        Runs 6 structural integrity checks on a real export output directory. This is Gate 1
+        in the 7-step A2A governance-aware pipeline, validating the handoff from ContextCore to
+        plan ingestion. Gates 1-2 always run; gates 3-6 are skipped when their input data is
+        absent. Produces a detailed report with per-gate outcomes, evidence items, and
+        recommendations. Default mode is advisory (exit 0); use --fail-on-unhealthy for CI.
+
+    triggers:
+      - "check pipeline"
+      - "gate 1"
+      - "pipeline integrity"
+      - "validate export"
+      - "a2a check"
+      - "pre-ingestion validation"
+
+    inputs:
+      type: object
+      required: [output_dir]
+      properties:
+        output_dir:
+          type: string
+          description: Export output directory containing onboarding-metadata.json
+        task_id:
+          type: string
+          description: Task span ID for gate context
+        trace_id:
+          type: string
+          description: Trace ID for gate context
+        report_path:
+          type: string
+          description: Path to write JSON report
+        fail_on_unhealthy:
+          type: boolean
+          default: false
+
+    outputs:
+      type: object
+      properties:
+        health:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        gates:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              outcome: { type: string, enum: [pass, fail, skip] }
+              evidence: { type: array }
+
+    evidence:
+      - type: code
+        ref: src/contextcore/contracts/a2a/pipeline_checker.py
+        description: PipelineChecker class with 6-gate suite
+      - type: code
+        ref: src/contextcore/cli/contract.py
+        description: a2a-check-pipeline CLI command
+      - type: doc
+        ref: docs/A2A_GATE_REQUIREMENTS.md
+        description: Formal requirements for Gate 1 and Gate 2
+
+    confidence: 0.9
+
+    anti_patterns:
+      - "Don't skip Gate 1 before plan ingestion—defects cascade silently"
+      - "Don't treat skipped gates as failures—they mean input data was optional"
+
+  - capability_id: contextcore.pipeline.diagnose
+    category: validate
+    maturity: stable
+    summary: Run Three Questions diagnostic across export, ingestion, and execution layers (Gate 2)
+
+    audiences: [agent, human]
+
+    description:
+      agent: |
+        Gate 2 diagnostic. CLI: `contextcore contract a2a-diagnose EXPORT_DIR [--ingestion-dir DIR] [--artisan-dir DIR]`. Three Questions in order: Q1 "Is the contract complete?" (runs Gate 1 + enrichment checks), Q2 "Was the contract faithfully translated?" (plan ingestion output validation, requires --ingestion-dir), Q3 "Was the translated plan faithfully executed?" (contractor output, requires --artisan-dir). Stops at first failure. Status: pass|fail|skipped|not_reached. --fail-on-issue exits 1.
+      human: |
+        Runs the Three Questions diagnostic on a pipeline execution. Walks through questions
+        in strict order, stopping at the first failure. Q1 checks the export layer (includes
+        Gate 1 as a sub-check). Q2 checks plan ingestion translation fidelity. Q3 checks
+        contractor execution completeness. The key insight: if Q1 fails, fixing Q2 or Q3
+        is wasted effort. Always start from the source.
+
+    triggers:
+      - "diagnose pipeline"
+      - "gate 2"
+      - "three questions"
+      - "pipeline diagnostic"
+      - "a2a diagnose"
+      - "is the contract complete"
+
+    inputs:
+      type: object
+      required: [export_dir]
+      properties:
+        export_dir:
+          type: string
+          description: Export output directory
+        ingestion_dir:
+          type: string
+          description: Plan ingestion output directory (enables Q2)
+        artisan_dir:
+          type: string
+          description: Artisan workflow output directory (enables Q3)
+        trace_id:
+          type: string
+        report_path:
+          type: string
+        fail_on_issue:
+          type: boolean
+          default: false
+
+    outputs:
+      type: object
+      properties:
+        questions:
+          type: array
+          items:
+            type: object
+            properties:
+              number: { type: integer }
+              title: { type: string }
+              layer: { type: string }
+              status: { type: string, enum: [pass, fail, skipped, not_reached] }
+              recommendation: { type: string }
+
+    evidence:
+      - type: code
+        ref: src/contextcore/contracts/a2a/three_questions.py
+        description: ThreeQuestionsDiagnostic class with sequential execution
+      - type: code
+        ref: src/contextcore/cli/contract.py
+        description: a2a-diagnose CLI command
+      - type: doc
+        ref: docs/A2A_GATE_REQUIREMENTS.md
+        description: Formal requirements for Gate 1 and Gate 2
+
+    confidence: 0.9
+
+    anti_patterns:
+      - "Don't fix Q2/Q3 issues while Q1 is failing—always start from the source"
+      - "Don't confuse 'skipped' (missing input data) with 'not_reached' (prior question failed)"
+
+    dependencies:
+      - contextcore.pipeline.check_pipeline
+
+  # ============================================================================
+  # DOCUMENTATION INDEX CAPABILITIES (Stable)
+  # ============================================================================
+
+  - capability_id: contextcore.docs.index
+    category: action
+    maturity: stable
+    summary: Generate programmatic documentation index from capability evidence and directory scan
+
+    audiences: [agent, human]
+
+    description:
+      agent: |
+        Documentation index generator. CLI: `contextcore docs index [--no-git] [--dry-run] [--format yaml|json] [-o PATH]`.
+        Scans capability index YAMLs for type: doc evidence, walks docs/ and plans/ directories,
+        classifies documents by type (requirements, design, operational, adr, analysis, plan, reference,
+        session, governance), extracts titles, detects maturity, finds cross-references, and fetches git
+        freshness. Output: docs/capability-index/contextcore.docs.yaml. Inverts the capability→evidence
+        relationship: each document entry shows which capabilities it governs. Identifies orphaned docs.
+      human: |
+        Builds a documentation catalog that tracks every doc artifact in the project—what type
+        it is, what capabilities it supports, what other docs it references, and when it was
+        last modified. The index is fully programmatic: never hand-edit the output, just re-run
+        the command. Use `contextcore docs show` to query the generated index with filters.
+
+    triggers:
+      - "generate docs index"
+      - "documentation index"
+      - "docs index"
+      - "rebuild docs catalog"
+      - "index documentation"
+
+    inputs:
+      type: object
+      properties:
+        output:
+          type: string
+          description: "Output file path (default: docs/capability-index/contextcore.docs.yaml)"
+        no_git:
+          type: boolean
+          default: false
+          description: Skip git freshness lookup for faster generation
+        dry_run:
+          type: boolean
+          default: false
+          description: Print to stdout without writing file
+        format:
+          type: string
+          enum: [yaml, json]
+          default: yaml
+
+    outputs:
+      type: object
+      properties:
+        manifest_id: { type: string }
+        summary:
+          type: object
+          properties:
+            total_documents: { type: integer }
+            referenced_by_capabilities: { type: integer }
+            orphaned: { type: integer }
+            cross_references: { type: integer }
+            by_type: { type: object }
+        documents:
+          type: array
+          items:
+            type: object
+            properties:
+              doc_id: { type: string }
+              path: { type: string }
+              type: { type: string }
+              maturity: { type: string }
+              referenced: { type: boolean }
+              governs_capabilities: { type: array }
+              references: { type: array }
+
+    evidence:
+      - type: code
+        ref: src/contextcore/cli/docs.py
+        description: CLI command group with index and show subcommands
+      - type: code
+        ref: scripts/generate_docs_index.py
+        description: Standalone generator script (CI-compatible)
+      - type: doc
+        ref: docs/DOCS_INDEX_REQUIREMENTS.md
+        description: Formal requirements for docs index and show commands
+      - type: doc
+        ref: docs/capability-index/contextcore.docs.yaml
+        description: Generated output artifact
+
+    confidence: 0.9
+
+    anti_patterns:
+      - "Don't hand-edit contextcore.docs.yaml—it is overwritten on every regeneration"
+      - "Don't treat orphaned docs as 'bad'—they may be valid docs not yet linked to capabilities"
+
+  - capability_id: contextcore.docs.show
+    category: query
+    maturity: stable
+    summary: Query the documentation index with type, capability, freshness, and cross-reference filters
+
+    audiences: [agent, human]
+
+    description:
+      agent: |
+        Read-only query against contextcore.docs.yaml. CLI: `contextcore docs show [--type TYPE] [--orphaned] [--referenced] [--capability ID] [--refs-for PATH] [--stale-days N] [--format text|json|yaml]`.
+        Default (no filters): summary with type breakdown histogram. --refs-for shows bidirectional cross-reference graph (inbound + outbound). --stale-days N finds docs not modified in N days. Returns filtered document entries.
+      human: |
+        Queries the generated documentation index to answer questions like "which requirements
+        docs exist?", "what references this document?", and "which docs haven't been updated
+        in 30 days?". Without filters, shows a summary dashboard with type breakdown.
+
+    triggers:
+      - "show docs"
+      - "query documentation"
+      - "list requirements docs"
+      - "find stale docs"
+      - "doc cross-references"
+      - "orphaned documentation"
+
+    inputs:
+      type: object
+      properties:
+        index_path:
+          type: string
+          description: "Path to docs index (default: docs/capability-index/contextcore.docs.yaml)"
+        type:
+          type: string
+          enum: [requirements, design, operational, adr, analysis, plan, reference, session, governance]
+        orphaned:
+          type: boolean
+        referenced:
+          type: boolean
+        capability:
+          type: string
+          description: Filter docs governing a specific capability ID
+        refs_for:
+          type: string
+          description: Show cross-reference graph for a document path
+        stale_days:
+          type: integer
+          description: Show documents not modified in N days
+
+    outputs:
+      type: object
+      description: Filtered document entries or summary statistics
+
+    evidence:
+      - type: code
+        ref: src/contextcore/cli/docs.py
+        description: CLI show subcommand with filter logic
+      - type: doc
+        ref: docs/DOCS_INDEX_REQUIREMENTS.md
+        description: Formal requirements for docs index and show commands
+
+    confidence: 0.9
+
+    dependencies:
+      - contextcore.docs.index
+
+  - capability_id: contextcore.docs.audit
+    category: validate
+    maturity: stable
+    summary: Audit documentation gaps by scoring capability importance and detecting missing doc types
+
+    audiences: [agent, human]
+
+    description:
+      agent: |
+        Documentation gap detector. CLI: `contextcore docs audit [--min-importance FLOAT] [--type TYPE] [--verbose] [--format text|json|yaml]`.
+        Reads all 4 capability index files (agent, user, benefits, roadmap) plus contextcore.docs.yaml.
+        Computes per-capability importance score (4 dimensions: maturity-confidence 30%, structural complexity 25%,
+        cross-cutting impact 25%, benefit linkage 20%). Applies 8 rules mapping capability profiles to expected doc
+        types (R1-R8). Detects gaps: expected - actual doc types. Consolidates by namespace cluster. Output sorted
+        by priority (high/medium/low). --verbose shows per-capability detail within clusters.
+      human: |
+        Reverse-engineers the capability index to answer: "which capabilities should have documentation
+        but don't?" Scores each capability's importance based on maturity, complexity, how many other
+        capabilities depend on it, and whether it delivers a high-priority benefit. Applies rules to
+        determine which doc types (requirements, design, operational, adr, reference) should exist.
+        Reports gaps consolidated by namespace cluster with suggested filenames and rationale.
+
+    triggers:
+      - "audit documentation"
+      - "find documentation gaps"
+      - "missing docs"
+      - "documentation coverage"
+      - "docs audit"
+      - "which docs are missing"
+
+    inputs:
+      type: object
+      properties:
+        index_path:
+          type: string
+          description: "Path to docs index (default: docs/capability-index/contextcore.docs.yaml)"
+        min_importance:
+          type: number
+          default: 0.3
+          description: Only report gaps above this importance threshold (0.0-1.0)
+        type:
+          type: string
+          enum: [requirements, design, operational, adr, reference]
+          description: Filter to show only gaps of a specific doc type
+        verbose:
+          type: boolean
+          default: false
+          description: Show per-capability detail within cluster summaries
+        format:
+          type: string
+          enum: [text, json, yaml]
+          default: text
+
+    outputs:
+      type: object
+      properties:
+        summary:
+          type: object
+          properties:
+            capabilities_analyzed: { type: integer }
+            with_documentation_gaps: { type: integer }
+            cluster_gaps_identified: { type: integer }
+            priority_breakdown: { type: object }
+            missing_doc_types: { type: object }
+        clusters:
+          type: array
+          items:
+            type: object
+            properties:
+              cluster: { type: string }
+              missing_type: { type: string }
+              avg_importance: { type: number }
+              suggested_file: { type: string }
+              priority: { type: string, enum: [high, medium, low] }
+        per_capability_gaps:
+          type: array
+
+    evidence:
+      - type: code
+        ref: src/contextcore/cli/docs.py
+        description: Audit subcommand with importance scorer, rules engine, gap detector, cluster consolidator
+      - type: doc
+        ref: docs/DOCS_INDEX_REQUIREMENTS.md
+        description: Formal requirements including FR-D-200 series for audit command
+
+    confidence: 0.9
+
+    anti_patterns:
+      - "Don't treat all gaps as equal—importance scoring exists for a reason"
+      - "Don't create docs for low-importance draft capabilities—wait until maturity increases"
+
+    dependencies:
+      - contextcore.docs.index
+
+  - capability_id: contextcore.docs.curate
+    category: query
+    maturity: stable
+    summary: Curate persona-specific documentation catalogs with onboarding/operations classification and gap detection
+
+    audiences: [agent, human]
+
+    description:
+      agent: |
+        Persona documentation curator. CLI: `contextcore docs curate [--persona ID] [--category onboarding|operations] [--gaps-only] [--min-relevance FLOAT] [--format text|json|yaml]`.
+        Traces three discovery signals: (1) persona → capabilities → evidence[type=doc] (score 0.9),
+        (2) persona → benefits → delivered_by capabilities → evidence[type=doc] (score 0.7),
+        (3) persona role → document type affinity (score 0.4). Signals merge by max score.
+        Classifies each document as onboarding or operations. Detects persona-specific gaps
+        (missing onboarding/operations docs, uncovered critical benefits, persona-role-specific gaps).
+      human: |
+        Maps documentation to user personas (developer, project_manager, engineering_leader,
+        operator, compliance, ai_agent) for tailored onboarding and operations catalogs.
+        Uses three signals to discover relevant docs: direct capability evidence links,
+        benefit delivery chains, and document type affinity. Each document gets a relevance
+        score and is classified as onboarding or operations material. Reports gaps where
+        expected persona-specific documentation is missing.
+
+    triggers:
+      - "persona documentation"
+      - "persona docs"
+      - "onboarding docs for"
+      - "operations docs for"
+      - "documentation by persona"
+      - "docs curate"
+      - "who needs what docs"
+
+    inputs:
+      type: object
+      properties:
+        index_path:
+          type: string
+          description: "Path to docs index (default: docs/capability-index/contextcore.docs.yaml)"
+        persona:
+          type: string
+          description: Filter to a single persona (e.g., operator, developer)
+        category:
+          type: string
+          enum: [onboarding, operations]
+          description: Show only onboarding or operations documents
+        gaps_only:
+          type: boolean
+          default: false
+          description: Only show documentation gaps, not full catalog
+        min_relevance:
+          type: number
+          default: 0.4
+          description: Minimum document-persona relevance threshold (0.0-1.0)
+        format:
+          type: string
+          enum: [text, json, yaml]
+          default: text
+
+    outputs:
+      type: object
+      properties:
+        summary:
+          type: object
+          properties:
+            personas_analyzed: { type: integer }
+            total_documentation_gaps: { type: integer }
+            high_priority_gaps: { type: integer }
+            avg_docs_per_persona: { type: number }
+        personas:
+          type: array
+          items:
+            type: object
+            properties:
+              persona_id: { type: string }
+              name: { type: string }
+              capability_count: { type: integer }
+              benefit_count: { type: integer }
+              onboarding: { type: array, description: "Docs classified as onboarding material" }
+              operations: { type: array, description: "Docs classified as operations material" }
+              gaps: { type: array, description: "Missing persona-specific documentation" }
+
+    evidence:
+      - type: code
+        ref: src/contextcore/cli/docs.py
+        description: Personas subcommand with chain walker, document matcher, classifier, gap detector
+      - type: doc
+        ref: docs/DOCS_INDEX_REQUIREMENTS.md
+        description: Formal requirements including FR-D-300 series for curate command
+
+    confidence: 0.9
+
+    anti_patterns:
+      - "Don't assume all docs are equally relevant to all personas—use the relevance score"
+      - "Don't create persona-specific docs that merely duplicate existing general docs—add persona-specific context"
+
+    personas:
+      - developer
+      - project_manager
+      - engineering_leader
+      - operator
+      - compliance
+      - ai_agent
+
+    dependencies:
+      - contextcore.docs.index
+      - contextcore.docs.audit
 
   - capability_id: contextcore.manifest.export_onboarding
     category: action
@@ -1471,6 +2087,9 @@ capabilities:
       - type: doc
         ref: docs/EXPORT_PIPELINE_ANALYSIS_GUIDE.md
         description: Full pipeline analysis guide documenting onboarding metadata consumption by plan ingestion and artisan
+      - type: doc
+        ref: docs/MANIFEST_EXPORT_REQUIREMENTS.md
+        description: Formal requirements for manifest export and validate
 
     confidence: 0.9
 
@@ -1856,6 +2475,44 @@ pivoted_work:
 # ==============================================================================
 
 changelog:
+  - version: "1.10.0"
+    date: "2026-02-14"
+    changes:
+      - "docs.curate (new, stable): Curate persona-specific documentation catalogs with onboarding/operations classification and gap detection"
+      - "Three discovery signals: capability evidence chain (0.9), benefit-to-capability chain (0.7), document type affinity (0.4)"
+      - "Onboarding vs operations classification based on document type and title heuristics"
+      - "Persona-specific gap detection: missing onboarding/operations docs, uncovered critical benefits, role-specific gaps"
+      - "Requirements updated: FR-D-300 series (15 FRs), NFR-D-009 through NFR-D-011, 9 new acceptance criteria"
+      - "34 total capabilities: insight (2), handoff (3), guidance (2), code_generation (1), size_estimation (1), a2a (4), api (1), aos (5), manifest (9), pipeline (2), docs (4)"
+  - version: "1.9.0"
+    date: "2026-02-14"
+    changes:
+      - "docs.audit (new, stable): Reverse-engineer capability index to detect documentation gaps with importance scoring"
+      - "4-dimension importance model: maturity-confidence (30%), structural complexity (25%), cross-cutting impact (25%), benefit linkage (20%)"
+      - "8 expected-document rules mapping capability profiles to doc types (R1-R8)"
+      - "Cluster consolidation: gaps grouped by namespace, sorted by avg importance, with suggested filenames"
+      - "Requirements updated: FR-D-200 series (14 FRs), NFR-D-006 through NFR-D-008, 8 new acceptance criteria"
+      - "33 total capabilities: insight (2), handoff (3), guidance (2), code_generation (1), size_estimation (1), a2a (4), api (1), aos (5), manifest (9), pipeline (2), docs (3)"
+  - version: "1.8.0"
+    date: "2026-02-14"
+    changes:
+      - "docs.index (new, stable): Generate programmatic documentation index from capability evidence + directory scan"
+      - "docs.show (new, stable): Query documentation index with type, capability, freshness, and cross-reference filters"
+      - "New category: DOCUMENTATION INDEX CAPABILITIES"
+      - "New CLI command group: contextcore docs (index, show)"
+      - "New requirements doc: docs/DOCS_INDEX_REQUIREMENTS.md"
+      - "32 total capabilities: insight (2), handoff (3), guidance (2), code_generation (1), size_estimation (1), a2a (4), api (1), aos (5), manifest (9), pipeline (2), docs (2)"
+  - version: "1.7.0"
+    date: "2026-02-14"
+    changes:
+      - "manifest.init_bootstrap (new, stable): Scaffold v2 context manifest with template, validation, and pipeline next steps"
+      - "pipeline.check_pipeline (new, stable): 6-gate structural integrity validation for export output (Gate 1)"
+      - "pipeline.diagnose (new, stable): Three Questions diagnostic across export, ingestion, execution layers (Gate 2)"
+      - "New category: PIPELINE GOVERNANCE CAPABILITIES"
+      - "manifest.validate: beta → stable, added CLI flags (--strict, --format), new requirements doc evidence"
+      - "manifest.migrate: Added CLI flags (--in-place, --dry-run, --output), new requirements doc evidence"
+      - "Cross-referenced 3 new requirements docs: MANIFEST_EXPORT_REQUIREMENTS.md, A2A_GATE_REQUIREMENTS.md, MANIFEST_BOOTSTRAP_REQUIREMENTS.md"
+      - "30 total capabilities: insight (2), handoff (3), guidance (2), code_generation (1), size_estimation (1), a2a (4), api (1), aos (5), manifest (9), pipeline (2)"
   - version: "1.6.0"
     date: "2026-02-12"
     changes:
