@@ -483,6 +483,10 @@ def init(path: str, name: str, manifest_version: str, force: bool, validate_afte
     click.echo("\nNext steps:")
     click.echo(f"  1. Edit {path} to add your project details")
     click.echo(f"  2. Run: contextcore manifest validate --path {path}")
+    click.echo(f"  3. Run: contextcore install init")
+    click.echo(f"  4. Run: contextcore manifest export -p {path} -o ./out/export --emit-provenance")
+    click.echo(f"  5. Run: contextcore contract a2a-check-pipeline ./out/export")
+    click.echo(f"  6. Run: startd8 workflow run plan-ingestion (or contextcore contract a2a-diagnose)")
 
 
 def _extract_requirement_ids(requirements_text: str) -> Dict[str, List[str]]:
@@ -875,8 +879,10 @@ def create(
     click.echo("\nNext steps:")
     click.echo("  1. Refine PLAN-draft.md with concrete requirement descriptions and acceptance criteria")
     click.echo("  2. Run: contextcore install init")
-    click.echo("  3. Run: contextcore manifest export -p .contextcore.yaml -o ./out/export")
-    click.echo(f"  4. Run: startd8 workflow run plan-ingestion --config {startd8_config_path}")
+    click.echo("  3. Run: contextcore manifest export -p .contextcore.yaml -o ./out/export --emit-provenance")
+    click.echo("  4. Run: contextcore contract a2a-check-pipeline ./out/export  (Gate 1 validation)")
+    click.echo(f"  5. Run: startd8 workflow run plan-ingestion --config {startd8_config_path}")
+    click.echo("  6. Run: contextcore contract a2a-diagnose ./out/export --ingestion-dir ./out/plan-ingestion  (Gate 2 validation)")
 
 
 @manifest.command(name="init-from-plan")

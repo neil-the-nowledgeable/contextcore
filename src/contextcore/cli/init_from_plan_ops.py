@@ -34,6 +34,8 @@ def build_v2_manifest_template(name: str) -> Dict[str, Any]:
             ],
             "links": {
                 "repo": f"https://github.com/your-org/{name}",
+                "docs": f"https://github.com/your-org/{name}/wiki",
+                "dashboard": "http://localhost:3000/d/contextcore-portfolio",
             },
         },
         "spec": {
@@ -73,6 +75,7 @@ def build_v2_manifest_template(name: str) -> Dict[str, Any]:
                 "metricsInterval": "30s",
                 "alertChannels": ["#alerts"],
                 "logLevel": "info",
+                "dashboardPlacement": "default",
             },
         },
         "strategy": {
@@ -107,7 +110,14 @@ def build_v2_manifest_template(name: str) -> Dict[str, Any]:
             },
             "constraints": [],
             "preferences": [],
-            "questions": [],
+            "questions": [
+                {
+                    "id": "Q-001",
+                    "question": "What is the expected peak traffic pattern for this service?",
+                    "status": "open",
+                    "priority": "medium",
+                },
+            ],
         },
         "insights": [],
     }
