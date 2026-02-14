@@ -21,13 +21,15 @@ Non-goal: `manifest create` does not execute code generation. Execution remains 
 
 ## Pipeline Placement
 
-Target 5-step flow:
+Target 7-step flow (A2A governance-aware):
 
-1. `contextcore manifest create` (new)
-2. `contextcore install init` (existing)
-3. `contextcore manifest export` (existing)
-4. `startd8 workflow run plan-ingestion` (existing)
-5. `prime` or `artisan` contractor execution (existing)
+1. `contextcore manifest create` — draft plan + policy artifacts
+2. `contextcore install init` — verify installation, seed telemetry
+3. `contextcore manifest export --emit-provenance` — generate contract + onboarding metadata
+4. `contextcore contract a2a-check-pipeline ./out/export` — Gate 1 validation (6 gates)
+5. `startd8 workflow run plan-ingestion` — parse, assess, route, refine, emit
+6. `contextcore contract a2a-diagnose` — Gate 2 validation (Three Questions diagnostic)
+7. `prime` or `artisan` contractor execution — structured build
 
 ---
 
@@ -128,7 +130,11 @@ Minimum outputs:
    - Canonical machine-readable requirement and policy record.
 
 3. `create-gates.json`
-   - Pre-ingestion gating policy and pass/fail conditions.
+   - Pre-ingestion gating policy with:
+     - Core gates: checksum chain, coverage threshold, unresolved parameters, validation diagnostics
+     - Enrichment field gates: derivation_rules, expected_output_contracts, dependency_graph, open_questions
+     - A2A pipeline checker reference (6 gates: structural-integrity, checksum-chain, provenance-consistency, mapping-completeness, gap-parity, design-calibration)
+     - Three Questions diagnostic reference (Q1: contract complete, Q2: faithfully translated, Q3: faithfully executed)
 
 4. `startd8-plan-ingestion-config.json`
    - Generated config skeleton for:
@@ -138,6 +144,8 @@ Minimum outputs:
      - `complexity_threshold`
      - `force_route` (if set)
      - quality/coverage policy options
+     - `a2a_check_pipeline_gate`: whether to run A2A pipeline checker before ingestion
+     - `enrichment_requirements`: list of onboarding-metadata.json fields the ingestion expects
 
 Optional:
 
@@ -146,70 +154,28 @@ Optional:
 
 ---
 
-## Proposed `create-spec.json` Schema (Draft)
+## Proposed `create-spec.json` Schema (Implemented)
+
+The `create-spec.json` now includes A2A contract awareness, enrichment field declarations, and defense-in-depth principles alongside the original requirement and routing fields:
 
 ```json
 {
   "schema": "contextcore.io/create-spec/v1",
-  "project": {
-    "id": "string",
-    "name": "string"
-  },
-  "intent": {
-    "problem_statement": "string",
-    "desired_outcomes": ["string"],
-    "definition_of_done": ["string"]
-  },
-  "scope": {
-    "in_scope": ["string"],
-    "out_of_scope": ["string"],
-    "repos": ["string"],
-    "environments": ["string"]
+  "project": { "id": "string", "name": "string" },
+  "inputs": {
+    "manifest_path": ".contextcore.yaml",
+    "requirements_files": ["string"],
+    "draft_plan_mode": "scaffold|enriched",
+    "interactive_requested": false
   },
   "requirements": {
-    "functional": [
-      {
-        "id": "FR-xxx",
-        "description": "string",
-        "acceptance_criteria": ["string"],
-        "priority": "critical|high|medium|low",
-        "depends_on": ["FR-yyy"]
-      }
-    ],
-    "non_functional": [
-      {
-        "id": "NFR-xxx",
-        "category": "reliability|performance|security|compliance|maintainability",
-        "description": "string",
-        "acceptance_criteria": ["string"]
-      }
-    ],
-    "constraints": [
-      {
-        "type": "must|must_not|should",
-        "statement": "string"
-      }
-    ]
+    "functional_ids": ["FR-001"],
+    "non_functional_ids": ["NFR-001"],
+    "unresolved_notes": ["string"]
   },
-  "parameter_sources": [
-    {
-      "parameter": "string",
-      "source_kind": "manifest|crd|requirements|policy|unknown",
-      "source_path": "string",
-      "resolved": true,
-      "notes": "string"
-    }
-  ],
   "artifact_contract": {
     "required_types": ["dashboard", "prometheus_rule", "loki_rule", "service_monitor", "slo_definition", "notification_policy", "runbook"],
-    "recommended_types": ["string"],
-    "priority_order": ["string"]
-  },
-  "quality_policy": {
-    "min_export_coverage": 70,
-    "checksum_chain_required": true,
-    "block_on_unresolved_parameters": true,
-    "block_on_validation_errors": true
+    "recommended_types": []
   },
   "routing_policy": {
     "complexity_threshold": 40,
@@ -219,23 +185,52 @@ Optional:
   "handoff": {
     "plan_path": "PLAN-draft.md",
     "contextcore_export_dir_expected": "./out/export",
-    "requirements_files": ["string"]
+    "startd8_config_path": "startd8-plan-ingestion-config.json"
+  },
+  "a2a_contracts": {
+    "schema_version": "v1",
+    "contract_types": [
+      {"name": "TaskSpanContract", "usage": "Task/subtask lifecycle as trace spans"},
+      {"name": "ArtifactIntent", "usage": "Artifact requirement declaration before generation"},
+      {"name": "GateResult", "usage": "Phase boundary check outcomes at every gate"},
+      {"name": "HandoffContract", "usage": "Agent-to-agent delegation at routing decisions"}
+    ],
+    "schemas_path": "schemas/contracts/"
+  },
+  "enrichment_fields": {
+    "description": "Fields in onboarding-metadata.json that downstream consumers depend on",
+    "required": ["derivation_rules", "expected_output_contracts", "artifact_dependency_graph", "resolved_artifact_parameters", "file_ownership"],
+    "recommended": ["open_questions", "objectives", "requirements_hints", "parameter_resolvability"]
+  },
+  "defense_in_depth": {
+    "principles": [
+      "P1: Validate at the boundary, not just at the end",
+      "P2: Treat each piece as potentially adversarial",
+      "P3: Use checksums as circuit breakers",
+      "P4: Fail loud, fail early, fail specific",
+      "P5: Design calibration guards against over/under-engineering",
+      "P6: Three Questions diagnostic ordering"
+    ],
+    "reference": "docs/EXPORT_PIPELINE_ANALYSIS_GUIDE.md §6"
   }
 }
 ```
 
 ---
 
-## Proposed `PLAN-draft.md` Structure
+## Proposed `PLAN-draft.md` Structure (Implemented)
 
-1. Overview
+1. Overview (project ID, plan mode, manifest path)
 2. Goals and outcomes
-3. Scope and assumptions
-4. Requirements mapping table (FR/NFR to artifacts)
-5. Artifact generation plan
-6. Validation and test obligations
-7. Risks and mitigations
-8. Acceptance criteria and sign-off checklist
+3. Scope and assumptions (in scope, out of scope, assumptions)
+4. Requirements inputs
+5. Functional requirements (FR)
+6. Non-functional requirements (NFR)
+7. Artifact generation plan — with dependency table (type, expected depth, depends_on)
+8. **A2A governance gates** — pre-ingestion (Gate 1) and post-ingestion (Gate 2) checks, enrichment fields list
+9. Validation and test obligations — includes A2A pipeline checker gate pass
+10. Risks and mitigations
+11. Execution notes for Startd8 — includes `a2a-check-pipeline` and `a2a-diagnose` commands
 
 Note: this structure should remain compatible with `plan-ingestion` parse and refine stages.
 
@@ -296,9 +291,12 @@ When updating this document:
 
 ## Related Docs
 
-- `docs/EXPORT_PIPELINE_ANALYSIS_GUIDE.md`
-- `docs/MANIFEST_ONBOARDING_GUIDE.md`
-- `docs/ONBOARDING_METADATA_SCHEMA.md`
-- `docs/ARTIFACT_MANIFEST_CONTRACT.md`
-- `docs/ARTISAN_CONTEXT_SEED_QUALITY_REPORT.md`
-- `docs/PRIME_CONTRACTOR_WORKFLOW.md`
+- `docs/EXPORT_PIPELINE_ANALYSIS_GUIDE.md` — 4-step pipeline, defense-in-depth principles
+- `docs/design/contextcore-a2a-comms-design.md` — A2A governance layer architecture
+- `docs/MANIFEST_ONBOARDING_GUIDE.md` — manifest onboarding guide
+- `docs/ONBOARDING_METADATA_SCHEMA.md` — onboarding metadata field reference
+- `docs/ARTIFACT_MANIFEST_CONTRACT.md` — artifact manifest contract spec
+- `docs/ARTISAN_CONTEXT_SEED_QUALITY_REPORT.md` — artisan context seed quality
+- `docs/PRIME_CONTRACTOR_WORKFLOW.md` — prime contractor workflow
+- `docs/A2A_V1_GOVERNANCE_POLICY.md` — v1 governance policy (schema versioning, gate requirements)
+- `docs/A2A_QUICKSTART.md` — 5-minute quickstart for A2A contracts

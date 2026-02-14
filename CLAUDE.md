@@ -257,6 +257,21 @@ contextcore task complete --id PROJ-123
 contextcore sprint start --id sprint-3 --name "Sprint 3"
 contextcore metrics summary --project my-project
 
+# Manifest lifecycle (init → export → validate → A2A governance)
+contextcore manifest init -p .contextcore.yaml --name my-project
+contextcore manifest init-from-plan --plan plan.md --requirements reqs.md
+contextcore manifest validate --path .contextcore.yaml
+contextcore manifest create --project-id my-project  # Draft plan + gates + spec
+contextcore manifest export -p .contextcore.yaml -o ./out/export --emit-provenance
+contextcore manifest export -p .contextcore.yaml -o ./out/export --dry-run
+
+# A2A governance (contracts, gates, pipeline integrity)
+contextcore contract a2a-validate TaskSpanContract payload.json
+contextcore contract a2a-check-pipeline ./out/export            # Gate 1: 6 integrity checks
+contextcore contract a2a-diagnose ./out/export                  # Three Questions diagnostic
+contextcore contract a2a-pilot                                  # PI-101-002 trace simulation
+contextcore contract a2a-pilot --source-checksum sha256:BAD     # Failure injection
+
 # Dashboard provisioning
 contextcore dashboards provision                    # Auto-detect Grafana
 contextcore dashboards provision --grafana-url URL  # Explicit Grafana URL
@@ -315,8 +330,15 @@ open http://localhost:3000/d/contextcore-installation
 
 ### Kubernetes Deployment
 
+> **CRITICAL**: Do NOT apply `k8s/observability/` manifests — they use `emptyDir` volumes
+> which destroy persistent data. The canonical observability manifests are in
+> `~/Documents/Deploy/observability/`. Use the Deploy project to manage the stack:
+
 ```bash
-kubectl apply -k k8s/observability/
+# Deploy/update the observability stack (canonical PVC-backed manifests)
+cd ~/Documents/Deploy && make up-observability
+
+# Then init ContextCore
 contextcore install init --endpoint tempo.observability:4317
 ```
 
@@ -428,6 +450,7 @@ KUBECONFIG=~/.kube/config
 
 ## Must Avoid
 
+- **Applying `k8s/observability/` manifests to the cluster** — these use `emptyDir` and will destroy persistent data. The canonical manifests are in `~/Documents/Deploy/observability/`
 - Duplicating context in multiple places
 - Manual annotation of K8s resources (use controller)
 - Storing sensitive data in ProjectContext
@@ -569,6 +592,7 @@ See [docs/EXPANSION_PACKS.md](docs/EXPANSION_PACKS.md) for full expansion pack d
 - [docs/EXPANSION_PACKS.md](docs/EXPANSION_PACKS.md) — Expansion pack registry
 - [docs/NAMING_CONVENTION.md](docs/NAMING_CONVENTION.md) — Animal naming convention
 - [docs/DEPENDENCY_MANIFEST_PATTERN.md](docs/DEPENDENCY_MANIFEST_PATTERN.md) — External dependency tracking pattern
+- [docs/MANIFEST_ONBOARDING_GUIDE.md](docs/MANIFEST_ONBOARDING_GUIDE.md) — Manifest onboarding guide (create, validate, export)
 
 ## Examples
 
