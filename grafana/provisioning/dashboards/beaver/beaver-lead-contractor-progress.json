@@ -918,6 +918,224 @@
         "content": "### Lead Contractor Workflow\n\nThis panel triggers workflows via the Beaver Lead Contractor API.\n\n**Endpoints:**\n- `POST /workflow/dry-run` - Preview steps without executing\n- `POST /workflow/execute` - Run the workflow\n- `GET /workflow/status/{id}` - Check execution status\n\n**CLI Alternative:**\n```bash\n# Dry run\npython3 scripts/lead_contractor/run_workflow.py --project $project --dry-run\n\n# Execute\npython3 scripts/lead_contractor/run_workflow.py --project $project\n```\n\n**Note:** The workflow API must be running at the configured URL for the trigger panel to work.",
         "mode": "markdown"
       }
+    },
+    {
+      "id": 106,
+      "title": "Context Propagation Health",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 60
+      },
+      "panels": []
+    },
+    {
+      "id": 60,
+      "title": "Propagation Completeness",
+      "description": "Percentage of tasks with full domain context propagation (not defaulted to unknown)",
+      "type": "gauge",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 61
+      },
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{ span.events.name = \"context.propagation_summary\" } | avg(span.events.attributes[\"context.completeness_pct\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 50 },
+              { "color": "yellow", "value": 75 },
+              { "color": "green", "value": 90 }
+            ]
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "id": 61,
+      "title": "Propagated vs Defaulted",
+      "description": "Count of context.propagated and context.defaulted span events across workflow runs",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 61
+      },
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{ span.events.name = \"context.propagated\" } | count()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
+          "displayName": "Propagated"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 62,
+      "title": "Defaulted Tasks",
+      "description": "Tasks where domain context fell back to defaults (unknown domain)",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 65
+      },
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{ span.events.name = \"context.defaulted\" } | count()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          },
+          "displayName": "Defaulted"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 63,
+      "title": "Context Propagation Events",
+      "description": "All context propagation span events across workflow runs — shows which fields were propagated at which phase boundaries",
+      "type": "table",
+      "gridPos": {
+        "h": 10,
+        "w": 16,
+        "x": 0,
+        "y": 69
+      },
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{ span.events.name =~ \"context\\.propagated|context\\.defaulted|context\\.propagation_summary\" }"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Time",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 64,
+      "title": "Propagation Queries",
+      "type": "text",
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 16,
+        "y": 69
+      },
+      "options": {
+        "content": "### TraceQL Queries\n\n**Propagation completeness:**\n```\n{ span.events.name = \"context.propagation_summary\" }\n```\n\n**Tasks with broken context:**\n```\n{ span.events.name = \"context.defaulted\" }\n```\n\n**Successful propagation events:**\n```\n{ span.events.name = \"context.propagated\" }\n```\n\n**Domain constraints injected:**\n```\n{ span.events.name = \"context.propagated\" && span.events.attributes[\"context.field\"] = \"domain_constraints\" }\n```\n\n---\n*Powered by WCP instrumentation (WCP-003/004)*",
+        "mode": "markdown"
+      }
     }
   ]
 }
