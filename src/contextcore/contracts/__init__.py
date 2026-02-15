@@ -90,6 +90,8 @@ from contextcore.contracts.types import (
     # Propagation types
     PropagationStatus,
     ChainStatus,
+    # Schema compatibility types
+    CompatibilityLevel,
     # Value lists for validation
     TASK_STATUS_VALUES,
     PRIORITY_VALUES,
@@ -100,6 +102,7 @@ from contextcore.contracts.types import (
     SESSION_STATUS_VALUES,
     PROPAGATION_STATUS_VALUES,
     CHAIN_STATUS_VALUES,
+    COMPATIBILITY_LEVEL_VALUES,
 )
 from contextcore.contracts.validate import (
     ContractValidator,
@@ -177,9 +180,12 @@ __all__ = [
     "SESSION_STATUS_VALUES",
     "PROPAGATION_STATUS_VALUES",
     "CHAIN_STATUS_VALUES",
+    "COMPATIBILITY_LEVEL_VALUES",
     # Propagation types
     "PropagationStatus",
     "ChainStatus",
+    # Schema compatibility types
+    "CompatibilityLevel",
     # Timeouts
     "OTEL_FLUSH_TIMEOUT_MS",
     "OTEL_ENDPOINT_CHECK_TIMEOUT_S",

@@ -261,6 +261,14 @@ class ChainStatus(str, Enum):
     BROKEN = "broken"  # Source absent or verification fails
 
 
+class CompatibilityLevel(str, Enum):
+    """Schema compatibility check level."""
+
+    STRUCTURAL = "structural"
+    SEMANTIC = "semantic"
+    BEHAVIORAL = "behavioral"
+
+
 # Convenience lists for validation
 TASK_STATUS_VALUES = [s.value for s in TaskStatus]
 PRIORITY_VALUES = [p.value for p in Priority]
@@ -271,3 +279,4 @@ HANDOFF_STATUS_VALUES = [h.value for h in HandoffStatus]
 SESSION_STATUS_VALUES = [s.value for s in SessionStatus]
 PROPAGATION_STATUS_VALUES = [s.value for s in PropagationStatus]
 CHAIN_STATUS_VALUES = [s.value for s in ChainStatus]
+COMPATIBILITY_LEVEL_VALUES = [c.value for c in CompatibilityLevel]
