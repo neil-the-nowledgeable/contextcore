@@ -269,6 +269,22 @@ class CompatibilityLevel(str, Enum):
     BEHAVIORAL = "behavioral"
 
 
+class EnforcementMode(str, Enum):
+    """Runtime boundary enforcement mode for Layer 4.
+
+    Controls how the RuntimeBoundaryGuard handles validation failures.
+    """
+
+    STRICT = "strict"
+    """Blocking failures raise an exception and halt the phase."""
+
+    PERMISSIVE = "permissive"
+    """Blocking failures are logged but the phase continues."""
+
+    AUDIT = "audit"
+    """Everything is logged and emitted via OTel, but nothing blocks."""
+
+
 # Convenience lists for validation
 TASK_STATUS_VALUES = [s.value for s in TaskStatus]
 PRIORITY_VALUES = [p.value for p in Priority]
@@ -280,3 +296,4 @@ SESSION_STATUS_VALUES = [s.value for s in SessionStatus]
 PROPAGATION_STATUS_VALUES = [s.value for s in PropagationStatus]
 CHAIN_STATUS_VALUES = [s.value for s in ChainStatus]
 COMPATIBILITY_LEVEL_VALUES = [c.value for c in CompatibilityLevel]
+ENFORCEMENT_MODE_VALUES = [e.value for e in EnforcementMode]

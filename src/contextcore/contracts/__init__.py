@@ -92,6 +92,8 @@ from contextcore.contracts.types import (
     ChainStatus,
     # Schema compatibility types
     CompatibilityLevel,
+    # Runtime enforcement types
+    EnforcementMode,
     # Value lists for validation
     TASK_STATUS_VALUES,
     PRIORITY_VALUES,
@@ -103,6 +105,7 @@ from contextcore.contracts.types import (
     PROPAGATION_STATUS_VALUES,
     CHAIN_STATUS_VALUES,
     COMPATIBILITY_LEVEL_VALUES,
+    ENFORCEMENT_MODE_VALUES,
 )
 from contextcore.contracts.validate import (
     ContractValidator,
@@ -186,6 +189,9 @@ __all__ = [
     "ChainStatus",
     # Schema compatibility types
     "CompatibilityLevel",
+    # Runtime enforcement types
+    "EnforcementMode",
+    "ENFORCEMENT_MODE_VALUES",
     # Timeouts
     "OTEL_FLUSH_TIMEOUT_MS",
     "OTEL_ENDPOINT_CHECK_TIMEOUT_S",
