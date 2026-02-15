@@ -253,6 +253,14 @@ class PropagationStatus(str, Enum):
     FAILED = "failed"
 
 
+class ChainStatus(str, Enum):
+    """End-to-end propagation chain status."""
+
+    INTACT = "intact"  # All waypoints + destination present, verification passes
+    DEGRADED = "degraded"  # Source present but destination has default value
+    BROKEN = "broken"  # Source absent or verification fails
+
+
 # Convenience lists for validation
 TASK_STATUS_VALUES = [s.value for s in TaskStatus]
 PRIORITY_VALUES = [p.value for p in Priority]
@@ -262,3 +270,4 @@ INSIGHT_TYPE_VALUES = [i.value for i in InsightType]
 HANDOFF_STATUS_VALUES = [h.value for h in HandoffStatus]
 SESSION_STATUS_VALUES = [s.value for s in SessionStatus]
 PROPAGATION_STATUS_VALUES = [s.value for s in PropagationStatus]
+CHAIN_STATUS_VALUES = [s.value for s in ChainStatus]

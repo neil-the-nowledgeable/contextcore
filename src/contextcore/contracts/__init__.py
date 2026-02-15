@@ -87,6 +87,9 @@ from contextcore.contracts.types import (
     # Observability types
     DashboardPlacement,
     LogLevel,
+    # Propagation types
+    PropagationStatus,
+    ChainStatus,
     # Value lists for validation
     TASK_STATUS_VALUES,
     PRIORITY_VALUES,
@@ -95,6 +98,8 @@ from contextcore.contracts.types import (
     INSIGHT_TYPE_VALUES,
     HANDOFF_STATUS_VALUES,
     SESSION_STATUS_VALUES,
+    PROPAGATION_STATUS_VALUES,
+    CHAIN_STATUS_VALUES,
 )
 from contextcore.contracts.validate import (
     ContractValidator,
@@ -170,6 +175,11 @@ __all__ = [
     "INSIGHT_TYPE_VALUES",
     "HANDOFF_STATUS_VALUES",
     "SESSION_STATUS_VALUES",
+    "PROPAGATION_STATUS_VALUES",
+    "CHAIN_STATUS_VALUES",
+    # Propagation types
+    "PropagationStatus",
+    "ChainStatus",
     # Timeouts
     "OTEL_FLUSH_TIMEOUT_MS",
     "OTEL_ENDPOINT_CHECK_TIMEOUT_S",
