@@ -527,6 +527,42 @@ def init(
     click.echo(f"  6. Run: startd8 workflow run plan-ingestion, then contextcore contract a2a-diagnose")
 
 
+def _detect_context_propagation(requirements_text: str) -> Dict[str, Any]:
+    """Detect context propagation patterns in requirements text.
+
+    Returns a dict with ``detected`` (bool), ``matched_groups`` (list of
+    signal-group names), and ``recommendation`` (str or None).
+
+    Defense-in-depth: this runs at *create* time so the generated plan can
+    include a self-validation scaffold.  ``polish`` performs the same
+    detection at *review* time.
+    """
+    from contextcore.cli.polish import _PROPAGATION_SIGNALS, _PROPAGATION_DETECTION_THRESHOLD
+
+    matched_groups: List[str] = []
+    for group_name, patterns in _PROPAGATION_SIGNALS.items():
+        for pattern in patterns:
+            if re.search(pattern, requirements_text, re.IGNORECASE):
+                matched_groups.append(group_name)
+                break
+
+    detected = len(matched_groups) >= _PROPAGATION_DETECTION_THRESHOLD
+    recommendation = None
+    if detected:
+        recommendation = (
+            "Requirements contain context propagation patterns "
+            f"(signals: {', '.join(matched_groups)}). "
+            "Consider adding a 'Self-Validating Gap Verification' section to "
+            "the plan where each identified gap maps to a runtime integration "
+            "check (SV-*) that fails before the fix and passes after."
+        )
+    return {
+        "detected": detected,
+        "matched_groups": matched_groups,
+        "recommendation": recommendation,
+    }
+
+
 def _extract_requirement_ids(requirements_text: str) -> Dict[str, List[str]]:
     """Extract FR/NFR identifiers from requirement text."""
     found = re.findall(r"\b(FR-\d+|NFR-\d+)\b", requirements_text, flags=re.IGNORECASE)
@@ -782,6 +818,7 @@ def create(
         Path(p).read_text(encoding="utf-8") for p in requirement_files
     ) if requirement_files else ""
     req_ids = _extract_requirement_ids(requirements_text)
+    propagation_detection = _detect_context_propagation(requirements_text)
 
     plan_filename = "PLAN-draft.md"
     create_spec_filename = "create-spec.json"
@@ -898,6 +935,11 @@ def create(
                 "P6: Three Questions diagnostic ordering",
             ],
             "reference": "docs/EXPORT_PIPELINE_ANALYSIS_GUIDE.md §6",
+        },
+        "context_propagation_detection": {
+            "detected": propagation_detection["detected"],
+            "matched_groups": propagation_detection["matched_groups"],
+            "recommendation": propagation_detection["recommendation"],
         },
     }
 
@@ -1022,13 +1064,40 @@ def create(
     if write_manifest_scaffold:
         click.echo(f"  6. {manifest_scaffold} - v2 context manifest scaffold")
 
+    if propagation_detection["detected"]:
+        click.echo(
+            click.style(
+                "\n  Context propagation pattern detected in requirements.",
+                fg="cyan",
+                bold=True,
+            )
+        )
+        click.echo(
+            f"  Signals: {', '.join(propagation_detection['matched_groups'])}"
+        )
+        click.echo(
+            "  Recommendation: Add a 'Self-Validating Gap Verification' section to the plan."
+        )
+        click.echo(
+            "  Each identified gap should map to a runtime integration check (SV-*) that"
+        )
+        click.echo(
+            "  fails before the fix and passes after — the plan-as-its-own-test-harness pattern."
+        )
+        click.echo(
+            "  Run `contextcore polish PLAN-draft.md` after editing to verify."
+        )
+
     click.echo("\nNext steps:")
     click.echo("  1. Refine PLAN-draft.md with concrete requirement descriptions and acceptance criteria")
-    click.echo("  2. Run: contextcore install init")
-    click.echo("  3. Run: contextcore manifest export -p .contextcore.yaml -o ./out/export --emit-provenance")
-    click.echo("  4. Run: contextcore contract a2a-check-pipeline ./out/export  (Gate 1 validation)")
-    click.echo(f"  5. Run: startd8 workflow run plan-ingestion --config {startd8_config_path}")
-    click.echo("  6. Run: contextcore contract a2a-diagnose ./out/export --ingestion-dir ./out/plan-ingestion  (Gate 2 validation)")
+    if propagation_detection["detected"]:
+        click.echo("  1b. Add self-validating gap verification section (context propagation detected)")
+    click.echo("  2. Run: contextcore polish PLAN-draft.md --strict")
+    click.echo("  3. Run: contextcore install init")
+    click.echo("  4. Run: contextcore manifest export -p .contextcore.yaml -o ./out/export --emit-provenance")
+    click.echo("  5. Run: contextcore contract a2a-check-pipeline ./out/export  (Gate 1 validation)")
+    click.echo(f"  6. Run: startd8 workflow run plan-ingestion --config {startd8_config_path}")
+    click.echo("  7. Run: contextcore contract a2a-diagnose ./out/export --ingestion-dir ./out/plan-ingestion  (Gate 2 validation)")
 
 
 @manifest.command(name="init-from-plan")
@@ -1391,6 +1460,11 @@ def init_from_plan(
     default="update_existing",
     help="Strategy for writing output documents (default: update_existing)",
 )
+@click.option(
+    "--emit-run-provenance/--no-emit-run-provenance",
+    default=None,
+    help="Emit run-provenance.json with run-level lineage (default: policy-driven)",
+)
 @click.pass_context
 def export(
     ctx,
@@ -1413,6 +1487,7 @@ def export(
     emit_tasks: bool,
     project_id: Optional[str],
     document_write_strategy: str,
+    emit_run_provenance: Optional[bool],
 ):
     """
     Export CRD and Artifact Manifest for Wayfinder implementations.
@@ -1474,11 +1549,19 @@ def export(
                 click.echo(f"  ✗ {e}", err=True)
             sys.exit(1)
 
-        strict_quality, deterministic_output, emit_quality_report = resolve_export_quality_toggles(
+        (
+            strict_quality,
+            deterministic_output,
+            emit_quality_report,
+            emit_run_provenance,
+            document_write_strategy,
+        ) = resolve_export_quality_toggles(
             policy=policy,
             strict_quality=strict_quality,
             deterministic_output=deterministic_output,
             emit_quality_report=emit_quality_report,
+            emit_run_provenance=emit_run_provenance,
+            document_write_strategy=document_write_strategy,
         )
 
         ci_violation = evaluate_ci_policy(strict_quality=strict_quality, policy=policy)
@@ -1495,6 +1578,7 @@ def export(
             scan_existing=scan_existing,
             emit_provenance=emit_provenance,
             embed_provenance=embed_provenance,
+            emit_run_provenance=bool(emit_run_provenance),
         )
         if not profile["ok"]:
             for line in profile["errors"]:
@@ -1505,6 +1589,7 @@ def export(
         min_coverage = profile["min_coverage"]
         emit_provenance = profile["emit_provenance"]
         embed_provenance = profile["embed_provenance"]
+        emit_run_provenance = profile["emit_run_provenance"]
 
         # Load manifest
         raw_data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
@@ -1611,6 +1696,8 @@ def export(
                 "emit_onboarding": emit_onboarding,
                 "min_coverage": min_coverage,
                 "task_mapping": task_mapping,
+                "emit_run_provenance": emit_run_provenance,
+                "run_provenance_path": str(output_path / "run-provenance.json"),
             }
 
             provenance = capture_provenance(
@@ -1713,6 +1800,7 @@ def export(
             output_files=output_files,
             run_provenance_inputs=run_inputs,
             document_write_strategy=document_write_strategy,
+            emit_run_provenance=bool(emit_run_provenance),
         )
         print_export_success(
             output_path=output_path,

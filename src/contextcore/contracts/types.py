@@ -244,6 +244,15 @@ class LogLevel(str, Enum):
     ERROR = "error"
 
 
+class PropagationStatus(str, Enum):
+    """Context propagation status at a workflow boundary."""
+
+    PROPAGATED = "propagated"
+    DEFAULTED = "defaulted"
+    PARTIAL = "partial"
+    FAILED = "failed"
+
+
 # Convenience lists for validation
 TASK_STATUS_VALUES = [s.value for s in TaskStatus]
 PRIORITY_VALUES = [p.value for p in Priority]
@@ -252,3 +261,4 @@ AGENT_TYPE_VALUES = [a.value for a in AgentType]
 INSIGHT_TYPE_VALUES = [i.value for i in InsightType]
 HANDOFF_STATUS_VALUES = [h.value for h in HandoffStatus]
 SESSION_STATUS_VALUES = [s.value for s in SessionStatus]
+PROPAGATION_STATUS_VALUES = [s.value for s in PropagationStatus]
