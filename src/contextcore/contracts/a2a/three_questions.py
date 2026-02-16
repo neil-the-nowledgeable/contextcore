@@ -493,6 +493,19 @@ class ThreeQuestionsDiagnostic:
         # Check: Artifact inventory includes ingestion-stage roles (Mottainai)
         self._check_ingestion_inventory(q)
 
+        # Check: Pre-flight validation ran before plan ingestion (lifecycle layer)
+        preflight_files = list(self.ingestion_dir.glob("*preflight*.json"))
+        q.checks.append(CheckResult(
+            name="preflight-validation-ran",
+            passed=bool(preflight_files),
+            detail=(
+                f"Pre-flight validation output found: {preflight_files[0].name}."
+                if preflight_files
+                else "No pre-flight validation output found. Consider running preflight checks before ingestion."
+            ),
+            severity="info",
+        ))
+
         if any(not c.passed and c.severity == "error" for c in q.checks):
             q.status = QuestionStatus.FAIL
             q.recommendation = (
@@ -690,6 +703,32 @@ class ThreeQuestionsDiagnostic:
                 detail="No finalize report found. FINALIZE phase may not have completed.",
                 severity="warning",
             ))
+
+        # Check: Post-execution validation ran (lifecycle layer)
+        postexec_files = list(self.artisan_dir.glob("*postexec*.json"))
+        q.checks.append(CheckResult(
+            name="postexec-validation-ran",
+            passed=bool(postexec_files),
+            detail=(
+                f"Post-execution validation output found: {postexec_files[0].name}."
+                if postexec_files
+                else "No post-execution validation output found. Consider adding postexec checks to the artisan workflow."
+            ),
+            severity="info",
+        ))
+
+        # Check: Health check output exists (lifecycle layer)
+        health_files = list(self.artisan_dir.glob("*health*.json"))
+        q.checks.append(CheckResult(
+            name="health-check-ran",
+            passed=bool(health_files),
+            detail=(
+                f"Health check output found: {health_files[0].name}."
+                if health_files
+                else "No health check output found. Consider adding health checks to the artisan workflow."
+            ),
+            severity="info",
+        ))
 
         if any(not c.passed and c.severity == "error" for c in q.checks):
             q.status = QuestionStatus.FAIL

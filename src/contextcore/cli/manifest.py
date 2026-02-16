@@ -911,6 +911,56 @@ def create(
             ],
             "schemas_path": "schemas/contracts/",
         },
+        "defense_in_depth_layers": [
+            {
+                "id": "preflight",
+                "name": "Pre-Flight Validation",
+                "module": "contracts.preflight",
+                "phase": "BEFORE",
+                "blocking": True,
+            },
+            {
+                "id": "runtime",
+                "name": "Runtime Guards",
+                "module": "contracts.runtime",
+                "phase": "DURING",
+                "blocking": True,
+            },
+            {
+                "id": "postexec",
+                "name": "Post-Execution Checks",
+                "module": "contracts.postexec",
+                "phase": "AFTER",
+                "blocking": False,
+            },
+            {
+                "id": "observability",
+                "name": "Observability Contracts",
+                "module": "contracts.observability",
+                "phase": "CONTINUOUS",
+                "blocking": False,
+            },
+            {
+                "id": "regression",
+                "name": "Regression Detection",
+                "module": "contracts.regression",
+                "phase": "CI_CD",
+                "blocking": True,
+            },
+        ],
+        "contract_domains": {
+            "implemented": [
+                {"id": "propagation", "module": "contracts.propagation", "description": "Context propagation chain validation"},
+                {"id": "schema_compat", "module": "contracts.schema_compat", "description": "Schema compatibility checks"},
+            ],
+            "designed_not_implemented": [
+                {"id": "semconv", "design_doc": "docs/design/requirements/REQ_CONCERN_*"},
+                {"id": "ordering", "design_doc": "docs/design/requirements/REQ_CONCERN_*"},
+                {"id": "capability", "design_doc": "docs/design/requirements/REQ_CONCERN_*"},
+                {"id": "budget", "design_doc": "docs/design/requirements/REQ_CONCERN_*"},
+                {"id": "lineage", "design_doc": "docs/design/requirements/REQ_CONCERN_*"},
+            ],
+        },
         "enrichment_fields": {
             "description": "Fields in onboarding-metadata.json that downstream consumers depend on",
             "required": [
@@ -929,19 +979,24 @@ def create(
         },
         "defense_in_depth": {
             "principles": [
-                "P1: Validate at the boundary, not just at the end",
-                "P2: Treat each piece as potentially adversarial",
-                "P3: Use checksums as circuit breakers",
-                "P4: Fail loud, fail early, fail specific",
-                "P5: Design calibration guards against over/under-engineering",
-                "P6: Three Questions diagnostic ordering",
+                "P1: Prescriptive Over Descriptive — contracts declare what MUST happen, not what DID happen",
+                "P2: Design Time Over Runtime — catch violations at declaration, not in production",
+                "P3: Composable Enforcement — each layer operates independently, failures don't cascade",
+                "P4: Observable by Default — every contract check emits OTel spans/events",
+                "P5: Opt-In Complexity — start with propagation+schema, add lifecycle layers as needed",
+                "P6: Three Questions Diagnostic Ordering — Q1 export, Q2 ingestion, Q3 execution",
             ],
-            "reference": "docs/EXPORT_PIPELINE_ANALYSIS_GUIDE.md §6",
+            "reference": "docs/design/CONTEXT_CORRECTNESS_BY_CONSTRUCTION.md",
         },
         "context_propagation_detection": {
             "detected": propagation_detection["detected"],
             "matched_groups": propagation_detection["matched_groups"],
             "recommendation": propagation_detection["recommendation"],
+            "suggested_lifecycle_layers": (
+                ["preflight", "runtime", "postexec"]
+                if propagation_detection["detected"]
+                else []
+            ),
         },
     }
 

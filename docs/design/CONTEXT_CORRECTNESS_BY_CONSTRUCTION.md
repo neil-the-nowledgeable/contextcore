@@ -520,21 +520,71 @@ infrastructure you already use.**
 
 ## Implementation Status
 
-| Layer | Status | Implementation | Tests |
-|---|---|---|---|
-| Layer 1: Context Propagation | **Implemented** | `contracts/propagation/` | 62 |
-| Layer 2: Schema Compatibility | Planned | — | — |
-| Layer 3: Semantic Conventions | In progress (Weaver) | `semconv/` (planned) | — |
-| Layer 4: Causal Ordering | Design only | — | — |
-| Layer 5: Capability Propagation | Design only | — | — |
-| Layer 6: SLO Budget Tracking | Design only | — | — |
-| Layer 7: Data Lineage | Design only | — | — |
+> **Updated 2026-02-16:** The contract system has two orthogonal axes:
+> **Contract Domains** (what correctness properties are enforced) and
+> **Defense-in-Depth Layers** (when enforcement runs in the lifecycle).
+> Both axes are partially implemented.
+
+### Table A — Contract Domains (the "what")
+
+| Layer | Domain | Status |
+|-------|--------|--------|
+| 1 | Context Propagation | **IMPLEMENTED** — `contracts/propagation/` |
+| 2 | Schema Compatibility | **IMPLEMENTED** — `contracts/schema_compat/` |
+| 3 | Semantic Conventions | DESIGNED — `docs/design/requirements/REQ_CONCERN_*` only |
+| 4 | Causal Ordering | DESIGNED — `docs/design/requirements/REQ_CONCERN_*` only |
+| 5 | Capability Propagation | DESIGNED — `docs/design/requirements/REQ_CONCERN_*` only |
+| 6 | SLO Budget Tracking | DESIGNED — `docs/design/requirements/REQ_CONCERN_*` only |
+| 7 | Data Lineage | DESIGNED — `docs/design/requirements/REQ_CONCERN_*` only |
+
+### Table B — Defense-in-Depth Layers (the "when")
+
+| Layer | Stage | Phase | Status |
+|-------|-------|-------|--------|
+| 1–2 | Propagation + Schema | BEFORE | **IMPLEMENTED** — `contracts/propagation/`, `contracts/schema_compat/` |
+| 3 | Pre-Flight Validation | BEFORE | **IMPLEMENTED** — `contracts/preflight/` |
+| 4 | Runtime Guards | DURING | **IMPLEMENTED** — `contracts/runtime/` |
+| 5 | Post-Execution Checks | AFTER | **IMPLEMENTED** — `contracts/postexec/` |
+| 6 | Observability Contracts | CONTINUOUS | **IMPLEMENTED** — `contracts/observability/` |
+| 7 | Regression Detection | CI/CD | **IMPLEMENTED** — `contracts/regression/` |
+
+### Domains × Lifecycle Matrix
+
+Each domain can be enforced at multiple lifecycle stages. Cells marked ✓ are
+implemented; cells marked ○ are designed but not yet built.
+
+|                         | Pre-Flight | Runtime | Post-Exec | Observability | Regression |
+|-------------------------|:----------:|:-------:|:---------:|:-------------:|:----------:|
+| Context Propagation     | ✓          | ✓       | ✓         | ✓             | ✓          |
+| Schema Compatibility    | ✓          | ✓       | ✓         | ✓             | ✓          |
+| Semantic Conventions    | ○          | ○       | ○         | ○             | ○          |
+| Causal Ordering         | ○          | ○       | ○         | ○             | ○          |
+| Capability Propagation  | ○          | ○       | ○         | ○             | ○          |
+| SLO Budget Tracking     | ○          | ○       | ○         | ○             | ○          |
+| Data Lineage            | ○          | ○       | ○         | ○             | ○          |
+
+### Extension Concerns (Designed)
+
+9 extension concerns have full requirements documents
+(`docs/design/requirements/REQ_CONCERN_*.md`):
+
+| Extension | Concern | Requirements |
+|---|---|---|
+| 4E | Temporal Staleness | `REQ_CONCERN_4E_TEMPORAL_STALENESS.md` |
+| 5E | Delegation Authority | `REQ_CONCERN_5E_DELEGATION_AUTHORITY.md` |
+| 6E | Multi-Budget Coordination | `REQ_CONCERN_6E_MULTI_BUDGET.md` |
+| 7E | Version Lineage | `REQ_CONCERN_7E_VERSION_LINEAGE.md` |
+| 9 | Quality Propagation | `REQ_CONCERN_9_QUALITY_PROPAGATION.md` |
+| 10 | Checkpoint Recovery | `REQ_CONCERN_10_CHECKPOINT_RECOVERY.md` |
+| 11 | Config Evolution | `REQ_CONCERN_11_CONFIG_EVOLUTION.md` |
+| 12 | Graph Topology | `REQ_CONCERN_12_GRAPH_TOPOLOGY.md` |
+| 13 | Evaluation-Gated Propagation | `REQ_CONCERN_13_EVALUATION_GATED_PROPAGATION.md` |
 
 ### Layer 1 Architecture (Implemented)
 
 ```
-artisan-pipeline.contract.yaml     (YAML declaration — startd8-sdk)
-         │
+artisan-pipeline.contract.yaml     (Example YAML declaration — may not exist
+         │                          in repo; used here as reference format)
          ▼
     ContractLoader                 (Parse + cache)
          │

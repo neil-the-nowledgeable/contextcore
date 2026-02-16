@@ -695,6 +695,19 @@ def infer_init_from_plan(
         "detail": f"~{estimated_artifacts} artifacts ({len(artifact_types)} types x {len(targets)} targets)",
     })
 
+    # ── Contract layer readiness (lifecycle + domains) ──────────
+    text_lower = text.lower()
+    lifecycle_layers = ["preflight"]  # always recommended
+    if any(kw in text_lower for kw in ("context", "field", "metadata", "propagat")):
+        lifecycle_layers.append("runtime")
+        lifecycle_layers.append("postexec")
+    if any(kw in text_lower for kw in ("monitor", "observ", "alert", "metric", "dashboard")):
+        lifecycle_layers.append("observability")
+    if any(kw in text_lower for kw in ("ci", "cd", "pipeline", "regression", "test")):
+        lifecycle_layers.append("regression")
+
+    contract_domains_detected = ["propagation", "schema_compat"]  # always present (implemented)
+
     downstream_readiness = {
         "score": min(readiness_score, 100),
         "verdict": (
@@ -709,6 +722,10 @@ def infer_init_from_plan(
             "derivation_rules": "ready" if len(populated_reqs) >= 3 else "at_risk",
             "design_calibration": "ready" if targets else "blocked",
             "gap_parity": "ready" if targets else "blocked",
+        },
+        "contract_layer_readiness": {
+            "lifecycle_layers": lifecycle_layers,
+            "contract_domains": contract_domains_detected,
         },
     }
 
