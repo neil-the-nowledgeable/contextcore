@@ -105,6 +105,7 @@ def build_run_provenance_payload(
     artifact_references: Optional[Dict[str, str]] = None,
     start_time: Optional[datetime] = None,
     completed_at: Optional[datetime] = None,
+    artifact_inventory: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """
     Build a standardized run provenance payload.
@@ -138,7 +139,7 @@ def build_run_provenance_payload(
     payload = {
         "run_id": run_id,
         "workflow_or_command": workflow_or_command,
-        "version": "1.0.0",  # Provenance schema version
+        "version": "2.0.0" if artifact_inventory else "1.0.0",
         "contextcore_version": get_contextcore_version(),
         "started_at": start.isoformat(),
         "completed_at": end.isoformat(),
@@ -155,7 +156,10 @@ def build_run_provenance_payload(
         "quality_summary": quality_summary or {},
         "artifact_references": artifact_references or {},
     }
-    
+
+    if artifact_inventory is not None:
+        payload["artifact_inventory"] = artifact_inventory
+
     return payload
 
 

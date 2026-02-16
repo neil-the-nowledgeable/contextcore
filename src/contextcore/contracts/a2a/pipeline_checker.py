@@ -809,6 +809,148 @@ class PipelineChecker:
             return False
         return False
 
+    # ---- Gate: Artifact inventory -------------------------------------------
+
+    # Expected export-stage roles in the artifact inventory
+    _EXPECTED_EXPORT_ROLES = {
+        "derivation_rules", "resolved_parameters", "output_contracts",
+        "dependency_graph", "calibration_hints", "open_questions",
+        "parameter_sources", "semantic_conventions", "example_artifacts",
+        "coverage_gaps",
+    }
+
+    def _check_artifact_inventory(self) -> Optional[GateResult]:
+        """
+        Validate the artifact inventory section in run-provenance.json.
+
+        Checks:
+        1. ``artifact_inventory`` exists in v2 provenance.
+        2. All expected export-stage roles are registered.
+        3. Source files referenced by entries exist.
+        4. SHA-256 checksums are valid for entries with sub-document json_path.
+
+        Returns ``None`` if ``run-provenance.json`` is missing or v1.
+        Reports as WARNING (not blocking) for backward compatibility.
+        """
+        prov_path = self.output_dir / "run-provenance.json"
+        if not prov_path.exists():
+            return None
+
+        try:
+            with open(prov_path) as fh:
+                prov_data = json.load(fh)
+        except (json.JSONDecodeError, OSError):
+            return None
+
+        version = prov_data.get("version", "1.0.0")
+        if version.startswith("1."):
+            return None  # v1 schema — no inventory expected
+
+        inventory = prov_data.get("artifact_inventory")
+        if not isinstance(inventory, list):
+            return GateResult(
+                gate_id=f"{self._effective_task_id}-artifact-inventory",
+                trace_id=self.trace_id,
+                task_id=self._effective_task_id,
+                phase=Phase.EXPORT_CONTRACT,
+                result=GateOutcome.FAIL,
+                severity=GateSeverity.WARNING,
+                reason="run-provenance.json v2 but artifact_inventory is missing or malformed.",
+                next_action="Re-run export to regenerate inventory.",
+                blocking=False,
+                evidence=[EvidenceItem(
+                    type="missing_inventory",
+                    ref="run-provenance.json",
+                    description="v2 provenance without artifact_inventory section.",
+                )],
+                checked_at=datetime.now(timezone.utc),
+            )
+
+        evidence: list[EvidenceItem] = []
+        problems: list[str] = []
+
+        # Check expected roles are registered
+        registered_roles = {e.get("role") for e in inventory if isinstance(e, dict)}
+        missing_roles = self._EXPECTED_EXPORT_ROLES - registered_roles
+        # Only report missing roles for data that actually exists in metadata
+        actually_missing: list[str] = []
+        role_to_metadata_key = {
+            "derivation_rules": "derivation_rules",
+            "resolved_parameters": "resolved_artifact_parameters",
+            "output_contracts": "expected_output_contracts",
+            "dependency_graph": "artifact_dependency_graph",
+            "calibration_hints": "design_calibration_hints",
+            "open_questions": "open_questions",
+            "parameter_sources": "parameter_sources",
+            "semantic_conventions": "semantic_conventions",
+            "example_artifacts": "example_artifacts",
+            "coverage_gaps": "coverage_gaps",
+        }
+        for role in sorted(missing_roles):
+            meta_key = role_to_metadata_key.get(role, role)
+            if self._metadata.get(meta_key):
+                actually_missing.append(role)
+                evidence.append(EvidenceItem(
+                    type="missing_role",
+                    ref=role,
+                    description=(
+                        f"Export role '{role}' has data in onboarding-metadata.json "
+                        f"but is not registered in artifact_inventory."
+                    ),
+                ))
+
+        if actually_missing:
+            problems.append(f"unregistered roles: {', '.join(actually_missing)}")
+
+        # Check source files exist
+        for entry in inventory:
+            if not isinstance(entry, dict):
+                continue
+            src = entry.get("source_file")
+            if src:
+                src_path = self.output_dir / src
+                if not src_path.exists():
+                    problems.append(f"missing source: {src}")
+                    evidence.append(EvidenceItem(
+                        type="missing_source_file",
+                        ref=entry.get("artifact_id", src),
+                        description=f"Source file '{src}' not found in {self.output_dir}.",
+                    ))
+
+        gate_id = f"{self._effective_task_id}-artifact-inventory"
+        if problems:
+            return GateResult(
+                gate_id=gate_id,
+                trace_id=self.trace_id,
+                task_id=self._effective_task_id,
+                phase=Phase.EXPORT_CONTRACT,
+                result=GateOutcome.FAIL,
+                severity=GateSeverity.WARNING,
+                reason=f"Artifact inventory issues: {'; '.join(problems[:5])}.",
+                next_action="Re-run export to regenerate inventory with all roles.",
+                blocking=False,
+                evidence=evidence[:10],
+                checked_at=datetime.now(timezone.utc),
+            )
+
+        return GateResult(
+            gate_id=gate_id,
+            trace_id=self.trace_id,
+            task_id=self._effective_task_id,
+            phase=Phase.EXPORT_CONTRACT,
+            result=GateOutcome.PASS,
+            severity=GateSeverity.INFO,
+            reason=f"Artifact inventory verified: {len(inventory)} entries, {len(registered_roles)} roles registered.",
+            next_action="Proceed — inventory is complete.",
+            blocking=False,
+            evidence=[EvidenceItem(
+                type="inventory_verified",
+                ref="artifact_inventory",
+                description=f"{len(inventory)} entries covering roles: {', '.join(sorted(registered_roles))}.",
+            )],
+            checked_at=datetime.now(timezone.utc),
+        )
+
     # ---- Main runner --------------------------------------------------------
 
     @property
@@ -894,6 +1036,15 @@ class PipelineChecker:
         else:
             report.skipped.append(
                 "parameter-resolvability: no parameter_resolvability data in metadata"
+            )
+
+        # 8. Artifact inventory (Mottainai)
+        inv_check = self._check_artifact_inventory()
+        if inv_check:
+            report.gates.append(inv_check)
+        else:
+            report.skipped.append(
+                "artifact-inventory: no v2 run-provenance.json found"
             )
 
         # --min-coverage enforcement

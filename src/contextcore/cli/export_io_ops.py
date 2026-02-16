@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import click
 import yaml
 
+from contextcore.utils.artifact_inventory import build_export_inventory
 from contextcore.utils.provenance import build_run_provenance_payload, write_provenance_file
 
 
@@ -285,6 +286,7 @@ def write_export_outputs(
     output_files: list[str],
     run_provenance_inputs: Optional[List[str]] = None,
     document_write_strategy: str = "update_existing",
+    emit_run_provenance: bool = True,
 ) -> Dict[str, Optional[str]]:
     # Use atomic write with backup if strategy is update_existing
     use_backup = (document_write_strategy == "update_existing")
@@ -327,34 +329,73 @@ def write_export_outputs(
         quality_path = str(qp)
         output_files.append("export-quality-report.json")
 
-    # 3. Write Run Provenance
-    # Calculate inputs/outputs for run provenance
-    # Outputs are already in output_files (filenames relative to output_dir)
-    # We need full paths for run provenance payload
-    
-    full_output_paths = [str(output_path / f) for f in output_files]
-    
-    run_payload = build_run_provenance_payload(
-        workflow_or_command="manifest export",
-        inputs=run_provenance_inputs or [],
-        outputs=full_output_paths,
-        quality_summary={
-            "strict_quality": quality_report.get("strict_quality", False) if quality_report else False,
-            "coverage_meets_minimum": quality_report.get("gates", {}).get("coverage_meets_minimum", True) if quality_report else True,
+    run_provenance_file: Optional[str] = None
+    if emit_run_provenance:
+        # Calculate inputs/outputs for run provenance using absolute paths.
+        full_output_paths = [str(output_path / f) for f in output_files]
+        run_prov_path = output_path / "run-provenance.json"
+
+        artifact_references: Dict[str, str] = {
+            "validation_report_path": str(validation_path),
         }
-    )
-    
-    run_prov_path = output_path / "run-provenance.json"
-    if run_prov_path.exists() and use_backup:
-         shutil.copy2(run_prov_path, run_prov_path.with_suffix(".json.bak"))
-         
-    write_provenance_file(run_payload, str(output_path), filename="run-provenance.json")
+        if onboarding_file:
+            artifact_references["onboarding_metadata_path"] = onboarding_file
+        if quality_path:
+            artifact_references["quality_report_path"] = quality_path
+        if provenance_file:
+            artifact_references["provenance_json_path"] = provenance_file
+
+        # Build artifact inventory from onboarding metadata (Mottainai)
+        artifact_inventory = None
+        if emit_onboarding and onboarding_metadata:
+            source_cksum = onboarding_metadata.get("source_checksum")
+            source_cksum_file = onboarding_metadata.get("source_path_relative")
+            artifact_inventory = build_export_inventory(
+                onboarding_metadata=onboarding_metadata,
+                source_checksum=source_cksum,
+                source_checksum_file=source_cksum_file,
+            )
+
+        run_payload = build_run_provenance_payload(
+            workflow_or_command="manifest export",
+            inputs=run_provenance_inputs or [],
+            outputs=full_output_paths,
+            quality_summary={
+                "strict_quality": quality_report.get("strict_quality", False) if quality_report else False,
+                "coverage_meets_minimum": quality_report.get("gates", {}).get("coverage_meets_minimum", True) if quality_report else True,
+            },
+            artifact_references=artifact_references,
+            artifact_inventory=artifact_inventory,
+        )
+
+        if run_prov_path.exists() and use_backup:
+            shutil.copy2(run_prov_path, run_prov_path.with_suffix(".json.bak"))
+
+        run_provenance_file = write_provenance_file(
+            run_payload, str(output_path), filename="run-provenance.json"
+        )
+
+        # Optional additive bridge in provenance.json (no schema break):
+        # include run provenance path in cliOptions metadata.
+        if provenance_file:
+            try:
+                prov_data = json.loads(Path(provenance_file).read_text(encoding="utf-8"))
+                cli_opts = prov_data.setdefault("cliOptions", {})
+                if isinstance(cli_opts, dict):
+                    cli_opts["run_provenance_path"] = run_provenance_file
+                Path(provenance_file).write_text(
+                    json.dumps(prov_data, indent=2, default=str),
+                    encoding="utf-8",
+                )
+            except Exception:
+                # Keep export robust; bridge metadata is additive.
+                pass
     
     return {
         "provenance_file": provenance_file,
         "onboarding_file": onboarding_file,
         "quality_path": quality_path,
-        "run_provenance_file": str(run_prov_path),
+        "run_provenance_file": run_provenance_file,
     }
 
 

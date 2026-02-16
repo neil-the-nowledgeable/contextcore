@@ -490,6 +490,9 @@ class ThreeQuestionsDiagnostic:
                 severity="info",
             ))
 
+        # Check: Artifact inventory includes ingestion-stage roles (Mottainai)
+        self._check_ingestion_inventory(q)
+
         if any(not c.passed and c.severity == "error" for c in q.checks):
             q.status = QuestionStatus.FAIL
             q.recommendation = (
@@ -696,6 +699,62 @@ class ThreeQuestionsDiagnostic:
             )
 
         return q
+
+    def _check_ingestion_inventory(self, q: QuestionResult) -> None:
+        """Check that ingestion-stage roles are registered in the artifact inventory."""
+        # Look for run-provenance.json in either the export or ingestion directory
+        prov_path = None
+        for candidate_dir in [self.ingestion_dir, self.export_dir]:
+            if candidate_dir and (candidate_dir / "run-provenance.json").exists():
+                prov_path = candidate_dir / "run-provenance.json"
+                break
+
+        if not prov_path:
+            # No provenance file — skip silently (not an error for backward compat)
+            return
+
+        try:
+            with open(prov_path) as fh:
+                prov_data = json.load(fh)
+        except (json.JSONDecodeError, OSError):
+            return
+
+        version = prov_data.get("version", "1.0.0")
+        if version.startswith("1."):
+            return  # v1 schema — no inventory expected
+
+        inventory = prov_data.get("artifact_inventory", [])
+        if not isinstance(inventory, list):
+            return
+
+        registered_roles = {e.get("role") for e in inventory if isinstance(e, dict)}
+        expected_ingestion_roles = {"plan_document", "refine_suggestions", "design_calibration"}
+        present = expected_ingestion_roles & registered_roles
+        missing = expected_ingestion_roles - registered_roles
+
+        if present:
+            q.checks.append(CheckResult(
+                name="ingestion-inventory-roles",
+                passed=len(missing) == 0,
+                detail=(
+                    f"Inventory has {len(present)}/{len(expected_ingestion_roles)} "
+                    f"ingestion roles."
+                    + (f" Missing: {', '.join(sorted(missing))}" if missing else "")
+                ),
+                severity="info" if not missing else "warning",
+            ))
+        elif inventory:
+            # v2 inventory exists but no ingestion roles — plan-ingestion may not
+            # have extended it yet
+            q.checks.append(CheckResult(
+                name="ingestion-inventory-roles",
+                passed=True,
+                detail=(
+                    "Artifact inventory present but no ingestion-stage roles yet. "
+                    "This is expected if plan-ingestion has not been updated."
+                ),
+                severity="info",
+            ))
 
     def _check_design_fidelity(self, q: QuestionResult, data: dict) -> None:
         """Check DESIGN phase used correct derivation rules."""
