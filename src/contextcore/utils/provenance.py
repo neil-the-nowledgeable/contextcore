@@ -106,6 +106,7 @@ def build_run_provenance_payload(
     start_time: Optional[datetime] = None,
     completed_at: Optional[datetime] = None,
     artifact_inventory: Optional[List[Dict[str, Any]]] = None,
+    capability_index_version: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Build a standardized run provenance payload.
@@ -159,6 +160,11 @@ def build_run_provenance_payload(
 
     if artifact_inventory is not None:
         payload["artifact_inventory"] = artifact_inventory
+
+    if capability_index_version:
+        payload["capability_index"] = {
+            "version": capability_index_version,
+        }
 
     return payload
 

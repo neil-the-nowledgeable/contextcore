@@ -12,6 +12,8 @@ Used by: contextcore manifest export --emit-onboarding
 Consumed by: Plan ingestion workflows, artisan context seed enrichment
 """
 
+import logging
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from contextcore.models.artifact_manifest import (
@@ -237,6 +239,7 @@ def build_onboarding_metadata(
     source_path: Optional[str] = None,
     artifact_task_mapping: Optional[Dict[str, str]] = None,
     output_dir: Optional[str] = None,
+    capability_index_dir: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Build onboarding metadata for programmatic artifact generation.
@@ -618,13 +621,71 @@ def build_onboarding_metadata(
     if file_ownership:
         result["file_ownership"] = file_ownership
 
+    # ── Capability context (REQ-CAP-005 + REQ-CAP-006) ──────────────
+    if capability_index_dir:
+        _logger = logging.getLogger(__name__)
+        try:
+            from contextcore.utils.capability_index import (
+                load_capability_index,
+                match_triggers,
+                match_patterns,
+                match_principles,
+            )
+            index = load_capability_index(Path(capability_index_dir))
+            if not index.is_empty:
+                # Match artifact types against capability triggers
+                artifact_type_names = list(artifact_types.keys())
+                artifact_text = " ".join(artifact_type_names)
+                caps = match_triggers(artifact_text, index.capabilities)
+                cap_ids = [c.capability_id for c in caps]
+
+                # Always include governance gates
+                gate_ids = [
+                    "contextcore.a2a.gate.pipeline_integrity",
+                    "contextcore.a2a.gate.diagnostic",
+                ]
+
+                all_ids = list(set(cap_ids + gate_ids))
+                pats = match_patterns(all_ids, index.patterns)
+                prins = match_principles(all_ids, index.principles)
+
+                result["capability_context"] = {
+                    "index_version": index.version,
+                    "applicable_principles": [
+                        {"id": p.id, "principle": p.principle}
+                        for p in prins
+                    ],
+                    "applicable_patterns": [
+                        {
+                            "pattern_id": p.pattern_id,
+                            "name": p.name,
+                            "capabilities": p.capabilities,
+                        }
+                        for p in pats
+                    ],
+                    "matched_capabilities": cap_ids,
+                    "governance_gates": gate_ids,
+                }
+
+                # Enrich guidance with design principles (REQ-CAP-006)
+                if prins and result.get("guidance") is not None:
+                    result["guidance"]["design_principles"] = [
+                        {
+                            "id": p.id,
+                            "principle": p.principle,
+                            "anti_patterns": p.anti_patterns,
+                        }
+                        for p in prins
+                    ]
+        except Exception:
+            _logger.debug("Capability index not available for export enrichment")
+
     # Relative source path for portability (avoid absolute paths in seeds/handoffs)
     # Assumption: output_dir is a subdirectory of project root (e.g. out/ or ./output).
     # When output_dir is outside project (e.g. /tmp/export), relative_to may raise
     # ValueError; we fall back to source_path.
     if output_dir and source_path:
         try:
-            from pathlib import Path
             out_resolved = Path(output_dir).resolve()
             project_root = out_resolved.parent
             src_resolved = Path(source_path).resolve()

@@ -81,3 +81,23 @@ class TestRunProvenancePayload:
         fp = get_file_fingerprint("nonexistent.txt")
         assert fp["exists"] is False
         assert fp["sha256"] is None
+
+    def test_capability_index_version_included(self):
+        """Should include capability_index when version provided (REQ-CAP-009)."""
+        payload = build_run_provenance_payload(
+            workflow_or_command="manifest export",
+            inputs=[],
+            outputs=[],
+            capability_index_version="1.10.1",
+        )
+        assert "capability_index" in payload
+        assert payload["capability_index"]["version"] == "1.10.1"
+
+    def test_capability_index_version_omitted(self):
+        """Should omit capability_index when version not provided."""
+        payload = build_run_provenance_payload(
+            workflow_or_command="manifest export",
+            inputs=[],
+            outputs=[],
+        )
+        assert "capability_index" not in payload

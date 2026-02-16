@@ -7,10 +7,13 @@ and plan/requirements inference logic.
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 
 def build_v2_manifest_template(name: str) -> Dict[str, Any]:
@@ -121,6 +124,79 @@ def build_v2_manifest_template(name: str) -> Dict[str, Any]:
         },
         "insights": [],
     }
+
+
+def _find_capability_index_dir(project_root: Optional[str] = None) -> Path:
+    """Locate the capability index directory relative to project root or CWD."""
+    candidates = []
+    if project_root:
+        candidates.append(Path(project_root) / "docs" / "capability-index")
+    candidates.append(Path.cwd() / "docs" / "capability-index")
+    for candidate in candidates:
+        if candidate.is_dir():
+            return candidate
+    # Return the first candidate even if it doesn't exist (caller checks)
+    return candidates[0]
+
+
+def enrich_template_from_capability_index(
+    manifest_data: Dict[str, Any],
+    index_dir: Optional[Path] = None,
+) -> None:
+    """Enrich manifest template with capability index principles and patterns.
+
+    Modifies *manifest_data* in-place.  No-op if the index is not available.
+    Called by ``manifest init`` after building the template (REQ-CAP-002).
+    """
+    if index_dir is None:
+        index_dir = _find_capability_index_dir()
+
+    try:
+        from contextcore.utils.capability_index import load_capability_index
+    except ImportError:
+        return
+
+    try:
+        index = load_capability_index(index_dir)
+    except Exception:
+        logger.debug("Capability index not available for init enrichment")
+        return
+
+    if index.is_empty:
+        return
+
+    guidance = manifest_data.setdefault("guidance", {})
+
+    # Inject universally-applicable principles as advisory constraints
+    target_principle_ids = {
+        "typed_over_prose",
+        "prescriptive_over_descriptive",
+        "observable_contracts",
+    }
+    matching_principles = [p for p in index.principles if p.id in target_principle_ids]
+    if matching_principles:
+        constraints = guidance.get("constraints", []) or []
+        for idx, prin in enumerate(matching_principles, start=1):
+            constraints.append({
+                "id": f"C-PRINCIPLE-{idx}",
+                "rule": prin.principle,
+                "severity": "advisory",
+                "source": f"contextcore.agent.yaml#{prin.id}",
+            })
+        guidance["constraints"] = constraints
+
+    # Inject top patterns as preferences
+    target_pattern_ids = {"typed_handoff", "contract_validation"}
+    matching_patterns = [p for p in index.patterns if p.pattern_id in target_pattern_ids]
+    if matching_patterns:
+        preferences = guidance.get("preferences", []) or []
+        for idx, pat in enumerate(matching_patterns, start=1):
+            preferences.append({
+                "id": f"P-PATTERN-{idx}",
+                "description": pat.summary,
+                "source": f"contextcore.agent.yaml#{pat.pattern_id}",
+            })
+        guidance["preferences"] = preferences
 
 
 # Valid risk types per contextcore.contracts.types.RiskType
@@ -460,6 +536,65 @@ def infer_init_from_plan(
             0.7,
         )
 
+    # ── Capability index matching (REQ-CAP-003) ────────────────────
+    matched_caps: List[str] = []
+    try:
+        from contextcore.utils.capability_index import (
+            load_capability_index,
+            match_triggers,
+            match_patterns,
+            match_principles,
+        )
+        cap_index_dir = _find_capability_index_dir(project_root)
+        cap_index = load_capability_index(cap_index_dir)
+        if not cap_index.is_empty:
+            caps = match_triggers(text, cap_index.capabilities)
+            matched_caps = [c.capability_id for c in caps]
+            if matched_caps:
+                matched_pats = match_patterns(matched_caps, cap_index.patterns)
+                matched_prins = match_principles(matched_caps, cap_index.principles)
+
+                # Inject matched principles as advisory constraints
+                guidance = manifest_data.setdefault("guidance", {})
+                if matched_prins:
+                    constraints = guidance.get("constraints", []) or []
+                    existing_ids = {c.get("id") for c in constraints}
+                    for idx, prin in enumerate(matched_prins, start=1):
+                        cid = f"C-CAP-{idx}"
+                        if cid not in existing_ids:
+                            constraints.append({
+                                "id": cid,
+                                "rule": prin.principle,
+                                "severity": "advisory",
+                                "source": f"contextcore.agent.yaml#{prin.id}",
+                            })
+                    guidance["constraints"] = constraints
+
+                # Inject matched patterns as preferences
+                if matched_pats:
+                    preferences = guidance.get("preferences", []) or []
+                    existing_ids = {p.get("id") for p in preferences}
+                    for idx, pat in enumerate(matched_pats, start=1):
+                        pid = f"P-CAP-{idx}"
+                        if pid not in existing_ids:
+                            preferences.append({
+                                "id": pid,
+                                "description": pat.summary,
+                                "source": f"contextcore.agent.yaml#{pat.pattern_id}",
+                            })
+                    guidance["preferences"] = preferences
+
+                # Record inferences
+                for cap_id in matched_caps:
+                    add_inference(
+                        "capability_match",
+                        cap_id,
+                        "capability_index:trigger_match",
+                        0.75,
+                    )
+    except Exception:
+        logger.debug("Capability index not available, skipping matching")
+
     core_inferred_fields = {
         item["field_path"] for item in inferences
         if item["field_path"] in {
@@ -541,6 +676,15 @@ def infer_init_from_plan(
     })
     readiness_score += 10 if risks else 0
 
+    # Check capability coverage (REQ-CAP-003)
+    readiness_checks.append({
+        "check": "capability_coverage",
+        "status": "pass" if matched_caps else "warn",
+        "detail": f"{len(matched_caps)} capabilities matched from index",
+    })
+    if matched_caps:
+        readiness_score += 5
+
     # Estimate artifact coverage
     artifact_types = ["dashboard", "prometheus_rule", "loki_rule", "service_monitor",
                       "slo_definition", "notification_policy", "runbook"]
@@ -568,10 +712,13 @@ def infer_init_from_plan(
         },
     }
 
-    return {
+    result: Dict[str, Any] = {
         "manifest_data": manifest_data,
         "inferences": inferences,
         "warnings": warnings,
         "core_inferred_count": len(core_inferred_fields),
         "downstream_readiness": downstream_readiness,
     }
+    if matched_caps:
+        result["matched_capabilities"] = matched_caps
+    return result

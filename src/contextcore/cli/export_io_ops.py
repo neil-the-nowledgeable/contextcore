@@ -287,6 +287,7 @@ def write_export_outputs(
     run_provenance_inputs: Optional[List[str]] = None,
     document_write_strategy: str = "update_existing",
     emit_run_provenance: bool = True,
+    capability_index_version: Optional[str] = None,
 ) -> Dict[str, Optional[str]]:
     # Use atomic write with backup if strategy is update_existing
     use_backup = (document_write_strategy == "update_existing")
@@ -366,6 +367,7 @@ def write_export_outputs(
             },
             artifact_references=artifact_references,
             artifact_inventory=artifact_inventory,
+            capability_index_version=capability_index_version,
         )
 
         if run_prov_path.exists() and use_backup:

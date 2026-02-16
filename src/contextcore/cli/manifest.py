@@ -48,6 +48,7 @@ from contextcore.cli.export_io_ops import (
 )
 from contextcore.cli.init_from_plan_ops import (
     build_v2_manifest_template,
+    enrich_template_from_capability_index,
     infer_init_from_plan,
 )
 
@@ -436,6 +437,7 @@ def init(
 
     if manifest_version == "v2":
         manifest_data = build_v2_manifest_template(name)
+        enrich_template_from_capability_index(manifest_data)
     else:
         # v1.1 template
         manifest_data = {
@@ -1719,6 +1721,10 @@ def export(
             build_validation_report,
         )
 
+        # Resolve capability index directory for export enrichment
+        _cap_index_dir = Path(path).resolve().parent / "docs" / "capability-index"
+        _cap_index_dir_str = str(_cap_index_dir) if _cap_index_dir.is_dir() else None
+
         onboarding_metadata = build_onboarding_metadata(
             artifact_manifest=artifact_manifest,
             artifact_manifest_path=artifact_filename,
@@ -1729,6 +1735,7 @@ def export(
             source_path=path,
             artifact_task_mapping=artifact_task_mapping,
             output_dir=str(output_path),
+            capability_index_dir=_cap_index_dir_str,
         )
         validation_report = build_validation_report(
             onboarding_metadata=onboarding_metadata,
@@ -1784,6 +1791,12 @@ def export(
         if policy_file:
              run_inputs.append(str(policy_file))
 
+        # Extract capability index version for provenance (REQ-CAP-009)
+        _cap_idx_version = None
+        _cap_ctx = onboarding_metadata.get("capability_context")
+        if isinstance(_cap_ctx, dict):
+            _cap_idx_version = _cap_ctx.get("index_version") or None
+
         file_results = write_export_outputs(
             output_path=output_path,
             crd_filename=crd_filename,
@@ -1801,6 +1814,7 @@ def export(
             run_provenance_inputs=run_inputs,
             document_write_strategy=document_write_strategy,
             emit_run_provenance=bool(emit_run_provenance),
+            capability_index_version=_cap_idx_version,
         )
         print_export_success(
             output_path=output_path,

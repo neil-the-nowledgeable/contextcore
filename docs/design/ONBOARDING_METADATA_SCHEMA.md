@@ -26,7 +26,24 @@ All path fields use **relative paths** (from export output directory) for portab
 | `project_context_path` | string | Yes | Path to ProjectContext CRD (e.g., `my-project-projectcontext.yaml`) |
 | `crd_reference` | string | No | Same as project_context_path when present |
 
+## Run Provenance Linkage
+
+Onboarding metadata links to run-level provenance when available (via strict quality or explicit `--emit-run-provenance`).
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `run_provenance_file` | string | No | Relative path to `run-provenance.json` if emitted. |
+| `run_id` | string | No | ID of the export run that generated this file. |
+| `run_provenance_checksum` | string | No | Checksum of the run provenance file for tamper detection. |
+
+The `run-provenance.json` artifact contains deeper lineage details:
+- Exact CLI arguments and configuration snapshot
+- Input file fingerprints (manifest, policy, task mapping)
+- Output file fingerprints (before/after state)
+- Execution environment details
+
 ## Integrity Checksums
+
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -106,6 +123,34 @@ These fields provide the deeper context that A2A governance gates validate and d
 }
 ```
 
+### Example: capability_context (REQ-CAP-005)
+
+```json
+{
+  "capability_context": {
+    "index_version": "1.10.1",
+    "applicable_principles": [
+      {
+        "id": "typed_over_prose",
+        "principle": "All inter-agent data exchange uses typed schemas..."
+      }
+    ],
+    "applicable_patterns": [
+      {
+        "pattern_id": "contract_validation",
+        "name": "Contract Validation (Defense-in-Depth)",
+        "capabilities": ["contextcore.contract.propagation", "contextcore.contract.schema_compat"]
+      }
+    ],
+    "matched_capabilities": ["contextcore.insight.emit", "contextcore.task.track"],
+    "governance_gates": [
+      "contextcore.a2a.gate.pipeline_integrity",
+      "contextcore.a2a.gate.diagnostic"
+    ]
+  }
+}
+```
+
 ## Optional Fields
 
 | Field | Type | Description |
@@ -119,6 +164,8 @@ These fields provide the deeper context that A2A governance gates validate and d
 | `semantic_conventions` | object | OTel attribute namespaces, metrics, query templates |
 | `provenance` | object | Export provenance (when `--emit-provenance`) |
 | `guidance` | object | Governance constraints and preferences |
+| `guidance.design_principles` | object[] | Design principles from capability index applicable to this project's artifacts (REQ-CAP-006). Each entry has `id`, `principle`, and `anti_patterns`. |
+| `capability_context` | object | Capability index references for downstream consumers (REQ-CAP-005). Includes applicable principles, patterns, matched capabilities, and governance gates. Present when `docs/capability-index/` exists. |
 | `generated_at` | string | ISO 8601 timestamp |
 
 ## Example (minimal)
