@@ -357,6 +357,23 @@ def write_export_outputs(
                 source_checksum_file=source_cksum_file,
             )
 
+        # Preserve pre-pipeline inventory entries (create, polish) if present.
+        # Earlier pipeline steps may have written run-provenance.json with their
+        # own inventory entries.  Merge them so export is additive, not destructive.
+        if run_prov_path.exists():
+            try:
+                _existing = json.loads(run_prov_path.read_text(encoding="utf-8"))
+                _pre_pipeline = _existing.get("artifact_inventory", [])
+                if _pre_pipeline:
+                    if artifact_inventory is None:
+                        artifact_inventory = []
+                    export_ids = {e["artifact_id"] for e in artifact_inventory}
+                    for entry in _pre_pipeline:
+                        if entry.get("artifact_id") not in export_ids:
+                            artifact_inventory.append(entry)
+            except (json.JSONDecodeError, OSError, KeyError):
+                pass
+
         run_payload = build_run_provenance_payload(
             workflow_or_command="manifest export",
             inputs=run_provenance_inputs or [],

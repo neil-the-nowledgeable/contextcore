@@ -26,6 +26,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
@@ -118,6 +119,32 @@ EXPORT_INVENTORY_ROLES: Dict[str, Dict[str, Any]] = {
         "description": "Artifact types needing generation",
         "consumers": ["ingestion.parse", "artisan.plan"],
         "consumption_hint": "Use as the authoritative list of what needs to be generated.",
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# Controlled vocabulary: pre-pipeline inventory roles (create / polish)
+# ---------------------------------------------------------------------------
+
+PRE_PIPELINE_INVENTORY_ROLES: Dict[str, Dict[str, Any]] = {
+    "project_context": {
+        "stage": "create",
+        "description": "Project context resource produced by contextcore create",
+        "consumers": ["contextcore.manifest.export", "startd8.workflow.plan_ingestion"],
+        "consumption_hint": (
+            "Provides project identity and business context for downstream "
+            "manifest export and plan-ingestion stages."
+        ),
+    },
+    "polish_report": {
+        "stage": "polish",
+        "description": "Plan quality report produced by contextcore polish",
+        "consumers": ["startd8.workflow.plan_ingestion", "artisan.review"],
+        "consumption_hint": (
+            "Surface polish check results in plan-ingestion and review phases "
+            "so agents know which quality gates the plan already passes."
+        ),
     },
 }
 
@@ -242,3 +269,57 @@ def build_export_inventory(
         inventory.append(entry)
 
     return inventory
+
+
+# ---------------------------------------------------------------------------
+# Extend inventory (for pre-pipeline stages: create, polish)
+# ---------------------------------------------------------------------------
+
+def extend_inventory(
+    output_dir: Path,
+    new_entries: List[Dict[str, Any]],
+    *,
+    filename: str = "run-provenance.json",
+) -> bool:
+    """Append inventory entries to an existing (or new) run-provenance.json.
+
+    - Reads existing provenance file, or starts from an empty v2 skeleton.
+    - Upgrades v1 provenance to v2 if needed (adds ``artifact_inventory``).
+    - De-duplicates by ``artifact_id`` — existing entries win.
+    - Writes atomically back to *output_dir/filename*.
+
+    Returns ``True`` if the file was written successfully.
+    """
+    output_dir = Path(output_dir)
+    prov_path = output_dir / filename
+
+    # Read or create skeleton
+    if prov_path.exists():
+        try:
+            payload = json.loads(prov_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            payload = {}
+    else:
+        payload = {}
+
+    # Upgrade v1 → v2 if needed
+    version = payload.get("version", "1.0.0")
+    if version < "2.0.0":
+        payload["version"] = "2.0.0"
+
+    # Ensure artifact_inventory list exists
+    existing = payload.setdefault("artifact_inventory", [])
+
+    # Dedup: existing artifact_ids win
+    existing_ids = {e["artifact_id"] for e in existing if "artifact_id" in e}
+    for entry in new_entries:
+        if entry.get("artifact_id") not in existing_ids:
+            existing.append(entry)
+            existing_ids.add(entry["artifact_id"])
+
+    # Atomic write
+    output_dir.mkdir(parents=True, exist_ok=True)
+    tmp_path = prov_path.with_suffix(".json.tmp")
+    tmp_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    tmp_path.replace(prov_path)
+    return True

@@ -1,14 +1,24 @@
 # Capability Index Structural Enhancement Plan
 
-**Date:** 2026-02-13
-**Status:** Draft — Pending Validation
+**Date:** 2026-02-13 (updated 2026-02-16)
+**Status:** Draft — Requirements Formalized
 **Author:** Analysis collaboration (human + agent)
 **Prerequisite Reading:** `docs/capability-index/CAPABILITY_INDEX_GAP_ANALYSIS.md`
+**Requirements Document:** [`docs/design/requirements/REQ_CAPABILITY_INDEX_DISCOVERABILITY.md`](../docs/design/requirements/REQ_CAPABILITY_INDEX_DISCOVERABILITY.md) — 12 formal requirements (REQ-CID-001 through REQ-CID-012)
 **Relates to:** Coyote Modular Pipeline Design (`wayfinder/contextcore-coyote/docs/MODULAR_PIPELINE_DESIGN.md`)
 
 ---
 
-## 1. Problem Statement
+## Overview
+
+**Objectives:** Close the discoverability gap in ContextCore's capability index so that
+agents designing pipelines discover A2A typed communication primitives without manual
+code exploration.
+
+**Goals:**
+- All 12 REQ-CID requirements implemented (see companion requirements doc)
+- `contextcore polish --strict` passes on this plan with zero failures
+- Trigger search for "pipeline" matches >=4 capabilities in the enhanced manifest
 
 ### What Happened
 
@@ -30,6 +40,29 @@ The capability-index currently functions as a **flat catalog** — it documents 
 The capability-index embodies ContextCore's most important differentiator — **structured, versioned, queryable capability data replaces ambiguous documents** — but it doesn't support its own thesis. It is structured vertically (each capability is self-contained) but lacks the horizontal connective tissue that enables discovery across capabilities, from problems to solutions, and from principles to implementations.
 
 The index needs to be **reverse-engineered** — both horizontally (across capabilities) and vertically (from principles down to evidence and from evidence up to principles) — to enable **top-down and bottom-up discovery and browsability**.
+
+---
+
+## Functional Requirements
+
+This plan's formal requirements are defined in the companion document
+[REQ_CAPABILITY_INDEX_DISCOVERABILITY.md](../docs/design/requirements/REQ_CAPABILITY_INDEX_DISCOVERABILITY.md).
+Summary:
+
+| ID | Priority | Description |
+|-----|----------|-------------|
+| REQ-CID-001 | P1 | Design principles section (9 principles) |
+| REQ-CID-002 | P1 | Communication patterns section (5+ patterns) |
+| REQ-CID-003 | P1 | Pipeline-specific triggers on A2A capabilities |
+| REQ-CID-004 | P2 | Pipeline typed handoff capability entry |
+| REQ-CID-005 | P2 | ExpectedOutput promoted to discoverable capability |
+| REQ-CID-006 | P2 | Structured authority meta-capability |
+| REQ-CID-007 | P1 | Cross-reference from Export Pipeline Analysis Guide |
+| REQ-CID-008 | P3 | Discovery paths on capability entries |
+| REQ-CID-009 | P3 | Capability index navigation skill |
+| REQ-CID-010 | P1 | Backward compatibility guarantee |
+| REQ-CID-011 | P1 | 7 contract layer capabilities in agent manifest |
+| REQ-CID-012 | P1 | 6 A2A governance contract capabilities |
 
 ---
 
@@ -75,12 +108,13 @@ All structural enhancements are **additive**. No existing fields are removed or 
 
 | File | `manifest_id` | Version | Entries | Purpose |
 |------|---------------|---------|---------|---------|
-| `contextcore.agent.yaml` | `contextcore.agent` | 1.6.0 | 27 capabilities | Agent-facing capabilities |
-| `contextcore.user.yaml` | `contextcore.user` | 1.3.0 | ~15 capabilities | User/GTM-facing capabilities |
-| `contextcore.benefits.yaml` | `contextcore.benefits` | 1.2.0 | ~25 benefits | Value statements per persona |
+| `contextcore.agent.yaml` | `contextcore.agent` | 1.10.1 | 38 capabilities | Agent-facing capabilities |
+| `contextcore.user.yaml` | `contextcore.user` | 1.3.1 | ~15 capabilities | User/GTM-facing capabilities |
+| `contextcore.benefits.yaml` | `contextcore.benefits` | 1.7.1 | ~25 benefits | Value statements per persona |
 | `contextcore.pain_points.yaml` | `contextcore.pain_points` | 2.2.0 | Pain points per persona | Cost/ROI quantification |
-| `roadmap.yaml` | `contextcore.roadmap` | 2.1.0 | Phased roadmap items | Implementation tracking |
-| `startd8.workflow.benefits.yaml` | (cross-project) | — | startd8 benefits | External project reference |
+| `contextcore.docs.yaml` | `contextcore.docs` | 2.0.0 | Documentation index | Documentation catalog |
+| `roadmap.yaml` | `contextcore.roadmap` | 2.2.0 | Phased roadmap items | Implementation tracking |
+| `startd8.workflow.benefits.yaml` | (cross-project) | 1.0.0 | startd8 benefits | External project reference |
 
 ### 3.2 Current Per-Capability Schema
 
@@ -985,8 +1019,8 @@ Each scenario should be answerable purely from the enhanced capability-index, wi
 | Metric | Current | Target | How Measured |
 |--------|---------|--------|-------------|
 | Discovery hops from problem to capability | 3+ (read all capabilities) | 1–2 (pattern or anti-pattern → capability) | Count navigation steps in test scenarios |
-| Capabilities with cross-references | 0 | 15+ | Count `cross_references` entries |
-| Capabilities with discovery paths | 0 | 10+ | Count `discovery_paths` entries |
+| Capabilities with cross-references | 0 | 20+ | Count `cross_references` entries |
+| Capabilities with discovery paths | 0 | 15+ | Count `discovery_paths` entries |
 | Named patterns | 0 | 4+ | Count `patterns` entries |
 | Named design principles | 0 | 4+ | Count `design_principles` entries |
 | Anti-patterns indexed | ~15 (scattered, per-capability) | 8+ centralized + per-capability | Count entries in anti-patterns manifest |
@@ -1075,6 +1109,8 @@ This plan transforms the ContextCore capability-index from a **flat catalog** in
 The result: any agent or human can discover the right ContextCore capabilities from **any starting point** — whether they begin with a problem, a principle, a related capability, or a question they don't yet know how to phrase.
 
 Every enhancement is additive, backward-compatible, and independently deployable across three tiers of increasing depth.
+
+**Requirements formalized (2026-02-16):** The gaps and enhancements described in this plan have been codified into 10 formal requirements (REQ-CID-001 through REQ-CID-010) in [`docs/design/requirements/REQ_CAPABILITY_INDEX_DISCOVERABILITY.md`](../docs/design/requirements/REQ_CAPABILITY_INDEX_DISCOVERABILITY.md). The requirements document includes acceptance criteria, affected files, test requirements, and non-requirements for each enhancement.
 
 ---
 

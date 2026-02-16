@@ -338,7 +338,8 @@ def _render_json_report(results: List[PolishResult]):
     default="text",
     help="Output format.",
 )
-def polish(target, strict, output_format):
+@click.option("--output-dir", type=click.Path(), default=None, help="Write polish-report.json and register in artifact inventory")
+def polish(target, strict, output_format, output_dir):
     """[EXPERIMENTAL] Advisory step to polish artifacts for better output quality."""
 
     if output_format == "text":
@@ -375,6 +376,59 @@ def polish(target, strict, output_format):
             _render_text_report(results)
             if not has_failures:
                 click.echo(click.style("\u2728 All polished! No issues found.", fg="green"))
+
+    if output_dir:
+        from contextcore.utils.artifact_inventory import (
+            build_inventory_entry,
+            extend_inventory,
+            PRE_PIPELINE_INVENTORY_ROLES,
+        )
+
+        out_path = Path(output_dir)
+        out_path.mkdir(parents=True, exist_ok=True)
+
+        # Build the same JSON structure as _render_json_report
+        report_data = []
+        for r in results:
+            report_data.append(
+                {
+                    "file": r.file_path,
+                    "summary": {
+                        "passed": r.passed_count,
+                        "failed": r.failed_count,
+                        "skipped": r.skipped_count,
+                    },
+                    "checks": [
+                        {
+                            "check_id": c.check_id,
+                            "label": c.label,
+                            "status": c.status,
+                            "message": c.message,
+                            "detail": c.detail,
+                        }
+                        for c in r.checks
+                    ],
+                }
+            )
+
+        report_file = out_path / "polish-report.json"
+        report_file.write_text(
+            _json.dumps(report_data, indent=2) + "\n", encoding="utf-8"
+        )
+
+        role_spec = PRE_PIPELINE_INVENTORY_ROLES["polish_report"]
+        entry = build_inventory_entry(
+            role="polish_report",
+            stage=role_spec["stage"],
+            source_file="polish-report.json",
+            produced_by="contextcore.polish",
+            data=report_data,
+            description=role_spec["description"],
+            consumers=role_spec["consumers"],
+            consumption_hint=role_spec["consumption_hint"],
+        )
+        extend_inventory(out_path, [entry])
+        click.echo(f"Wrote polish-report.json + inventory to {out_path}")
 
     has_failures = any(r.failed_count > 0 for r in results)
     if strict and has_failures:

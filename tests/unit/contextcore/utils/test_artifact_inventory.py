@@ -6,9 +6,11 @@ import pytest
 
 from contextcore.utils.artifact_inventory import (
     EXPORT_INVENTORY_ROLES,
+    PRE_PIPELINE_INVENTORY_ROLES,
     build_export_inventory,
     build_inventory_entry,
     compute_sub_document_checksum,
+    extend_inventory,
 )
 
 
@@ -156,6 +158,121 @@ class TestBuildExportInventory:
         )
         assert inventory[0]["freshness"]["source_checksum"] == "sha256hash"
         assert inventory[0]["freshness"]["source_file"] == ".contextcore.yaml"
+
+
+class TestPrePipelineRoles:
+    def test_project_context_role_exists(self):
+        assert "project_context" in PRE_PIPELINE_INVENTORY_ROLES
+
+    def test_polish_report_role_exists(self):
+        assert "polish_report" in PRE_PIPELINE_INVENTORY_ROLES
+
+    def test_project_context_stage(self):
+        assert PRE_PIPELINE_INVENTORY_ROLES["project_context"]["stage"] == "create"
+
+    def test_polish_report_stage(self):
+        assert PRE_PIPELINE_INVENTORY_ROLES["polish_report"]["stage"] == "polish"
+
+    def test_roles_have_consumers(self):
+        for role, spec in PRE_PIPELINE_INVENTORY_ROLES.items():
+            assert len(spec["consumers"]) > 0, f"{role} has no consumers"
+
+
+class TestExtendInventory:
+    def test_creates_new_provenance(self, tmp_path):
+        """Creates run-provenance.json when none exists."""
+        entry = build_inventory_entry(
+            role="project_context", stage="create",
+            source_file="project-context.yaml",
+            produced_by="contextcore.create", data={"k": "v"},
+        )
+        result = extend_inventory(tmp_path, [entry])
+        assert result is True
+        prov = json.loads((tmp_path / "run-provenance.json").read_text())
+        assert prov["version"] == "2.0.0"
+        assert len(prov["artifact_inventory"]) == 1
+        assert prov["artifact_inventory"][0]["artifact_id"] == "create.project_context"
+
+    def test_extends_existing_inventory(self, tmp_path):
+        """Appends to existing artifact_inventory."""
+        # Pre-seed with one entry
+        seed = {
+            "version": "2.0.0",
+            "artifact_inventory": [
+                {"artifact_id": "create.project_context", "role": "project_context"}
+            ],
+        }
+        (tmp_path / "run-provenance.json").write_text(json.dumps(seed))
+
+        new_entry = build_inventory_entry(
+            role="polish_report", stage="polish",
+            source_file="polish-report.json",
+            produced_by="contextcore.polish", data={"x": 1},
+        )
+        extend_inventory(tmp_path, [new_entry])
+        prov = json.loads((tmp_path / "run-provenance.json").read_text())
+        assert len(prov["artifact_inventory"]) == 2
+
+    def test_deduplicates_by_artifact_id(self, tmp_path):
+        """Existing entries win on artifact_id collision."""
+        seed = {
+            "version": "2.0.0",
+            "artifact_inventory": [
+                {"artifact_id": "create.project_context", "role": "project_context", "marker": "original"}
+            ],
+        }
+        (tmp_path / "run-provenance.json").write_text(json.dumps(seed))
+
+        dup_entry = build_inventory_entry(
+            role="project_context", stage="create",
+            source_file="project-context.yaml",
+            produced_by="contextcore.create", data={"new": True},
+        )
+        extend_inventory(tmp_path, [dup_entry])
+        prov = json.loads((tmp_path / "run-provenance.json").read_text())
+        assert len(prov["artifact_inventory"]) == 1
+        assert prov["artifact_inventory"][0].get("marker") == "original"
+
+    def test_upgrades_v1_to_v2(self, tmp_path):
+        """Upgrades v1 provenance to v2."""
+        seed = {"version": "1.0.0", "workflow": "manifest export"}
+        (tmp_path / "run-provenance.json").write_text(json.dumps(seed))
+
+        entry = build_inventory_entry(
+            role="polish_report", stage="polish",
+            source_file="polish-report.json",
+            produced_by="contextcore.polish", data={"x": 1},
+        )
+        extend_inventory(tmp_path, [entry])
+        prov = json.loads((tmp_path / "run-provenance.json").read_text())
+        assert prov["version"] == "2.0.0"
+        assert prov["workflow"] == "manifest export"  # preserved
+        assert len(prov["artifact_inventory"]) == 1
+
+    def test_handles_malformed_json(self, tmp_path):
+        """Malformed JSON is treated as empty payload."""
+        (tmp_path / "run-provenance.json").write_text("not json {{{")
+        entry = build_inventory_entry(
+            role="project_context", stage="create",
+            source_file="project-context.yaml",
+            produced_by="contextcore.create", data={"k": "v"},
+        )
+        result = extend_inventory(tmp_path, [entry])
+        assert result is True
+        prov = json.loads((tmp_path / "run-provenance.json").read_text())
+        assert prov["version"] == "2.0.0"
+        assert len(prov["artifact_inventory"]) == 1
+
+    def test_creates_output_dir_if_missing(self, tmp_path):
+        """Creates output directory tree if it doesn't exist."""
+        nested = tmp_path / "a" / "b" / "c"
+        entry = build_inventory_entry(
+            role="project_context", stage="create",
+            source_file="project-context.yaml",
+            produced_by="contextcore.create", data={"k": "v"},
+        )
+        extend_inventory(nested, [entry])
+        assert (nested / "run-provenance.json").exists()
 
 
 class TestExportProvenanceV2Integration:

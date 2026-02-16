@@ -142,9 +142,10 @@ def _file_sha256(path: str) -> str:
 @click.option("--target", multiple=True, help="Target resources (kind/name)")
 @click.option("--output", "-o", type=click.Choice(["yaml", "json"]), default="yaml")
 @click.option("--apply", is_flag=True, help="Apply to cluster (requires kubectl)")
+@click.option("--output-dir", type=click.Path(), default=None, help="Write project-context.yaml and register in artifact inventory")
 def create(name: str, namespace: str, project: str, epic: Optional[str], task: tuple, criticality: Optional[str],
            value: Optional[str], owner: Optional[str], design_doc: Optional[str], adr: Optional[str],
-           target: tuple, output: str, apply: bool):
+           target: tuple, output: str, apply: bool, output_dir: Optional[str]):
     """Create a new ProjectContext resource."""
     spec = {"project": {"id": project}, "targets": []}
 
@@ -200,6 +201,34 @@ def create(name: str, namespace: str, project: str, epic: Optional[str], task: t
             context=f"Applying ProjectContext '{name}' to namespace '{namespace}'"
         )
         click.echo(stdout)
+
+    if output_dir:
+        from contextcore.utils.artifact_inventory import (
+            build_inventory_entry,
+            extend_inventory,
+            PRE_PIPELINE_INVENTORY_ROLES,
+        )
+        out_path = Path(output_dir)
+        out_path.mkdir(parents=True, exist_ok=True)
+
+        # Write project-context.yaml
+        pc_file = out_path / "project-context.yaml"
+        pc_file.write_text(yaml.dump(resource, default_flow_style=False), encoding="utf-8")
+
+        # Build and register inventory entry
+        role_spec = PRE_PIPELINE_INVENTORY_ROLES["project_context"]
+        entry = build_inventory_entry(
+            role="project_context",
+            stage=role_spec["stage"],
+            source_file="project-context.yaml",
+            produced_by="contextcore.create",
+            data=resource,
+            description=role_spec["description"],
+            consumers=role_spec["consumers"],
+            consumption_hint=role_spec["consumption_hint"],
+        )
+        extend_inventory(out_path, [entry])
+        click.echo(f"Wrote project-context.yaml + inventory to {out_path}")
 
 
 @click.command()
