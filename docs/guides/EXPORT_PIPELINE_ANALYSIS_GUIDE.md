@@ -29,6 +29,38 @@ How `contextcore install init` and `contextcore manifest export` feed the Plan I
 - [`docs/design/A2A_GATE_REQUIREMENTS.md`](../design/A2A_GATE_REQUIREMENTS.md) — FR/NFR for `a2a-check-pipeline` (Gate 1) and `a2a-diagnose` (Gate 2) (Steps 3, 5)
 - [`docs/design/MANIFEST_CREATE_REQUIREMENTS.md`](../design/MANIFEST_CREATE_REQUIREMENTS.md) — FR/NFR for `manifest create` (manifest authoring)
 - [`docs/design/DOCS_INDEX_REQUIREMENTS.md`](../design/DOCS_INDEX_REQUIREMENTS.md) — FR/NFR for `contextcore docs index` and `contextcore docs show` (documentation index)
+- [`docs/design/requirements/REQ_CAPABILITY_DELIVERY_PIPELINE.md`](../design/requirements/REQ_CAPABILITY_DELIVERY_PIPELINE.md) — FR/NFR for the Capability Delivery Pipeline v2.0 (ALPHA: pre-pipeline stages + provenance accumulation)
+
+---
+
+> **ALPHA: Capability Delivery Pipeline v2.0**
+>
+> The **Capability Delivery Pipeline** extends this export pipeline with two
+> pre-pipeline stages (`create` and `polish`) that register artifacts in
+> `run-provenance.json` before export runs. Export now preserves pre-pipeline
+> inventory entries instead of overwriting them, enabling a unified provenance
+> chain from project creation through artifact generation.
+>
+> **Status:** Alpha. The pipeline stages work end-to-end and provenance
+> accumulates correctly (tested: 9 inventory entries across create/polish/export).
+> The orchestrator script `run-cap-delivery.sh` is functional but not yet
+> hardened for production use. Downstream consumers (plan-ingestion, artisan)
+> do not yet read `create.project_context` or `polish.polish_report` entries.
+>
+> **Requirements:** See [`REQ_CAPABILITY_DELIVERY_PIPELINE.md`](../design/requirements/REQ_CAPABILITY_DELIVERY_PIPELINE.md)
+> (REQ-CDP-001 through REQ-CDP-010).
+>
+> **What works today:**
+> - `contextcore create --output-dir` writes project context + inventory entry
+> - `contextcore polish --output-dir` writes polish report + inventory entry
+> - `contextcore manifest export` merges pre-pipeline entries into provenance
+> - `run-cap-delivery.sh` orchestrates all 5 stages with gating and bypass flags
+>
+> **What is not yet implemented:**
+> - Plan-ingestion consumption of `create.project_context` inventory entry
+> - Artisan review consumption of `polish.polish_report` inventory entry
+> - A2A governance gate validation of pre-pipeline inventory entries
+> - Automated task-mapping generation from init-from-plan output
 
 ---
 
@@ -69,10 +101,10 @@ Each step has a well-defined responsibility:
 
 - `contextcore manifest init` / `manifest init-from-plan` / `manifest migrate` — create or update the `.contextcore.yaml` manifest (see [`MANIFEST_BOOTSTRAP_REQUIREMENTS.md`](../design/MANIFEST_BOOTSTRAP_REQUIREMENTS.md))
 - `contextcore manifest validate` — verify the manifest against the Pydantic schema before exporting (see [`MANIFEST_EXPORT_REQUIREMENTS.md`](../design/MANIFEST_EXPORT_REQUIREMENTS.md))
-- `contextcore create` — generate a Kubernetes ProjectContext resource with project identity and business context. With `--output-dir`, writes `project-context.yaml` and registers an inventory entry in `run-provenance.json`. Currently a standalone pre-pipeline step; planned for full pipeline integration.
-- `contextcore polish` — run advisory quality checks on plan documents (overview, objectives/goals, functional requirements, risks, validation, placeholders, context propagation). With `--output-dir`, writes `polish-report.json` and registers an inventory entry in `run-provenance.json`. Currently experimental; planned for integration as a quality gate before export.
+- `contextcore create` — **(ALPHA, Capability Delivery Pipeline)** generate a Kubernetes ProjectContext resource with project identity and business context. With `--output-dir`, writes `project-context.yaml` and registers an inventory entry in `run-provenance.json`.
+- `contextcore polish` — **(ALPHA, Capability Delivery Pipeline)** run advisory quality checks on plan documents (overview, objectives/goals, functional requirements, risks, validation, placeholders, context propagation). With `--output-dir`, writes `polish-report.json` and registers an inventory entry in `run-provenance.json`. With `--strict`, acts as a quality gate.
 
-The canonical lifecycle order is: **create → init → polish → validate → export → A2A governance** (create and polish are optional pre-pipeline steps; init → validate → export remain the required core).
+The canonical lifecycle order is: **create → init → polish → validate → export → A2A governance** (create and polish are optional pre-pipeline stages from the Capability Delivery Pipeline alpha; init → validate → export remain the required core).
 
 ---
 
