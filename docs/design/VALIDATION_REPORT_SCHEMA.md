@@ -33,6 +33,14 @@ It is always emitted to the export output directory.
 - `source_checksum`
 - `artifact_manifest_checksum`
 - `project_context_checksum`
+- `run_provenance_checksum` (optional, present if run provenance was emitted)
+
+## Run Provenance
+
+Run provenance linking fields:
+
+- `run_provenance_file` (string|null): Relative path to run provenance artifact.
+- `run_id` (string|null): Execution identifier.
 
 ## Integrity
 

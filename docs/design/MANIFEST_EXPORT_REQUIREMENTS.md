@@ -156,9 +156,26 @@ Read a `.contextcore.yaml` manifest and produce the full artifact contract packa
     - Individual `a2a-check-pipeline` command remains available for independent use.
     - Implementation: import `PipelineChecker` from `contracts/a2a/pipeline_checker.py`, instantiate with output directory, call `run()`, display report inline, exit non-zero if `not report.is_healthy`.
 
+#### Run Provenance (Lineage)
+
+18. **Run Provenance Artifact**
+    - Must produce `run-provenance.json` in the output directory.
+    - Must include: run ID, command name, timestamps, environment info, input file fingerprints (path, sha256), output file fingerprints, and quality summary.
+    - Must link inputs (manifest, policy, task mapping) to outputs (CRD, artifact manifest, reports).
+    - Must be enabled by default in strict quality mode.
+    - Must support opting out via `--no-emit-run-provenance`.
+
+#### In-Place Updates
+
+19. **Document Write Strategy**
+    - Must support `--document-write-strategy` with values `update_existing` (default) and `new_output`.
+    - `update_existing`: Writes atomically to the target path, creating a `.bak` backup if the file exists.
+    - `new_output`: Writes to a new file (implementation detail: currently behaves same as update_existing in code but intent is to support versioned/timestamped outputs in future).
+    - Must apply to all generated artifacts.
+
 #### Planned: Task Tracking Emission
 
-18. **`--emit-tasks` flag** (planned — see `docs/plans/EXPORT_TASK_TRACKING_REQUIREMENTS.md` for full requirements)
+20. **`--emit-tasks` flag** (planned — see `docs/plans/EXPORT_TASK_TRACKING_REQUIREMENTS.md` for full requirements)
     - When set, must emit OTel task spans for each artifact in `coverage.gaps` before downstream execution begins.
     - Must emit an epic span, story spans grouped by artifact type, and task spans per artifact.
     - Must record `task_trace_id` in `onboarding-metadata.json` for downstream correlation.
@@ -193,6 +210,8 @@ contextcore manifest export
   --emit-tasks               (flag, planned)   Emit OTel task spans for coverage gaps
   --project-id               (optional)        Override project ID for task tracking
   --endpoint                 (optional)        OTLP endpoint for task emission
+  --document-write-strategy  (default: update_existing) Strategy for file writes
+  --emit-run-provenance      (optional)        Write run-provenance.json (default: strict)
 ```
 
 ### Output Files
@@ -203,7 +222,8 @@ contextcore manifest export
 | `{project}-artifact-manifest.yaml` | Always | Artifact contract |
 | `onboarding-metadata.json` | Default (opt-out: `--no-onboarding`) | Programmatic onboarding + enrichment |
 | `validation-report.json` | Always | Export-time diagnostics |
-| `provenance.json` | `--emit-provenance` | Full audit trail |
+| `provenance.json` | `--emit-provenance` | Full audit trail (legacy) |
+| `run-provenance.json` | Default (strict) | Execution lineage (inputs -> outputs) |
 | `export-quality-report.json` | `--emit-quality-report` | Quality gate outcomes |
 
 ---

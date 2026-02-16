@@ -130,7 +130,8 @@ ContextCore/
 │       ├── PROJECT_PORTFOLIO_OVERVIEW.md
 │       └── PROJECT_DETAILS.md
 ├── plans/                   # Phase implementation plans
-│   └── PHASE4_UNIFIED_ALIGNMENT.md
+│   ├── PHASE4_UNIFIED_ALIGNMENT.md
+│   └── WEAVER_CROSS_REPO_ALIGNMENT_REQUIREMENTS.md  # REQ-1–REQ-8 cross-repo schema alignment
 ├── .claude/                 # Claude Code configuration
 │   ├── hooks/               # SessionStart and prompt hooks
 │   ├── commands/            # Slash commands (/project-context, /show-risks)
@@ -410,6 +411,61 @@ tracker.update_status("PROJ-123", "in_progress")  # Adds span event
 tracker.complete_task("PROJ-123")  # Ends span
 ```
 
+### SpanState v2 Compliance (CRITICAL)
+
+Any code that creates ContextCore state files — whether via `TaskTracker`, `task_tracking_emitter`, or manual JSON — **MUST** include all SpanState v2 required fields. The canonical definition is in `src/contextcore/state.py`.
+
+**Required top-level fields:**
+```python
+{
+    "task_id": str,           # Unique task identifier
+    "span_name": str,         # "contextcore.task.{task_type}" (e.g., "contextcore.task.story")
+    "trace_id": str,          # 32-char hex
+    "span_id": str,           # 16-char hex
+    "parent_span_id": str|null,
+    "start_time": str,        # ISO 8601
+    "end_time": str|null,     # Set when completed
+    "attributes": dict,       # Dict[str, Any] — extensible, no allowlist
+    "events": list,           # List[Dict] — append-only
+    "status": str,            # "OK" | "ERROR" | "UNSET" ← REQUIRED, often missed
+    "status_description": str|null,
+    "schema_version": 2,      # Must match SCHEMA_VERSION
+    "project_id": str|null,   # Auto-set by StateManager.save_span()
+    "created_at": str|null,   # Auto-set by StateManager.save_span()
+}
+```
+
+**Canonical enums** (from `contracts/types.py` — SINGLE SOURCE OF TRUTH):
+
+| Enum | Values | Attribute |
+|------|--------|-----------|
+| `TaskStatus` | `backlog`, `todo`, `in_progress`, `in_review`, `blocked`, `done`, `cancelled` | `task.status` |
+| `TaskType` | `epic`, `story`, `task`, `subtask`, `bug`, `spike`, `incident` | `task.type` |
+| `Priority` | `critical`, `high`, `medium`, `low` | `task.priority` |
+| `HandoffStatus` | `pending`, `accepted`, `in_progress`, `completed`, `failed`, `timeout` | `handoff.status` |
+| `InsightType` | `decision`, `recommendation`, `blocker`, `discovery` | `insight.type` |
+
+**Time-series-progress-tracker required patterns:**
+- **Zero-point initialization**: Every task MUST have a `task.created` event with `percent_complete: 0`
+- **Per-task percent_complete**: `task.percent_complete` attribute (0-100) MUST be in attributes for Grafana gauges
+- **Semantic event attributes**: Events MUST include `task_type`, `task_priority`, `message`
+- **Status-to-percent mapping**: `not_started→0`, `in_progress→50`, `blocked→25`, `complete→100`
+
+### State File Directory Layout
+
+```
+~/.contextcore/state/
+├── {project_id}/                    # One dir per project
+│   ├── {task_id}.json               # Active span (SpanState v2)
+│   ├── {task_id}.json.lock          # File lock (ephemeral)
+│   └── completed/                   # Archived spans (with end_time)
+│       └── {task_id}.json
+├── {another_project}/
+│   └── ...
+```
+
+**Cross-project discovery**: `StateManager` only scans one project dir. To query across projects, instantiate multiple `StateManager(project=X)` instances. `ContextCoreTaskSource` (in StartD8 SDK) also scans a single project. Multi-project scanning requires `upstream_projects` in `.contextcore.yaml` (not yet implemented — see REQ-8 in `docs/plans/WEAVER_CROSS_REPO_ALIGNMENT_REQUIREMENTS.md`).
+
 ### Agent Insights
 
 ```python
@@ -465,6 +521,10 @@ KUBECONFIG=~/.kube/config
 - **Provision dashboards on install**: ContextCore must auto-provision the Project Portfolio Overview and Project Details dashboards to Grafana during installation
 - Dashboard provisioning must be idempotent (safe to run multiple times)
 - Dashboards must use ContextCore semantic conventions for all queries
+- **Use canonical enums from `contracts/types.py`** for `task.status`, `task.type`, `task.priority` — never use ad-hoc strings like `"pending"` (use `"todo"`) or `"telemetry-schema-update"` as `task.type` (use `"task"` + labels)
+- **Include `status` field** in all SpanState files — it's `"OK"` / `"ERROR"` / `"UNSET"`, not the same as `task.status` in attributes
+- **Include `task.percent_complete`** in attributes for any task that will be tracked in Grafana dashboards
+- **Zero-point initialization**: Every `task.created` event MUST include `percent_complete: 0` — without this, burndown charts have no baseline
 
 ## Must Avoid
 
@@ -474,6 +534,10 @@ KUBECONFIG=~/.kube/config
 - Storing sensitive data in ProjectContext
 - Over-generating artifacts (derive only what's needed)
 - Vendor-specific code in core SDK
+- **Using `"pending"` as `task.status`** — use `"todo"` or `"backlog"` (from `TaskStatus` enum). `"pending"` is a `HandoffStatus`, not a `TaskStatus`
+- **Omitting `status` from state files** — SpanState v2 requires a top-level `status` field (`"OK"`/`"ERROR"`/`"UNSET"`). This is distinct from `attributes["task.status"]`
+- **Creating state files without `project_id`** — tasks in isolation are invisible to cross-project discovery and Grafana dashboards
+- **Using custom `task.type` values** — `task.type` must be one of the `TaskType` enum values (epic/story/task/subtask/bug/spike/incident). Use `task.labels` for custom classifiers
 
 ## Session Context (Dogfooding)
 

@@ -1,0 +1,95 @@
+{
+  "schema": "contextcore.io/create-spec/v1",
+  "generated_at": "2026-02-15T14:20:36.532149",
+  "project": {
+    "id": "contextcore-wcp",
+    "name": "Workflow Context Propagation"
+  },
+  "inputs": {
+    "manifest_path": ".contextcore.yaml",
+    "requirements_files": [
+      "docs/design-principles/context-propagation.md",
+      "docs/design-principles/context-propagation-session-brief.md"
+    ],
+    "draft_plan_mode": "enriched",
+    "interactive_requested": false
+  },
+  "requirements": {
+    "functional_ids": [],
+    "non_functional_ids": [],
+    "unresolved_notes": [
+      "Fill requirement descriptions and acceptance criteria in PLAN-draft.md."
+    ]
+  },
+  "artifact_contract": {
+    "required_types": [
+      "dashboard",
+      "prometheus_rule",
+      "loki_rule",
+      "service_monitor",
+      "slo_definition",
+      "notification_policy",
+      "runbook"
+    ],
+    "recommended_types": []
+  },
+  "routing_policy": {
+    "complexity_threshold": 40,
+    "route_policy": "auto",
+    "low_quality_policy": "bias_artisan"
+  },
+  "handoff": {
+    "plan_path": "out/wcp-create/PLAN-draft.md",
+    "contextcore_export_dir_expected": "./out/export",
+    "startd8_config_path": "out/wcp-create/startd8-plan-ingestion-config.json"
+  },
+  "a2a_contracts": {
+    "schema_version": "v1",
+    "contract_types": [
+      {
+        "name": "TaskSpanContract",
+        "usage": "Task/subtask lifecycle as trace spans"
+      },
+      {
+        "name": "ArtifactIntent",
+        "usage": "Artifact requirement declaration before generation"
+      },
+      {
+        "name": "GateResult",
+        "usage": "Phase boundary check outcomes at every gate"
+      },
+      {
+        "name": "HandoffContract",
+        "usage": "Agent-to-agent delegation at routing decisions"
+      }
+    ],
+    "schemas_path": "schemas/contracts/"
+  },
+  "enrichment_fields": {
+    "description": "Fields in onboarding-metadata.json that downstream consumers depend on",
+    "required": [
+      "derivation_rules",
+      "expected_output_contracts",
+      "artifact_dependency_graph",
+      "resolved_artifact_parameters",
+      "file_ownership"
+    ],
+    "recommended": [
+      "open_questions",
+      "objectives",
+      "requirements_hints",
+      "parameter_resolvability"
+    ]
+  },
+  "defense_in_depth": {
+    "principles": [
+      "P1: Validate at the boundary, not just at the end",
+      "P2: Treat each piece as potentially adversarial",
+      "P3: Use checksums as circuit breakers",
+      "P4: Fail loud, fail early, fail specific",
+      "P5: Design calibration guards against over/under-engineering",
+      "P6: Three Questions diagnostic ordering"
+    ],
+    "reference": "docs/EXPORT_PIPELINE_ANALYSIS_GUIDE.md \u00a76"
+  }
+}

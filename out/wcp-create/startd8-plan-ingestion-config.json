@@ -1,0 +1,20 @@
+{
+  "plan_path": "out/wcp-create/PLAN-draft.md",
+  "output_dir": "out/wcp-create",
+  "complexity_threshold": 40,
+  "contextcore_export_dir": "./out/export",
+  "requirements_files": [
+    "docs/design-principles/context-propagation.md",
+    "docs/design-principles/context-propagation-session-brief.md"
+  ],
+  "low_quality_policy": "bias_artisan",
+  "min_export_coverage": 70.0,
+  "a2a_check_pipeline_gate": true,
+  "enrichment_requirements": [
+    "derivation_rules",
+    "expected_output_contracts",
+    "artifact_dependency_graph",
+    "resolved_artifact_parameters",
+    "file_ownership"
+  ]
+}

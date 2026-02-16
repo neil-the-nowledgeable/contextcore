@@ -1,0 +1,65 @@
+{
+  "schema": "contextcore.io/create-gates/v1",
+  "generated_at": "2026-02-15T14:20:36.532173",
+  "gates": {
+    "checksum_chain_required": true,
+    "min_export_coverage": 70.0,
+    "block_on_unresolved_parameter_sources": true,
+    "block_on_validation_diagnostics": true,
+    "derivation_rules_populated": true,
+    "expected_output_contracts_present": true,
+    "dependency_graph_populated": true,
+    "open_questions_surfaced": true
+  },
+  "a2a_pipeline_checker": {
+    "enabled": true,
+    "command": "contextcore contract a2a-check-pipeline",
+    "gates": [
+      {
+        "name": "structural-integrity",
+        "phase": "EXPORT_CONTRACT",
+        "blocking": true
+      },
+      {
+        "name": "checksum-chain",
+        "phase": "CONTRACT_INTEGRITY",
+        "blocking": true
+      },
+      {
+        "name": "provenance-consistency",
+        "phase": "CONTRACT_INTEGRITY",
+        "blocking": true
+      },
+      {
+        "name": "mapping-completeness",
+        "phase": "CONTRACT_INTEGRITY",
+        "blocking": true
+      },
+      {
+        "name": "gap-parity",
+        "phase": "INGEST_PARSE_ASSESS",
+        "blocking": true
+      },
+      {
+        "name": "design-calibration",
+        "phase": "ARTISAN_DESIGN",
+        "blocking": false
+      }
+    ]
+  },
+  "a2a_diagnostic": {
+    "enabled": true,
+    "command": "contextcore contract a2a-diagnose",
+    "stop_at_first_failure": true,
+    "questions": [
+      "Q1: Is the contract complete? (Export layer)",
+      "Q2: Was the contract faithfully translated? (Plan Ingestion layer)",
+      "Q3: Was the translated plan faithfully executed? (Artisan layer)"
+    ]
+  },
+  "notes": [
+    "These gates are intended for pre-ingestion validation.",
+    "Use with contextcore manifest export outputs and plan-ingestion preflight checks.",
+    "Run a2a-check-pipeline after export (Gate 1) and a2a-diagnose after ingestion (Gate 2)."
+  ]
+}

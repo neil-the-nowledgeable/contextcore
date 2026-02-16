@@ -8,7 +8,7 @@
 
 ## 1. What's Well Documented
 
-The `contextcore.agent.yaml` (v1.6.0, 27 capabilities) covers A2A communication thoroughly at the **mechanics** level:
+The `contextcore.agent.yaml` (v1.10.1, 38 capabilities) covers A2A communication thoroughly at the **mechanics** level:
 
 | Capability | Maturity | What's Documented |
 |-----------|----------|------------------|
@@ -33,7 +33,7 @@ The single most important design principle — that ContextCore uses **typed str
 
 It's implicit in the structure (every capability has typed `inputs` and `outputs` schemas), but never called out as a principle that downstream consumers should adopt.
 
-**Why this matters:** When an agent or developer analyzes the capability-index to design a new workflow, they see 27 capabilities. But they don't see the *meta-principle* that should govern how those capabilities compose. The Coyote pipeline design session nearly went with "Option A: JSON mode" or "Option B: markdown parsing" — both of which would have been anti-patterns — because the principle wasn't discoverable.
+**Why this matters:** When an agent or developer analyzes the capability-index to design a new workflow, they see 38 capabilities. But they don't see the *meta-principle* that should govern how those capabilities compose. The Coyote pipeline design session nearly went with "Option A: JSON mode" or "Option B: markdown parsing" — both of which would have been anti-patterns — because the principle wasn't discoverable.
 
 **Recommendation:** Add a top-level `design_principles` section to the agent capability manifest:
 
@@ -162,6 +162,8 @@ This table IS the ContextCore value proposition for communication. But it's not 
 
 The capability-index organizes by function (action, query, transform, integration) but not by **pattern**. An agent trying to answer "how should agents communicate?" must mentally assemble the pattern from scattered capabilities.
 
+> **Note (2026-02-16):** See also Gap 6 below — the defense-in-depth contract system adds a second dimension of missing discoverability beyond communication patterns.
+
 Patterns that exist in the code but aren't named in the index:
 - **Typed handoff pattern**: ExpectedOutput → Part-based output → validation
 - **Insight accumulation pattern**: emit insights → query insights → compound knowledge
@@ -190,6 +192,61 @@ patterns:
     capabilities: [contextcore.guidance.read_constraints, contextcore.insight.emit]
     anti_pattern: "Ignoring governance rules or hardcoding them in prompts"
 ```
+
+### Gap 6: Defense-in-Depth Contract System Has No Capability Index Presence
+
+> **Added 2026-02-16.** This gap was identified after the original gap analysis, when the 7-layer defense-in-depth contract system was implemented (2026-02-14 through 2026-02-15).
+
+ContextCore's most differentiating capability set — contract-based context correctness — is **entirely absent** from the capability index. The 7-layer defense-in-depth system (`src/contextcore/contracts/`) implements:
+
+| Layer | Module | What It Does | Tests |
+|-------|--------|-------------|-------|
+| L1: Context Propagation | `contracts/propagation/` | Declare field flow, validate at boundaries, track provenance | 62 |
+| L2: Schema Compatibility | `contracts/schema_compat/` | Cross-service schema contract validation | ~68 |
+| L3: Semantic Conventions | `contracts/semconv/` | Attribute naming and enum consistency enforcement | ~55 |
+| L4: Causal Ordering | `contracts/ordering/` | Cross-boundary event ordering contracts | ~45 |
+| L5: Capability Propagation | `contracts/capability/` | End-to-end permission flow verification | ~45 |
+| L6: SLO Budget Tracking | `contracts/budget/` | Per-hop latency budget allocation and tracking | ~55 |
+| L7: Data Lineage | `contracts/lineage/` | Transformation history verification and provenance | ~55 |
+
+Plus 9 extension concerns (temporal staleness, delegation authority, multi-budget, version lineage, quality propagation, checkpoint recovery, config evolution, graph topology, evaluation-gated propagation) designed but not yet implemented.
+
+**Why this matters:** An agent or architect evaluating ContextCore for context correctness — the exact use case the contract system solves — will search for "context validation", "contract", "propagation", "schema checking", "boundary validation" in the capability index and find **nothing**. They would have to discover the `contracts/` module through code exploration.
+
+**What's missing from the capability index:**
+
+1. **No capability entries** for any of the 7 contract layers
+2. **No triggers** matching "context contract", "boundary validation", "propagation chain", "schema compatibility", "causal ordering", "SLO budget", "data lineage"
+3. **The 6 design principles** from [CONTEXT_CORRECTNESS_BY_CONSTRUCTION.md](../design/CONTEXT_CORRECTNESS_BY_CONSTRUCTION.md) (Prescriptive Over Descriptive, Design Time Over Runtime, Graceful Degradation, Composable Primitives, Opt-In, Observable Contracts) are not in the `design_principles` section
+4. **The 4 shared primitives** (Declare, Validate, Track, Emit) are not captured as a named pattern
+5. **The "type checker for service architectures" value proposition** — ContextCore's positioning as the compiler for service compositions — is not articulated anywhere in the capability index
+
+**Recommendation:** Add 7 capability entries (one per contract layer), add the 6 design principles to the `design_principles` section, and add a `contract_validation` pattern to the `patterns` section. See [REQ-CID-011](../design/requirements/REQ_CAPABILITY_INDEX_DISCOVERABILITY.md) for the full requirement.
+
+This is arguably a higher-priority gap than Gaps 1-5, because the contract system IS the differentiator (no other workflow framework treats context propagation as a first-class concern), and it is completely invisible in the capability index.
+
+### Gap 7: A2A Governance Contract System Has No Capability Index Presence
+
+> **Added 2026-02-16.** This gap was identified during framework comparison review, which revealed that ContextCore's A2A governance layer is a unique differentiator not found in LangGraph, AutoGen, CrewAI, or other frameworks.
+
+The A2A governance contract system (`contextcore-a2a-comms-design.md`) implements:
+
+| Component | What It Does | Tests |
+|-----------|-------------|-------|
+| `TaskSpanContract` | Typed contract for task span interchange — SpanState v2 compliance, required attrs, enum validation | Part of 154 |
+| `HandoffContract` | Typed contract for agent-to-agent handoff — ExpectedOutput, lifecycle, provenance chain | Part of 154 |
+| `ArtifactIntent` | Typed artifact declaration with semantic roles (Mottainai principle) | Part of 154 |
+| `GateResult` | Typed governance gate result — pass/fail/warning with diagnostics | Part of 154 |
+| `a2a-check-pipeline` (Gate 1) | 6 structural integrity checks (checksum, provenance, mapping, gap parity, design calibration) | Part of 154 |
+| `a2a-diagnose` (Gate 2) | Three Questions diagnostic (lost? shape match? traceable lineage?) | Part of 154 |
+
+Additionally, 2 design principles emerged from the framework comparison analysis:
+- **`framework_agnostic_contracts`** — Contracts declare what must be true, not how frameworks achieve it
+- **`governance_metadata_over_runtime`** — ContextCore adds governance metadata on top, not duplicating runtime metadata
+
+**Why this matters:** The A2A governance system — typed contracts at pipeline boundaries with integrity gates — was identified through framework comparison as having no equivalent in competing frameworks. An architect evaluating ContextCore for cross-agent data governance would search for "governance", "a2a contract", "pipeline integrity", "gate" in the capability index and find nothing.
+
+**Recommendation:** Add 6 A2A governance capability entries, add the `a2a_governance` pattern, and add principles 8-9 to the `design_principles` section. See [REQ-CID-012](../design/requirements/REQ_CAPABILITY_INDEX_DISCOVERABILITY.md) for the full requirement.
 
 ---
 
@@ -232,6 +289,19 @@ The ContextCore agent capability-index was NOT examined because:
 | 5 | Add `contextcore.pipeline.typed_handoff` capability entry | Gap 2: no pipeline communication capability | 1 hour |
 | 6 | Promote `ExpectedOutput` to its own capability or add dedicated triggers | Gap 4: buried sub-schema | 1 hour |
 | 7 | Add `contextcore.meta.structured_authority` capability/benefit entry | Gap 3: value proposition not self-described | 1 hour |
+
+### High Priority (Defense-in-Depth)
+
+> **Added 2026-02-16.** These address Gap 6 — the contract system's absence from the capability index.
+
+| # | Enhancement | What It Addresses | Effort |
+|---|------------|------------------|--------|
+| 11 | Add 7 contract layer capabilities to agent manifest | Gap 6: no contract capabilities in index | 2 hours |
+| 12 | Add defense-in-depth design principles (6 principles) | Gap 6: principles not in design_principles section | 1 hour |
+| 13 | Add `contract_validation` pattern (Declare/Validate/Track/Emit) | Gap 6: shared primitives not captured as pattern | 30 min |
+| 14 | Add 6 A2A governance capability entries to agent manifest | Gap 7: A2A governance contracts absent from index | 1.5 hours |
+| 15 | Add 2 framework-comparison design principles (principles 8-9) | Gap 7: principles from framework comparison not in index | 30 min |
+| 16 | Add `a2a_governance` pattern | Gap 7: A2A governance not captured as pattern | 15 min |
 
 ### Low Priority (Strategic)
 

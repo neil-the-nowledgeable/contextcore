@@ -193,35 +193,35 @@ This checklist is scoped to current command entrypoints and helper modules:
   - **Target file:** `tests/unit/contextcore/cli/provenance/test_provenance_basics.py` (consolidated)
   - **Coverage:** required fields, fingerprint integrity, artifact references.
 
-- [ ] **Init/init-from-plan provenance tests**
-  - **Target file:** `tests/unit/test_manifest_init_provenance.py` (new)
+- [x] **Init/init-from-plan provenance tests**
+  - **Target file:** `tests/unit/contextcore/cli/provenance/test_init_provenance.py`
   - **Coverage:** input doc fingerprints, manifest output fingerprint, strict validation path.
 
-- [ ] **Generate in-place + provenance tests**
-  - **Target file:** `tests/unit/test_generate_in_place_provenance.py` (new)
+- [x] **Generate in-place + provenance tests**
+  - **Target file:** `tests/unit/contextcore/cli/provenance/test_generate_provenance.py`
   - **Coverage:** canonical file updates, report + provenance presence, strict mode behavior.
 
 ## 2) Regression tests
 
-- [ ] **Backward compatibility**
+- [x] **Backward compatibility**
   - Existing expected output filenames must remain unchanged unless explicitly overridden.
-- [ ] **No network dependency**
+- [x] **No network dependency**
   - Provenance generation must pass in offline test environments.
 
 ---
 
 ## Phase 6: Documentation updates
 
-- [ ] **Manifest export requirements update**
+- [x] **Manifest export requirements update**
   - **File:** `docs/design/MANIFEST_EXPORT_REQUIREMENTS.md`
   - **Action:** add run-provenance functional requirements and CLI flags.
 
-- [ ] **Onboarding metadata/schema docs**
+- [x] **Onboarding metadata/schema docs**
   - **Files:** `docs/design/ONBOARDING_METADATA_SCHEMA.md`, `docs/design/VALIDATION_REPORT_SCHEMA.md`
   - **Action:** reference run provenance linkage fields (artifact references, source checksums).
 
-- [ ] **Operational guide update**
-  - **File:** `docs/EXPORT_PIPELINE_ANALYSIS_GUIDE.md`
+- [x] **Operational guide update**
+  - **File:** `docs/guides/EXPORT_PIPELINE_ANALYSIS_GUIDE.md`
   - **Action:** add run provenance checks in gate/runbook steps.
 
 ---
