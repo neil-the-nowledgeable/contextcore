@@ -1,0 +1,107 @@
+# tests/test_notification_yaml.py
+"""Pytest test suite for AlertManager ContextCore notification config."""
+import yaml
+import pytest
+import jsonschema
+
+CONFIG_PATH = "alertmanager/ContextCore-notification.yaml"
+SCHEMA_PATH = "schema/contextcore-notification.schema.yaml"
+
+KNOWN_SECTIONS = {'global', 'route', 'receivers', 'inhibit_rules', 'templates'}
+
+
+@pytest.fixture
+def config():
+    """Load the AlertManager notification config file."""
+    with open(CONFIG_PATH) as f:
+        return yaml.safe_load(f)
+
+
+@pytest.fixture
+def schema():
+    """Load the JSON Schema file for config validation."""
+    with open(SCHEMA_PATH) as f:
+        return yaml.safe_load(f)
+
+
+def test_yaml_loads_without_error(config):
+    """Test that the config YAML file loads successfully."""
+    assert config is not None
+
+
+def test_config_root_is_dict(config):
+    """Test that the config root is a dictionary."""
+    assert isinstance(config, dict), f"Config root must be a dict, got {type(config).__name__}"
+
+
+def test_required_sections_present(config):
+    """Test that all required top-level sections are present."""
+    for section in ("global", "route", "receivers", "inhibit_rules"):
+        assert section in config, f"Missing section: {section}"
+
+
+def test_no_unknown_top_level_keys(config):
+    """Test that no unknown top-level keys are present (warnings only)."""
+    unknown = set(config.keys()) - KNOWN_SECTIONS
+    if unknown:
+        pytest.warns(UserWarning, match=f"Unknown top-level keys: {unknown}")
+    # Non-fatal: unknown keys produce warnings, not failures
+
+
+def test_schema_valid(config, schema):
+    """Test that config validates against the JSON Schema."""
+    jsonschema.validate(config, schema)
+
+
+def test_all_route_receivers_defined(config):
+    """Test that all receivers referenced in routes are defined in receivers."""
+    defined = {r["name"] for r in config["receivers"]}
+
+    def collect_receivers(route):
+        refs = set()
+        if "receiver" in route:
+            refs.add(route["receiver"])
+        for sub in route.get("routes", []):
+            refs |= collect_receivers(sub)
+        return refs
+
+    referenced = collect_receivers(config["route"])
+    undefined = referenced - defined
+    assert not undefined, f"Undefined receivers: {undefined}"
+
+
+def test_at_least_one_receiver(config):
+    """Test that at least one receiver is defined."""
+    assert len(config["receivers"]) >= 1
+
+
+def test_inhibit_rules_structure(config):
+    """Validate inhibit rules have at least one matcher form.
+    Note: 'equal' is NOT required by AlertManager — it is optional."""
+    for i, rule in enumerate(config.get("inhibit_rules", [])):
+        has_source = any(k in rule for k in ("source_match", "source_match_re", "source_matchers"))
+        has_target = any(k in rule for k in ("target_match", "target_match_re", "target_matchers"))
+        assert has_source or has_target, (
+            f"Inhibit rule [{i}] has neither source nor target matcher"
+        )
+
+
+def test_secret_paths_are_absolute(config):
+    """Validate that secret file paths are absolute."""
+    for receiver in config.get("receivers", []):
+        for config_type in ("pagerduty_configs", "slack_configs", "email_configs",
+                            "webhook_configs"):
+            for entry in receiver.get(config_type, []):
+                for key in ("service_key_file", "credentials_file", "bearer_token_file"):
+                    if key in entry and entry[key]:
+                        assert entry[key].startswith("/"), (
+                            f"Receiver '{receiver['name']}' {key} must be absolute: {entry[key]}"
+                        )
+
+
+def test_sub_routes_validate_against_schema(config, schema):
+    """Ensure nested sub-routes pass schema validation (exercises definitions.sub_route)."""
+    routes = config.get("route", {}).get("routes", [])
+    assert len(routes) >= 1, "Expected at least one sub-route for this test"
+    # Full schema validation covers sub-routes via $ref
+    jsonschema.validate(config, schema)

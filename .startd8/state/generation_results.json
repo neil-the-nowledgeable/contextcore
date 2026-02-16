@@ -1,0 +1,14 @@
+{
+  "PI-001a": {
+    "success": true,
+    "generated_files": [
+      "/Users/neilyashinsky/Documents/dev/ContextCore/alertmanager/ContextCore-notification.yaml"
+    ],
+    "error": null,
+    "input_tokens": 85736,
+    "output_tokens": 25577,
+    "cost_usd": 0.7411329999999999,
+    "iterations": 2,
+    "model": "anthropic:claude-opus-4-6"
+  }
+}
