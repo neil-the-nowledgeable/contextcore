@@ -523,7 +523,9 @@ infrastructure you already use.**
 > **Updated 2026-02-16:** The contract system has two orthogonal axes:
 > **Contract Domains** (what correctness properties are enforced) and
 > **Defense-in-Depth Layers** (when enforcement runs in the lifecycle).
-> Both axes are partially implemented.
+> All 7 contract domains are now implemented. Defense-in-depth lifecycle
+> integration (wiring domains into preflight/runtime/postexec/regression
+> stages) is complete for L1–L2 and pending for L3–L7.
 
 ### Table A — Contract Domains (the "what")
 
@@ -531,11 +533,11 @@ infrastructure you already use.**
 |-------|--------|--------|
 | 1 | Context Propagation | **IMPLEMENTED** — `contracts/propagation/` |
 | 2 | Schema Compatibility | **IMPLEMENTED** — `contracts/schema_compat/` |
-| 3 | Semantic Conventions | DESIGNED — `docs/design/requirements/REQ_CONCERN_*` only |
-| 4 | Causal Ordering | DESIGNED — `docs/design/requirements/REQ_CONCERN_*` only |
-| 5 | Capability Propagation | DESIGNED — `docs/design/requirements/REQ_CONCERN_*` only |
-| 6 | SLO Budget Tracking | DESIGNED — `docs/design/requirements/REQ_CONCERN_*` only |
-| 7 | Data Lineage | DESIGNED — `docs/design/requirements/REQ_CONCERN_*` only |
+| 3 | Semantic Conventions | **IMPLEMENTED** — `contracts/semconv/` (20 tests) |
+| 4 | Causal Ordering | **IMPLEMENTED** — `contracts/ordering/` (22 tests) |
+| 5 | Capability Propagation | **IMPLEMENTED** — `contracts/capability/` (18 tests) |
+| 6 | SLO Budget Tracking | **IMPLEMENTED** — `contracts/budget/` (19 tests) |
+| 7 | Data Lineage | **IMPLEMENTED** — `contracts/lineage/` (21 tests) |
 
 ### Table B — Defense-in-Depth Layers (the "when")
 
@@ -551,17 +553,19 @@ infrastructure you already use.**
 ### Domains × Lifecycle Matrix
 
 Each domain can be enforced at multiple lifecycle stages. Cells marked ✓ are
-implemented; cells marked ○ are designed but not yet built.
+fully integrated; cells marked ● have domain logic implemented (schema,
+loader, validator, tracker, OTel) but lifecycle wiring is pending;
+cells marked ○ are designed but not yet built.
 
 |                         | Pre-Flight | Runtime | Post-Exec | Observability | Regression |
 |-------------------------|:----------:|:-------:|:---------:|:-------------:|:----------:|
 | Context Propagation     | ✓          | ✓       | ✓         | ✓             | ✓          |
 | Schema Compatibility    | ✓          | ✓       | ✓         | ✓             | ✓          |
-| Semantic Conventions    | ○          | ○       | ○         | ○             | ○          |
-| Causal Ordering         | ○          | ○       | ○         | ○             | ○          |
-| Capability Propagation  | ○          | ○       | ○         | ○             | ○          |
-| SLO Budget Tracking     | ○          | ○       | ○         | ○             | ○          |
-| Data Lineage            | ○          | ○       | ○         | ○             | ○          |
+| Semantic Conventions    | ●          | ●       | ●         | ●             | ●          |
+| Causal Ordering         | ●          | ●       | ●         | ●             | ●          |
+| Capability Propagation  | ●          | ●       | ●         | ●             | ●          |
+| SLO Budget Tracking     | ●          | ●       | ●         | ●             | ●          |
+| Data Lineage            | ●          | ●       | ●         | ●             | ●          |
 
 ### Extension Concerns (Designed)
 

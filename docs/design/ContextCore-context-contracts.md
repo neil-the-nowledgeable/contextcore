@@ -132,7 +132,7 @@ Let me think through this carefully. This is an architectural design question th
 
   What We Already Have vs What We Need
 
-  > **Updated 2026-02-16:** All 7 layers are now implemented. See
+  > **Updated 2026-02-17:** All 7 layers are now implemented (100 tests for L3–L7, 496 total). See
   > [CONTEXT_CORRECTNESS_BY_CONSTRUCTION.md](CONTEXT_CORRECTNESS_BY_CONSTRUCTION.md)
   > for the theoretical foundation and
   > [CONTEXT_PROPAGATION_CONTRACTS_DESIGN.md](CONTEXT_PROPAGATION_CONTRACTS_DESIGN.md)
@@ -145,15 +145,15 @@ Let me think through this carefully. This is an architectural design question th
   ├───────────────────────────────────┼──────────────────────────────────────┼──────────────────────────────────────┤
   │ L2: Schema Compatibility          │ Implemented (~68 tests)              │ contracts/schema_compat/             │
   ├───────────────────────────────────┼──────────────────────────────────────┼──────────────────────────────────────┤
-  │ L3: Semantic Conventions          │ Implemented (~55 tests)              │ contracts/semconv/                   │
+  │ L3: Semantic Conventions          │ Implemented (20 tests)               │ contracts/semconv/                   │
   ├───────────────────────────────────┼──────────────────────────────────────┼──────────────────────────────────────┤
-  │ L4: Causal Ordering               │ Implemented (~45 tests)              │ contracts/ordering/                  │
+  │ L4: Causal Ordering               │ Implemented (22 tests)               │ contracts/ordering/                  │
   ├───────────────────────────────────┼──────────────────────────────────────┼──────────────────────────────────────┤
-  │ L5: Capability Propagation        │ Implemented (~45 tests)              │ contracts/capability/                │
+  │ L5: Capability Propagation        │ Implemented (18 tests)               │ contracts/capability/                │
   ├───────────────────────────────────┼──────────────────────────────────────┼──────────────────────────────────────┤
-  │ L6: SLO Budget Tracking           │ Implemented (~55 tests)              │ contracts/budget/                    │
+  │ L6: SLO Budget Tracking           │ Implemented (19 tests)               │ contracts/budget/                    │
   ├───────────────────────────────────┼──────────────────────────────────────┼──────────────────────────────────────┤
-  │ L7: Data Lineage / Provenance     │ Implemented (~55 tests)              │ contracts/lineage/                   │
+  │ L7: Data Lineage / Provenance     │ Implemented (21 tests)               │ contracts/lineage/                   │
   └───────────────────────────────────┴──────────────────────────────────────┴──────────────────────────────────────┘
 
   Additionally, 9 extension concerns have been designed (requirements docs in
