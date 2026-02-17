@@ -59,16 +59,19 @@ forward-compatible inventory accumulation.
 ## Pipeline Stages
 
 ```text
-Stage 0          Stage 1          Stage 2            Stage 3            Stage 4
-CREATE           POLISH           INIT-FROM-PLAN     VALIDATE           EXPORT
-project context  plan quality     manifest bootstrap schema check       artifact contract
-────────────── ────────────── ────────────────── ────────────────  ──────────────────
-project-        polish-          .contextcore.yaml  (pass/fail)        artifact-manifest
-context.yaml    report.json      init-from-plan-                       projectcontext CRD
-                                 report.json                           onboarding-metadata
-                                                                       run-provenance.json
-         ╰──────────── run-provenance.json accumulates across stages ──────────────╯
+Stage 0          Stage 1       Stage 1.5     Stage 2            Stage 3            Stage 4
+CREATE           POLISH        FIX           INIT-FROM-PLAN     VALIDATE           EXPORT
+project context  plan quality  auto-remedy   manifest bootstrap schema check       artifact contract
+──────────────  ────────────  ────────────  ────────────────── ────────────────  ──────────────────
+project-        polish-       *.fixed.md    .contextcore.yaml  (pass/fail)        artifact-manifest
+context.yaml    report.json   fix-report    plan-analysis.json                    projectcontext CRD
+                              .json         init-from-plan-                       onboarding-metadata
+                                            report.json                           run-provenance.json
+         ╰──────────────── run-provenance.json accumulates across stages ─────────────────╯
 ```
+
+> **Note:** Stage 1.5 (FIX) was added after the initial pipeline design.
+> See [REQ_FIX_STAGE.md](REQ_FIX_STAGE.md) for the full fix-stage requirements.
 
 After Stage 4, the existing 7-step pipeline continues unchanged:
 Gate 1 -> Plan Ingestion -> Gate 2 -> Contractor Execution -> Gate 3.
@@ -193,12 +196,15 @@ complete run:
 {output-dir}/
   project-context.yaml          # from create
   polish-report.json            # from polish
+  {plan-stem}.fixed.md          # from fix (remediated plan)
+  fix-report.json               # from fix (actions taken)
+  plan-analysis.json            # from analyze-plan
   .contextcore.yaml             # from init-from-plan
   {project}-artifact-manifest.yaml  # from export
   {project}-projectcontext.yaml     # from export
   onboarding-metadata.json      # from export
   validation-report.json        # from export
-  run-provenance.json           # accumulated: create + polish + export entries
+  run-provenance.json           # accumulated: create + polish + fix + export entries
   init-run-provenance.json      # from init-from-plan (separate file, no collision)
 ```
 
@@ -218,16 +224,23 @@ A shell script (`run-cap-delivery.sh`) MUST orchestrate:
 1. **Preflight**: Verify ContextCore is installed, plan file exists, requirements files exist
 2. **Stage 0 (CREATE)**: `contextcore create --output-dir`
 3. **Stage 1 (POLISH)**: `contextcore polish --strict --output-dir` (gating)
-4. **Stage 2 (INIT)**: `contextcore manifest init-from-plan --plan --requirements --output`
-5. **Stage 3 (VALIDATE)**: `contextcore manifest validate --strict`
-6. **Stage 4 (EXPORT)**: `contextcore manifest export --emit-provenance --emit-run-provenance`
-7. **Summary**: Print inventory entry count, file listing, and exit status
+4. **Stage 1.5 (FIX)**: `contextcore fix PLAN --polish-report --output-dir` (skippable)
+5. **Stage 2a (ANALYZE)**: `contextcore manifest analyze-plan --plan --requirements --output`
+6. **Stage 2b (INIT)**: `contextcore manifest init-from-plan --plan --requirements --plan-analysis --output`
+7. **Stage 3 (VALIDATE)**: `contextcore manifest validate --path`
+8. **Stage 4 (EXPORT)**: `contextcore manifest export --emit-provenance --emit-run-provenance`
+9. **Summary**: Print inventory entry count, stage breakdown, file listing, and exit status
+
+When fix runs, downstream stages (analyze, init, export) use the remediated plan
+(`*.fixed.md`) instead of the original. When `--skip-fix` is set, the original
+plan passes through unchanged.
 
 **Acceptance criteria:**
 - Script exits non-zero if any gating stage fails
 - Script prints clear progress for each stage
 - Script accepts `--plan`, `--requirements`, `--output-dir`, `--project`, `--name` arguments
-- Script accepts `--skip-polish` and `--skip-validate` bypass flags
+- Script accepts `--skip-polish`, `--skip-fix`, and `--skip-validate` bypass flags
+- Script accepts `--no-strict-quality` pass-through for export
 
 ---
 
