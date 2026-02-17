@@ -1,20 +1,24 @@
 {
   "_cache_meta": {
     "schema_version": 2,
-    "created_at": "2026-02-17T15:41:49.875094+00:00",
+    "created_at": "2026-02-17T15:44:49.663909+00:00",
     "source_checksum": "2f6604b6927fd8585a63da014b39dc4d38d13642361b90755391497ec6a26a46"
   },
   "downstream_map": {},
   "tasks": {
-    "PI-001e": {
-      "success": false,
-      "generated_files": [],
-      "content_hashes": {},
-      "error": "Error code: 529 - {'type': 'error', 'error': {'type': 'overloaded_error', 'message': 'Overloaded'}, 'request_id': 'req_011CYDtswtTWdVpBW1A8Q5vD'}",
-      "input_tokens": 0,
-      "output_tokens": 0,
-      "cost_usd": 0.0,
-      "iterations": 1,
+    "PI-001f": {
+      "success": true,
+      "generated_files": [
+        "/Users/neilyashinsky/Documents/dev/ContextCore/runbooks/ContextCore-runbook.md"
+      ],
+      "content_hashes": {
+        "/Users/neilyashinsky/Documents/dev/ContextCore/runbooks/ContextCore-runbook.md": "c3f5b2a01880709a9c428c55b1dbbfcd0c11364dc3de1a2a84f6bea40dc4f673"
+      },
+      "error": null,
+      "input_tokens": 12426,
+      "output_tokens": 6006,
+      "cost_usd": 0.14347600000000002,
+      "iterations": 3,
       "model": "anthropic:claude-opus-4-6"
     }
   }
