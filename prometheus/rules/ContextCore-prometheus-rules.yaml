@@ -1,0 +1,27 @@
+groups:
+  - name: ContextCore
+    rules:
+      - alert: ContextCoreDown
+        expr: up{job="contextcore"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ContextCore instance is down"
+          description: "ContextCore instance {{ $labels.instance }} has been unreachable for more than 1 minute."
+      - alert: ContextCoreHighErrorRate
+        expr: "sum(rate(http_requests_total{job=\"contextcore\", status=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"contextcore\"}[5m])) > 0.05"
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ContextCore high error rate"
+          description: "ContextCore 5xx error rate is above 5% for the last 5 minutes."
+      - alert: ContextCoreHighLatency
+        expr: "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"contextcore\"}[5m])) by (le)) > 1"
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ContextCore high request latency"
+          description: "ContextCore 95th percentile latency is above 1 second for the last 5 minutes."
