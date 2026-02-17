@@ -146,6 +146,24 @@ PRE_PIPELINE_INVENTORY_ROLES: Dict[str, Dict[str, Any]] = {
             "so agents know which quality gates the plan already passes."
         ),
     },
+    "fix_report": {
+        "stage": "fix",
+        "description": "Auto-remediation report produced by contextcore fix",
+        "consumers": ["contextcore.manifest.init_from_plan", "startd8.workflow.plan_ingestion", "artisan.review"],
+        "consumption_hint": (
+            "Surface fix actions so agents know which gaps were auto-remediated "
+            "vs. need human attention."
+        ),
+    },
+    "remediated_plan": {
+        "stage": "fix",
+        "description": "Remediated plan document with deterministic fixes applied",
+        "consumers": ["contextcore.manifest.analyze_plan", "contextcore.manifest.init_from_plan"],
+        "consumption_hint": (
+            "Use as --plan input instead of original. "
+            "Passes all fixable polish checks."
+        ),
+    },
 }
 
 

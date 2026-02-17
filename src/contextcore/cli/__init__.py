@@ -47,6 +47,7 @@ from .terminology import terminology
 from .manifest import manifest
 from .docs import docs
 from .polish import polish
+from .fix import fix
 from .core import create, annotate, generate, runbook, controller
 
 # Phase 2 commands
@@ -99,6 +100,7 @@ main.add_command(terminology)
 main.add_command(manifest)
 main.add_command(docs)
 main.add_command(polish)
+main.add_command(fix)
 
 # Phase 2 command groups
 main.add_command(review)
