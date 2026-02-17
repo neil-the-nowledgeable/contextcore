@@ -1,23 +1,23 @@
 {
   "_cache_meta": {
     "schema_version": 2,
-    "created_at": "2026-02-17T15:28:46.682162+00:00",
+    "created_at": "2026-02-17T15:35:53.085552+00:00",
     "source_checksum": "2f6604b6927fd8585a63da014b39dc4d38d13642361b90755391497ec6a26a46"
   },
   "downstream_map": {},
   "tasks": {
-    "PI-001b": {
+    "PI-001c": {
       "success": true,
       "generated_files": [
-        "/Users/neilyashinsky/Documents/dev/ContextCore/grafana/dashboards/ContextCore-dashboard.json"
+        "/Users/neilyashinsky/Documents/dev/ContextCore/k8s/observability/ContextCore-service-monitor.yaml"
       ],
       "content_hashes": {
-        "/Users/neilyashinsky/Documents/dev/ContextCore/grafana/dashboards/ContextCore-dashboard.json": "8512686a167ca5cff2613e21422b5fab7314eccb203b414f1ddb216148cb1855"
+        "/Users/neilyashinsky/Documents/dev/ContextCore/k8s/observability/ContextCore-service-monitor.yaml": "0588fccee2b8514cefd77cd4332d51c09296fc0fcb881a2f7cc57796a80144f1"
       },
       "error": null,
-      "input_tokens": 57549,
-      "output_tokens": 23682,
-      "cost_usd": 0.7045549999999999,
+      "input_tokens": 48843,
+      "output_tokens": 6062,
+      "cost_usd": 0.36058499999999993,
       "iterations": 1,
       "model": "anthropic:claude-opus-4-6"
     }
