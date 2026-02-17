@@ -1,0 +1,68 @@
+# k8s/observability/ContextCore-service-monitor.yaml
+#
+# ServiceMonitor for ContextCore — enables Prometheus autodiscovery and
+# scraping of the ContextCore /metrics endpoint via mTLS + bearer token.
+#
+# Prerequisites (must exist before applying):
+#   - Secret: contextcore-metrics-tls    (ns: observability) — ca.crt, tls.crt, tls.key
+#   - Secret: contextcore-metrics-token  (ns: observability) — token
+#   - Service: contextcore               (ns: contextcore)   — port named http-metrics
+#
+# Requires Prometheus Operator v0.60+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: contextcore
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: contextcore
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: contextcore-platform
+    app.kubernetes.io/managed-by: kubectl
+    # This label must match Prometheus's serviceMonitorSelector
+    prometheus: main
+spec:
+  jobLabel: app.kubernetes.io/name
+  namespaceSelector:
+    matchNames:
+      - contextcore
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: contextcore
+  sampleLimit: 10000
+  targetLimit: 10
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+      honorLabels: false
+      scheme: https
+      tlsConfig:
+        insecureSkipVerify: false
+        ca:
+          secret:
+            name: contextcore-metrics-tls
+            key: ca.crt
+        cert:
+          secret:
+            name: contextcore-metrics-tls
+            key: tls.crt
+        keySecret:
+          name: contextcore-metrics-tls
+          key: tls.key
+      bearerTokenSecret:
+        name: contextcore-metrics-token
+        key: token
+      metricRelabelings:
+        # Drop high-cardinality Go runtime debug metrics to control cost.
+        # Preserves commonly-used metrics: go_gc_duration_seconds,
+        # go_gc_cycles_*, go_gc_pauses_*. Only drops verbose heap internals.
+        - sourceLabels: [__name__]
+          regex: 'go_gc_heap_allocs_.*|go_gc_heap_frees_.*|go_gc_heap_tiny_allocs_objects_total|go_gc_stack_starting_size_bytes'
+          action: drop
+      relabelings:
+        # Add a static environment label for multi-env dashboards
+        - targetLabel: environment
+          replacement: production
+          action: replace
