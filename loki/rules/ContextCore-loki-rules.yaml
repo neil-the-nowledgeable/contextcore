@@ -1,0 +1,60 @@
+# ContextCore Loki Rules — Capability Indexed
+# Structure: groups are prefixed by capability domain
+# Convention: <capability>-<rule-type> (e.g., ingestion-alerts, query-recording)
+# Machine-readable index: see capability-index.yaml (validated in CI)
+
+groups:
+  # ── Existing rules (preserved) ──────────────────────────
+  - name: context-core-alerts
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum(rate({app="context-core"} |= "error" [5m])) > 10
+        for: 5m
+        labels:
+          severity: critical
+          capability: core
+          owner: platform-team
+        annotations:
+          summary: "High error rate in ContextCore"
+
+  # ── Ingestion Capability ────────────────────────────────
+  - name: ingestion-alerts
+    interval: 2m
+    rules:
+      - alert: IngestionPipelineStalled
+        expr: |
+          sum(rate({app="context-core", component="ingestion"} |= "processed" [10m])) == 0
+        for: 10m
+        labels:
+          severity: warning
+          capability: ingestion
+          owner: ingestion-team
+        annotations:
+          summary: "Ingestion pipeline has produced zero events in 10m"
+
+  # ── Query Capability (Alerts) ───────────────────────────
+  - name: query-alerts
+    interval: 2m
+    rules:
+      - alert: SlowQueryDetected
+        expr: |
+          sum(rate({app="context-core", component="query"} | json | duration_ms > 9999 [5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          capability: query
+          owner: query-team
+        annotations:
+          summary: "Elevated slow query rate detected"
+
+  # ── Query Capability (Recording Rules) ──────────────────
+  - name: query-recording
+    interval: 5m
+    rules:
+      - record: context_core:query_error_rate:5m
+        expr: |
+          sum(rate({app="context-core", component="query"} |= "error" [5m]))
+        labels:
+          capability: query
+          owner: query-team
