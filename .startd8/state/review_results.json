@@ -1,38 +1,42 @@
 {
   "_cache_meta": {
     "schema_version": 2,
-    "created_at": "2026-02-17T15:45:11.886681+00:00",
+    "created_at": "2026-02-17T15:50:14.025914+00:00",
     "source_checksum": "2f6604b6927fd8585a63da014b39dc4d38d13642361b90755391497ec6a26a46"
   },
   "tasks": {
-    "PI-001f": {
-      "task_id": "PI-001f",
-      "score": 15,
+    "PI-001g": {
+      "task_id": "PI-001g",
+      "score": 72,
       "verdict": "FAIL",
       "passed": false,
-      "cost": 0.01327,
+      "cost": 0.018405,
       "tokens": {
-        "input": 484,
-        "output": 434
+        "input": 616,
+        "output": 613
       },
       "status": "reviewed",
       "strengths": [
-        "The file begins with a reasonable runbook structure (Overview, Prerequisites sections)",
-        "Markdown formatting is clean for what exists"
+        "Well-structured, valid YAML with clear and consistent formatting",
+        "Includes sensible SLO definitions (availability, latency, error rate, throughput) with reasonable targets",
+        "Each SLO entry has a consistent schema: name, type, target, window, description",
+        "Proper metadata fields (service, version, owner) at the top level",
+        "File is self-explanatory and would be easy to consume programmatically"
       ],
       "issues": [
-        "[severity: BLOCKING] The generated code is severely incomplete \u2014 the file is truncated mid-sentence/mid-code-block. The markdown code fence for verifying the Python version is opened but never closed, and the document ends abruptly after \"Verify your Python version:\". A runbook should contain operational sections like setup, running, troubleshooting, monitoring, incident response, etc.",
-        "[severity: BLOCKING] The task title references \"Capability Index Structural Enhancement Plan\" but the generated runbook content makes no mention of capability indices, structural enhancements, or any domain-specific ContextCore concepts. The content is entirely generic boilerplate that could apply to any Python project.",
-        "[severity: MAJOR] There is no meaningful operational guidance \u2014 no instructions for running the application, no configuration details, no troubleshooting steps, no monitoring or alerting guidance, no escalation procedures. These are fundamental components of any runbook.",
-        "[severity: MAJOR] The task description mentions this was \"auto-split from PI-001: implement `runbooks/ContextCore-runbook.md` only\" suggesting a specific implementation plan existed, but the output shows no evidence of following any design document or plan."
+        "[MAJOR] The task description says \"Fallback parsed feature from plan text\" and references a \"Capability Index Structural Enhancement Plan,\" suggesting this YAML should be derived from an actual plan document. The generated content appears to be entirely fabricated/generic rather than parsed from any source plan. The SLO values (99.9% availability, 500ms p99, 0.1% error rate, 1000 RPS) look like boilerplate defaults with no evidence they reflect specific plan requirements.",
+        "[MAJOR] The constraint \"Preserve existing sections\" implies there may be pre-existing content in this file that should be retained. There is no indication that any existing content was considered or preserved \u2014 the file appears to be generated from scratch. Without knowing the original file contents, we cannot verify compliance with this constraint, but the lack of any acknowledgment or handling of this is concerning.",
+        "[MINOR] The test results show both validators were **skipped** due to \"unknown_validator\" \u2014 meaning no actual validation was performed. The \"passed\" status is misleading; it passed vacuously because nothing was actually checked. This should not be taken as evidence of correctness.",
+        "[MINOR] The file path `ContextCore-slo.yaml` should presumably be placed under an `slo/` directory per the task description (`implement slo/ContextCore-slo.yaml only`), but the file header just shows `# File: ContextCore-slo.yaml` without the directory prefix."
       ],
       "suggestions": [
-        "Complete the runbook with all standard sections: Setup/Installation, Configuration, Running the Application, Health Checks, Monitoring, Common Issues & Troubleshooting, Escalation Procedures, and Rollback Steps",
-        "Address the \"Capability Index Structural Enhancement\" aspect explicitly \u2014 include sections on capability index structure, how to verify index integrity, how to rebuild indices, etc.",
-        "Include ContextCore-specific operational details rather than generic Python project boilerplate",
-        "Ensure all markdown code fences are properly opened and closed"
+        "Clarify and obtain the actual source plan document to derive concrete, accurate SLO values rather than using generic defaults",
+        "Verify whether a pre-existing `ContextCore-slo.yaml` file exists and ensure all its sections are preserved as required by the constraint",
+        "Use the correct file path `slo/ContextCore-slo.yaml` to match the task specification",
+        "Consider adding units explicitly to target values (e.g., `unit: ms` for latency, `unit: percent` for availability and error_rate, `unit: rps` for throughput) to avoid ambiguity",
+        "Implement actual validators for YAML format validation and key preservation checking rather than relying on skipped/vacuous test results"
       ],
-      "reviewed_code_hash": "c3f5b2a01880709a9c428c55b1dbbfcd0c11364dc3de1a2a84f6bea40dc4f673"
+      "reviewed_code_hash": "060f2492ec8577e0b3ee1725ad8d15649b71ac0271876f9a7bb40e7be9e7e136"
     }
   }
 }
