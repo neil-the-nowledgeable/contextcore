@@ -1,0 +1,24 @@
+service: ContextCore
+version: "1.0"
+owner: context-core-team
+slos:
+  - name: availability
+    type: availability
+    target: 99.9
+    window: 30d
+    description: Service uptime over a 30-day rolling window
+  - name: response_latency_p99
+    type: latency
+    target: 500
+    window: 30d
+    description: 99th percentile response latency in milliseconds
+  - name: error_rate
+    type: error_rate
+    target: 0.1
+    window: 30d
+    description: Percentage of requests resulting in errors
+  - name: throughput
+    type: throughput
+    target: 1000
+    window: 1d
+    description: Minimum requests per second sustained daily
