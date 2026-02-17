@@ -34,8 +34,11 @@ This creates three problems:
    that cause downstream rework. Polish checks exist but are not enforced.
 
 The Capability Delivery Pipeline (v2.0) extends the existing 7-step export
-pipeline with two pre-pipeline stages, a unified provenance chain, and
-forward-compatible inventory accumulation.
+pipeline with pre-pipeline stages, a unified provenance chain, and
+forward-compatible inventory accumulation. The full end-to-end pipeline spans
+two codebases: **ContextCore** (stages 0–4: metadata, quality, and contract
+generation) and **startd8-sdk** (stages 5–7: plan ingestion, contractor
+execution, and artifact delivery via the artisan or prime contractor workflows).
 
 ---
 
@@ -43,38 +46,102 @@ forward-compatible inventory accumulation.
 
 ### In scope
 
-- Formalizing `create` and `polish` as pre-pipeline stages with inventory output
-- Provenance accumulation across all stages (create -> polish -> init -> export)
-- A shell script that orchestrates the full pipeline for a plan + requirements pair
+- Formalizing `create`, `polish`, and `fix` as pre-pipeline stages with inventory output
+- Provenance accumulation across all stages (create -> polish -> fix -> init -> export)
+- A shell script (`run-cap-delivery.sh`) that orchestrates the ContextCore half of the
+  pipeline (stages 0–4) for a plan + requirements pair
 - Forward compatibility: export must preserve pre-pipeline inventory entries
+- Clear documentation of the handoff contract between ContextCore and startd8-sdk
 
 ### Out of scope
 
-- Changes to plan-ingestion or artisan workflow consumption of inventory entries
+- Changes to startd8-sdk plan-ingestion or contractor workflows (artisan, prime contractor)
 - Changes to A2A governance gates (Gate 1, Gate 2, Gate 3)
-- Automated remediation of polish failures (polish remains advisory unless `--strict`)
+- Orchestration of the startd8-sdk stages (stages 5–7 are invoked separately)
 
 ---
 
-## Pipeline Stages
+## Pipeline Stages — Full End-to-End
+
+The Capability Delivery Pipeline spans two codebases. Stages 0–4 run in
+**ContextCore** (orchestrated by `run-cap-delivery.sh`). Stages 5–7 run in
+**startd8-sdk** (invoked separately after the handoff).
 
 ```text
-Stage 0          Stage 1       Stage 1.5     Stage 2            Stage 3            Stage 4
-CREATE           POLISH        FIX           INIT-FROM-PLAN     VALIDATE           EXPORT
-project context  plan quality  auto-remedy   manifest bootstrap schema check       artifact contract
-──────────────  ────────────  ────────────  ────────────────── ────────────────  ──────────────────
-project-        polish-       *.fixed.md    .contextcore.yaml  (pass/fail)        artifact-manifest
-context.yaml    report.json   fix-report    plan-analysis.json                    projectcontext CRD
-                              .json         init-from-plan-                       onboarding-metadata
-                                            report.json                           run-provenance.json
-         ╰──────────────── run-provenance.json accumulates across stages ─────────────────╯
+                         ContextCore (run-cap-delivery.sh)
+  ┌──────────────────────────────────────────────────────────────────────────────────┐
+  │                                                                                  │
+  │  Stage 0       Stage 1     Stage 1.5   Stage 2          Stage 3     Stage 4      │
+  │  CREATE        POLISH      FIX         INIT-FROM-PLAN   VALIDATE    EXPORT       │
+  │  project ctx   plan quality auto-remedy manifest boot    schema chk  artifact ctr │
+  │  ───────────  ──────────  ──────────  ──────────────── ──────────  ──────────── │
+  │  project-     polish-     *.fixed.md  .contextcore.yaml (pass/fail) artifact-    │
+  │  context.yaml report.json fix-report  plan-analysis.json            manifest     │
+  │                           .json       init-from-plan-               onboarding-  │
+  │                                       report.json                   metadata.json│
+  │                                                                     run-prov.json│
+  │      ╰──────────── run-provenance.json accumulates across stages ──────────╯     │
+  │                                                                                  │
+  └───────────────────────────────────┬──────────────────────────────────────────────┘
+                                      │
+                    Handoff artifacts: │  artifact-manifest.yaml
+                                      │  onboarding-metadata.json
+                                      │  run-provenance.json
+                                      │
+  ┌───────────────────────────────────▼──────────────────────────────────────────────┐
+  │                                                                                  │
+  │                          startd8-sdk                                              │
+  │                                                                                  │
+  │  Stage 5              Stage 6                          Stage 7                   │
+  │  GATE 1 +             CONTRACTOR EXECUTION             GATE 3                    │
+  │  PLAN INGESTION       (Artisan or Prime Contractor)    FINALIZE                  │
+  │  ────────────────     ─────────────────────────────    ──────────────             │
+  │  a2a-check-pipeline   complexity ≤ 40 → Prime Ctr     per-artifact verify        │
+  │  parse/assess/         complexity > 40 → Artisan       provenance chain check    │
+  │  transform/refine     ┌─────────────────────────┐     finalize report            │
+  │  ──── Gate 2 ────     │ Artisan: plan → scaffold │                               │
+  │  a2a-diagnose         │ → design → implement →   │                               │
+  │  (Three Questions)    │ test → review → finalize  │                               │
+  │                       │                           │                               │
+  │                       │ Prime Ctr: feature-by-    │                               │
+  │                       │ feature integration       │                               │
+  │                       └─────────────────────────┘                                │
+  │                                                                                  │
+  └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 > **Note:** Stage 1.5 (FIX) was added after the initial pipeline design.
 > See [REQ_FIX_STAGE.md](REQ_FIX_STAGE.md) for the full fix-stage requirements.
 
-After Stage 4, the existing 7-step pipeline continues unchanged:
-Gate 1 -> Plan Ingestion -> Gate 2 -> Contractor Execution -> Gate 3.
+### Handoff contract (Stage 4 → Stage 5)
+
+The export artifacts serve as the handoff contract between ContextCore and
+startd8-sdk. Key files consumed by plan ingestion and contractor execution:
+
+| Artifact | Consumed by | Key fields |
+|----------|------------|------------|
+| `artifact-manifest.yaml` | Plan ingestion (PARSE), Artisan (PLAN/DESIGN) | coverage gaps, derivation rules, dependency graph |
+| `onboarding-metadata.json` | Plan ingestion (ASSESS), Artisan (IMPLEMENT) | parameter sources, output contracts, calibration hints |
+| `run-provenance.json` | Gate 1 (checksum chain), Gate 3 (provenance verify) | source checksum, artifact inventory |
+
+### Complexity-based routing (Stage 6)
+
+Plan ingestion's TRANSFORM phase scores 7 complexity dimensions (0–100) and
+routes to the appropriate contractor:
+
+- **Complexity ≤ 40** → **Prime Contractor** — sequential feature-by-feature integration
+- **Complexity > 40** → **Artisan Workflow** — structured 7-phase orchestration
+  (plan → scaffold → design → implement → test → review → finalize)
+
+The `force_route` config can override automatic routing.
+
+### Defense-in-depth gates
+
+| Gate | Location | Command | Purpose |
+|------|----------|---------|---------|
+| Gate 1 | After export, before plan ingestion | `contextcore contract a2a-check-pipeline` | 6 structural integrity checks (checksums, provenance, gap parity) |
+| Gate 2 | After plan ingestion, before contractor | `contextcore contract a2a-diagnose` | Three Questions diagnostic (stops at first failure) |
+| Gate 3 | After contractor execution | Finalize verification | Per-artifact checksums, provenance chain, status rollup |
 
 ---
 
@@ -215,11 +282,15 @@ complete run:
 
 ---
 
-### REQ-CDP-008: Pipeline script orchestrates all stages
+### REQ-CDP-008: Pipeline script orchestrates ContextCore stages (0–4)
 
 **Priority:** P1
 
-A shell script (`run-cap-delivery.sh`) MUST orchestrate:
+A shell script (`run-cap-delivery.sh`) MUST orchestrate the ContextCore half of
+the pipeline (stages 0–4). The startd8-sdk stages (5–7) are invoked separately
+after the handoff artifacts are produced.
+
+The script MUST orchestrate:
 
 1. **Preflight**: Verify ContextCore is installed, plan file exists, requirements files exist
 2. **Stage 0 (CREATE)**: `contextcore create --output-dir`
