@@ -1,16 +1,16 @@
 {
   "_cache_meta": {
     "schema_version": 2,
-    "created_at": "2026-02-17T15:41:01.974400+00:00",
+    "created_at": "2026-02-17T15:41:49.875094+00:00",
     "source_checksum": "2f6604b6927fd8585a63da014b39dc4d38d13642361b90755391497ec6a26a46"
   },
   "downstream_map": {},
   "tasks": {
-    "PI-001d": {
+    "PI-001e": {
       "success": false,
       "generated_files": [],
       "content_hashes": {},
-      "error": "Error code: 529 - {'type': 'error', 'error': {'type': 'overloaded_error', 'message': 'Overloaded'}, 'request_id': 'req_011CYDtpEtJNhC6e4BaWegsF'}",
+      "error": "Error code: 529 - {'type': 'error', 'error': {'type': 'overloaded_error', 'message': 'Overloaded'}, 'request_id': 'req_011CYDtswtTWdVpBW1A8Q5vD'}",
       "input_tokens": 0,
       "output_tokens": 0,
       "cost_usd": 0.0,

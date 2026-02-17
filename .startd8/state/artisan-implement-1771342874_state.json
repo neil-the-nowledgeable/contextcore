@@ -1,0 +1,11 @@
+{
+  "PI-001e": {
+    "chunk_id": "PI-001e",
+    "status": "failed",
+    "attempts": 3,
+    "last_error": "Error code: 529 - {'type': 'error', 'error': {'type': 'overloaded_error', 'message': 'Overloaded'}, 'request_id': 'req_011CYDtswtTWdVpBW1A8Q5vD'}",
+    "started_at": "2026-02-17T15:41:38.596353+00:00",
+    "completed_at": "2026-02-17T15:41:49.873651+00:00",
+    "test_output": null
+  }
+}
