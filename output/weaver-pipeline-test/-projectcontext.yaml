@@ -1,0 +1,48 @@
+apiVersion: contextcore.io/v1
+kind: ProjectContext
+metadata:
+  name: ''
+  namespace: default
+spec:
+  project:
+    id: ''
+    tasks: []
+  business:
+    criticality: high
+    value: enabler
+    owner: disagrees
+    stakeholders: []
+  requirements:
+    availability: '99.9'
+    latencyP99: 500ms
+    errorBudget: '0.1'
+    throughput: 100rps
+  risks:
+  - type: availability
+    description: '## Risk Register'
+    priority: P2
+    mitigation: Define mitigation in implementation plan
+    controls: []
+  - type: availability
+    description: '| Risk | Severity | Mitigation |'
+    priority: P2
+    mitigation: Define mitigation in implementation plan
+    controls: []
+  - type: availability
+    description: '| R2-S1 | Mandate Option B (automated schema distribution) and remove
+      Option A from Phase 6.2. | gemini-2.5 (gemini-2.5-pro) | The plan explicitly
+      acknowledges Option B as the long'
+    priority: P2
+    mitigation: Define mitigation in implementation plan
+    controls: []
+  targets:
+  - kind: Deployment
+    name: ''
+    namespace: default
+  observability:
+    traceSampling: 1.0
+    metricsInterval: 30s
+    logLevel: info
+    dashboardPlacement: standard
+    alertChannels:
+    - '#2'

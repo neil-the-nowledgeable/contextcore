@@ -1,0 +1,134 @@
+{
+  "source_file": "docs/plans/WEAVER_CROSS_REPO_ALIGNMENT_PLAN.md",
+  "actions": [
+    {
+      "check_id": "overview-exists",
+      "status": "not_applicable",
+      "strategy": null,
+      "diff_summary": null,
+      "reason": "Check already passes."
+    },
+    {
+      "check_id": "overview-objectives",
+      "status": "fixed",
+      "strategy": "extract_from_overview_prose",
+      "diff_summary": "Inserted **Objectives:** line with 1 phrase(s)",
+      "reason": null
+    },
+    {
+      "check_id": "overview-goals",
+      "status": "fixed",
+      "strategy": "synthesize_from_phases",
+      "diff_summary": "Inserted **Goals:** block with 5 goal(s)",
+      "reason": null
+    },
+    {
+      "check_id": "requirements-exist",
+      "status": "fixed",
+      "strategy": "collect_req_ids_from_satisfies",
+      "diff_summary": "Built ## Functional Requirements table with 7 ID(s)",
+      "reason": null
+    },
+    {
+      "check_id": "risks-exist",
+      "status": "not_applicable",
+      "strategy": null,
+      "diff_summary": null,
+      "reason": "Check already passes."
+    },
+    {
+      "check_id": "validation-exist",
+      "status": "not_applicable",
+      "strategy": null,
+      "diff_summary": null,
+      "reason": "Check already passes."
+    },
+    {
+      "check_id": "no-placeholders",
+      "status": "not_applicable",
+      "strategy": null,
+      "diff_summary": null,
+      "reason": "Check already passes."
+    },
+    {
+      "check_id": "context-propagation",
+      "status": "not_applicable",
+      "strategy": null,
+      "diff_summary": null,
+      "reason": "Check already passes."
+    },
+    {
+      "check_id": "pipeline-phases-exist",
+      "status": "not_applicable",
+      "strategy": null,
+      "diff_summary": null,
+      "reason": "Check already passes."
+    },
+    {
+      "check_id": "pipeline-phase-metadata",
+      "status": "not_applicable",
+      "strategy": null,
+      "diff_summary": null,
+      "reason": "Check already passes."
+    },
+    {
+      "check_id": "pipeline-req-ids-found",
+      "status": "not_applicable",
+      "strategy": null,
+      "diff_summary": null,
+      "reason": "Check already passes."
+    },
+    {
+      "check_id": "pipeline-plan-title",
+      "status": "not_applicable",
+      "strategy": null,
+      "diff_summary": null,
+      "reason": "Check already passes."
+    },
+    {
+      "check_id": "pipeline-deliverables",
+      "status": "not_applicable",
+      "strategy": null,
+      "diff_summary": null,
+      "reason": "Check already passes."
+    },
+    {
+      "check_id": "pipeline-validation-criteria",
+      "status": "not_applicable",
+      "strategy": null,
+      "diff_summary": null,
+      "reason": "Check already passes."
+    }
+  ],
+  "summary": {
+    "fixed": 3,
+    "skipped": 0,
+    "not_applicable": 11
+  },
+  "traceability": [
+    {
+      "check_id": "overview-objectives",
+      "polish_detects": "Overview exists but lacks Objectives keyword",
+      "fix_remediates": "Extracts intent verbs from prose, inserts **Objectives:** line",
+      "init_extracts": "Overview text enriches spec.project.description",
+      "manifest_contains": "spec.project.description with objective-enriched text",
+      "export_produces": "Description in onboarding-metadata for downstream agents"
+    },
+    {
+      "check_id": "overview-goals",
+      "polish_detects": "Overview exists but lacks Goals keyword",
+      "fix_remediates": "Synthesizes goals from phase headings, inserts **Goals:** block",
+      "init_extracts": "### Goals section parsed to populate strategy.objectives",
+      "manifest_contains": "strategy.objectives with goal-derived OBJ-PLAN entries",
+      "export_produces": "Objectives in onboarding-metadata for agent planning"
+    },
+    {
+      "check_id": "requirements-exist",
+      "polish_detects": "No Functional Requirements section found",
+      "fix_remediates": "Collects REQ-IDs from Satisfies lines, builds FR table",
+      "init_extracts": "_REQ_ID_PATTERN extracts IDs for requirement_ids inference",
+      "manifest_contains": "requirement_ids populated, traceability_matrix coverage_ratio > 0",
+      "export_produces": "Requirements in traceability context for downstream agents"
+    }
+  ]
+}

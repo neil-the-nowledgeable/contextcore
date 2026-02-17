@@ -1,0 +1,110 @@
+[
+  {
+    "file": "docs/plans/WEAVER_CROSS_REPO_ALIGNMENT_PLAN.md",
+    "summary": {
+      "passed": 11,
+      "failed": 3,
+      "skipped": 0
+    },
+    "checks": [
+      {
+        "check_id": "overview-exists",
+        "label": "Overview section exists",
+        "status": "passed",
+        "message": "Overview section found.",
+        "detail": null
+      },
+      {
+        "check_id": "overview-objectives",
+        "label": "Overview mentions objectives",
+        "status": "failed",
+        "message": "The 'Overview' section is missing 'Objectives'.",
+        "detail": "Add a line starting with '**Objectives**:' summarizing what the plan aims to accomplish."
+      },
+      {
+        "check_id": "overview-goals",
+        "label": "Overview mentions goals",
+        "status": "failed",
+        "message": "The 'Overview' section is missing 'Goals'.",
+        "detail": "Add a line starting with '**Goals**:' listing measurable completion criteria."
+      },
+      {
+        "check_id": "requirements-exist",
+        "label": "Requirements section exists",
+        "status": "failed",
+        "message": "No 'Functional Requirements' section found.",
+        "detail": "Add a section listing FR-001, FR-002, etc. with descriptions and acceptance criteria. init-from-plan extracts REQ-IDs from this section for the traceability matrix."
+      },
+      {
+        "check_id": "risks-exist",
+        "label": "Risks section exists",
+        "status": "passed",
+        "message": "Risks section found.",
+        "detail": null
+      },
+      {
+        "check_id": "validation-exist",
+        "label": "Validation/test obligations exist",
+        "status": "passed",
+        "message": "Validation/test section found.",
+        "detail": null
+      },
+      {
+        "check_id": "no-placeholders",
+        "label": "No unfilled placeholders",
+        "status": "passed",
+        "message": "No unfilled placeholders detected.",
+        "detail": null
+      },
+      {
+        "check_id": "context-propagation",
+        "label": "Context propagation pattern detection",
+        "status": "passed",
+        "message": "No context propagation pattern detected (not applicable).",
+        "detail": null
+      },
+      {
+        "check_id": "pipeline-phases-exist",
+        "label": "Phase/milestone headings exist",
+        "status": "passed",
+        "message": "7 phase/milestone heading(s) found.",
+        "detail": null
+      },
+      {
+        "check_id": "pipeline-phase-metadata",
+        "label": "Phase metadata lines present",
+        "status": "passed",
+        "message": "Phase metadata found: Satisfies, Depends on, Repo.",
+        "detail": null
+      },
+      {
+        "check_id": "pipeline-req-ids-found",
+        "label": "Requirement IDs present (REQ-/FR-/NFR-)",
+        "status": "passed",
+        "message": "7 unique requirement ID(s) found.",
+        "detail": null
+      },
+      {
+        "check_id": "pipeline-plan-title",
+        "label": "Plan has H1 title",
+        "status": "passed",
+        "message": "H1 title found.",
+        "detail": null
+      },
+      {
+        "check_id": "pipeline-deliverables",
+        "label": "Per-phase deliverables declared",
+        "status": "passed",
+        "message": "Deliverables line(s) found.",
+        "detail": null
+      },
+      {
+        "check_id": "pipeline-validation-criteria",
+        "label": "Per-phase validation criteria declared",
+        "status": "passed",
+        "message": "Per-phase validation line(s) found.",
+        "detail": null
+      }
+    ]
+  }
+]

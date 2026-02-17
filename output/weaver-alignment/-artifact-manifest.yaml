@@ -1,0 +1,278 @@
+apiVersion: contextcore.io/v1
+kind: ArtifactManifest
+metadata:
+  schemaVersion: 1.0.0
+  generatedAt: '2026-02-16T22:33:57.928051'
+  generatedFrom: output/weaver-alignment/.contextcore.yaml
+  contextcoreVersion: 2.0.0
+  projectId: ''
+artifacts:
+- id: -dashboard
+  type: dashboard
+  name: ' Service Dashboard'
+  target: ''
+  priority: required
+  status: needed
+  derivedFrom:
+  - property: title
+    sourceField: spec.targets[].name
+    transformation: '''{name} Service Dashboard'''
+  - property: panels.availability
+    sourceField: spec.requirements.availability
+    transformation: 'SLO threshold: 99.9%'
+    rationale: Dashboard shows availability against SLO target
+  parameters:
+    criticality: high
+    dashboardPlacement: standard
+    datasources:
+    - Tempo
+    - Loki
+    - mimir
+    risks:
+    - type: availability
+      description: '## Risk Register'
+      priority: P2
+    - type: availability
+      description: '| Risk | Severity | Mitigation |'
+      priority: P2
+    - type: availability
+      description: '| R2-S1 | Mandate Option B (automated schema distribution) and
+        remove Option A from Phase 6.2. | gemini-2.5 (gemini-2.5-pro) | The plan explicitly
+        acknowledges Option B as the long'
+      priority: P2
+  dependsOn: []
+  validationErrors: []
+- id: -loki-rules
+  type: loki_rule
+  name: ' Log Recording Rules'
+  target: ''
+  priority: recommended
+  status: needed
+  derivedFrom:
+  - property: logSelectors
+    sourceField: spec.targets[].name
+    transformation: '{job=""}'
+    rationale: Log selectors derived from service target name
+  - property: logFormat
+    sourceField: spec.observability.logLevel
+    transformation: otel
+    rationale: Log format aligned with OTel log bridge conventions
+  parameters:
+    logSelectors:
+    - '{app=""}'
+    recordingRules:
+    - _error_rate_5m
+    - _request_rate_5m
+    labelExtractors:
+    - level
+    - status_code
+    - method
+    - path
+    logFormat: otel
+  dependsOn: []
+  validationErrors: []
+- id: -notification
+  type: notification_policy
+  name: ' Notification Policy'
+  target: ''
+  priority: required
+  status: needed
+  derivedFrom:
+  - property: channels
+    sourceField: spec.observability.alertChannels
+    transformation: 'Channels: [''#2'']'
+  parameters:
+    alertChannels:
+    - '#2'
+    owner: disagrees
+    owners:
+    - team: disagrees
+      slack: '#alerts'
+      email: team@example.com
+      oncall: null
+  dependsOn:
+  - -prometheus-rules
+  validationErrors: []
+- id: -prometheus-rules
+  type: prometheus_rule
+  name: ' Alerting Rules'
+  target: ''
+  priority: required
+  status: needed
+  derivedFrom:
+  - property: severity
+    sourceField: spec.business.criticality
+    transformation: "high \u2192 P2"
+    rationale: Alert severity is derived from business criticality
+  - property: threshold
+    sourceField: spec.requirements.availability
+    transformation: 'Target: 99.9%'
+  parameters:
+    alertSeverity: P2
+    availabilityThreshold: '99.9'
+    latencyThreshold: 500ms
+    latencyP50Threshold: null
+    throughput: 100rps
+  dependsOn:
+  - -service-monitor
+  validationErrors: []
+- id: -runbook
+  type: runbook
+  name: ' Incident Runbook'
+  target: ''
+  priority: optional
+  status: needed
+  derivedFrom:
+  - property: risks
+    sourceField: spec.risks[]
+    transformation: 'Risk count: 3'
+    rationale: Runbook should address documented risks
+  parameters:
+    risks:
+    - type: availability
+      description: '## Risk Register'
+      priority: P2
+      mitigation: Define mitigation in implementation plan
+    - type: availability
+      description: '| Risk | Severity | Mitigation |'
+      priority: P2
+      mitigation: Define mitigation in implementation plan
+    - type: availability
+      description: '| R2-S1 | Mandate Option B (automated schema distribution) and
+        remove Option A from Phase 6.2. | gemini-2.5 (gemini-2.5-pro) | The plan explicitly
+        acknowledges Option B as the long'
+      priority: P2
+      mitigation: Define mitigation in implementation plan
+    escalationContacts:
+    - team: disagrees
+      slack: '#alerts'
+      email: team@example.com
+      oncall: null
+  dependsOn:
+  - -prometheus-rules
+  - -notification
+  validationErrors: []
+- id: -service-monitor
+  type: service_monitor
+  name: ' Service Monitor'
+  target: ''
+  priority: required
+  status: needed
+  derivedFrom:
+  - property: scrapeInterval
+    sourceField: spec.observability.metricsInterval
+    transformation: 'Interval: 30s'
+  parameters:
+    metricsInterval: 30s
+    namespace: default
+  dependsOn: []
+  validationErrors: []
+- id: -slo
+  type: slo_definition
+  name: ' SLO Definition'
+  target: ''
+  priority: recommended
+  status: needed
+  derivedFrom:
+  - property: objective
+    sourceField: spec.requirements.availability
+    transformation: 'Availability SLO: 99.9%'
+  - property: errorBudget
+    sourceField: spec.requirements.errorBudget
+    transformation: 'Error budget: 0.1%'
+  parameters:
+    availability: '99.9'
+    latencyP99: 500ms
+    errorBudget: '0.1'
+    throughput: 100rps
+  dependsOn:
+  - -service-monitor
+  validationErrors: []
+projectContext:
+  name: ''
+  owner: disagrees
+  value: enabler
+  links:
+    repo: https://github.com/open-telemetry/weaver
+    docs: https://github.com/your-org//wiki
+    dashboard: http://localhost:3000/d/contextcore-portfolio
+owners:
+- team: disagrees
+  slack: '#alerts'
+  email: team@example.com
+guidance:
+  focus:
+    areas:
+    - reliability
+    reason: Focus on core stability
+  constraints:
+  - id: C-PLAN-001
+    rule: Keep `skill.*` and `capability.*` definitions (Wayfinder-specific)
+    severity: blocking
+    rationale: Imported from implementation plan guardrails
+    appliesTo: []
+  preferences: []
+  questions:
+  - id: Q-001
+    question: What is the expected peak traffic pattern for this service?
+    status: open
+    priority: medium
+objectives:
+- id: OBJ-001
+  description: Example objective - update with real business goal
+  keyResults:
+  - metricKey: availability
+    unit: '%'
+    target: 99.9
+    targetOperator: gte
+    window: 30d
+semanticConventions:
+  attributeNamespaces:
+  - gen_ai.*
+  - agent.*
+  - io.contextcore.*
+  metrics:
+    contextcore:
+    - contextcore_task_progress
+    - contextcore_task_status
+    - contextcore_install_completeness_percent
+    beaver:
+    - startd8_active_sessions
+    - startd8_requests_total
+    - startd8_tokens_total
+    - startd8_response_time_ms
+    - startd8_context_usage_ratio
+    - startd8_truncations_total
+    - startd8_cost_total
+  queryTemplates:
+    task_by_project: '{ span.io.contextcore.project.id = "$project" }'
+    agent_insights: '{ span.agent.insight.type = "$type" }'
+    gen_ai_operations: '{ span.gen_ai.operation.name = "$operation" }'
+    task_logs: '{job="contextcore"} | json | project_id="$project"'
+    task_metrics: contextcore_task_progress{project="$project"}
+  logFormat: otel
+coverage:
+  totalRequired: 4
+  totalExisting: 0
+  totalOutdated: 0
+  overallCoverage: 0.0
+  byTarget:
+  - target: ''
+    namespace: default
+    requiredCount: 4
+    existingCount: 0
+    coveragePercent: 0.0
+    gaps:
+    - -dashboard
+    - -prometheus-rules
+    - -service-monitor
+    - -notification
+  byType:
+    dashboard: 1
+    prometheus_rule: 1
+    slo_definition: 1
+    service_monitor: 1
+    loki_rule: 1
+    notification_policy: 1
+    runbook: 1
+crdReference: -projectcontext.yaml

@@ -1,0 +1,11 @@
+apiVersion: contextcore.io/v1
+kind: ProjectContext
+metadata:
+  name: weaver-alignment
+  namespace: default
+spec:
+  project:
+    id: contextcore
+  targets:
+  - kind: Deployment
+    name: weaver-alignment

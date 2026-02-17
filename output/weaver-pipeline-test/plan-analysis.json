@@ -1,0 +1,256 @@
+{
+  "schema": "contextcore.io/plan-analysis/v1",
+  "generated_at": "2026-02-16T22:46:43.348720",
+  "plan_path": "output/weaver-pipeline-test/WEAVER_CROSS_REPO_ALIGNMENT_PLAN.fixed.md",
+  "plan_metadata": {
+    "title": "Weaver Cross-Repo Alignment \u2014 Implementation Plan",
+    "date": "2026-02-11",
+    "declared_requirements": [
+      "WEAVER_CROSS_REPO_ALIGNMENT_REQUIREMENTS.md"
+    ],
+    "declared_companions": [
+      "WEAVER_REGISTRY_REQUIREMENTS.md"
+    ]
+  },
+  "requirement_inventory": {
+    "WEAVER_CROSS_REPO_ALIGNMENT_REQUIREMENTS.md": {
+      "source_path": "docs/plans/WEAVER_CROSS_REPO_ALIGNMENT_REQUIREMENTS.md",
+      "ids": [
+        {
+          "id": "REQ-1",
+          "title": "Registry Must Cover Cross-Repo Attributes"
+        },
+        {
+          "id": "REQ-2",
+          "title": "Emitter Alignment"
+        },
+        {
+          "id": "REQ-3",
+          "title": "ATTRIBUTE_MAPPINGS Consolidation"
+        },
+        {
+          "id": "REQ-4",
+          "title": "HandoffStatus Enum Reconciliation"
+        },
+        {
+          "id": "REQ-5",
+          "title": "Wayfinder References ContextCore Registry"
+        },
+        {
+          "id": "REQ-6",
+          "title": "Cross-Repo Schema Validation"
+        },
+        {
+          "id": "REQ-7",
+          "title": "Emitter\u2194StateManager Format Parity"
+        },
+        {
+          "id": "REQ-8",
+          "title": "Telemetry Schema Change Notification"
+        },
+        {
+          "id": "REQ-9",
+          "title": "). | A versioning policy is documented in the registry's contribution guide, and the registry manifest is updated to use a semantic version number. |"
+        },
+        {
+          "id": "REQ-10",
+          "title": "). | A deprecation policy is documented. A new attribute is added to the registry as deprecated and a ticket is filed to track its removal according t"
+        }
+      ]
+    },
+    "WEAVER_REGISTRY_REQUIREMENTS.md": {
+      "source_path": "docs/plans/WEAVER_REGISTRY_REQUIREMENTS.md",
+      "ids": []
+    }
+  },
+  "plan_requirement_ids": [
+    {
+      "id": "REQ-1",
+      "title": "| Phase 1: Bootstrap Weaver Registry (ContextCore) |"
+    },
+    {
+      "id": "REQ-2",
+      "title": "| Phase 3: Align StartD8 Emitter (StartD8 SDK) |"
+    },
+    {
+      "id": "REQ-3",
+      "title": "| Phase 2: Consolidate ATTRIBUTE_MAPPINGS (ContextCore) |"
+    },
+    {
+      "id": "REQ-4",
+      "title": "| Phase 4: Reconcile HandoffStatus (ContextCore) |"
+    },
+    {
+      "id": "REQ-5",
+      "title": "| Phase 5: Wayfinder Registry Reference (Wayfinder) |"
+    },
+    {
+      "id": "REQ-6",
+      "title": "| Phase 6: Cross-Repo CI (ContextCore + StartD8 SDK) |"
+    },
+    {
+      "id": "REQ-7",
+      "title": "| Phase 3: Align StartD8 Emitter (StartD8 SDK) |"
+    }
+  ],
+  "phase_metadata": [
+    {
+      "phase_id": "phase-1",
+      "heading": "Phase 1: Bootstrap Weaver Registry (ContextCore)",
+      "satisfies": [
+        "REQ-1"
+      ],
+      "depends_on": "Nothing (unblocked)",
+      "repo": "ContextCore",
+      "deliverables": {
+        "summary": "7 files created, 2 files modified (Makefile, CI workflow)",
+        "file_count": 1
+      }
+    },
+    {
+      "phase_id": "phase-2",
+      "heading": "Phase 2: Consolidate ATTRIBUTE_MAPPINGS (ContextCore)",
+      "satisfies": [
+        "REQ-3"
+      ],
+      "depends_on": "Phase 1 (registry exists to validate against)",
+      "repo": "ContextCore",
+      "deliverables": {
+        "summary": "1 file modified (`otel_genai.py`), 1 file created (test)",
+        "file_count": 1
+      }
+    },
+    {
+      "phase_id": "phase-3",
+      "heading": "Phase 3: Align StartD8 Emitter (StartD8 SDK)",
+      "satisfies": [
+        "REQ-2",
+        "REQ-7"
+      ],
+      "depends_on": "Phase 1 (attribute names finalized in registry)",
+      "repo": "StartD8 SDK",
+      "deliverables": {
+        "summary": "1 file modified (emitter, if renames needed), 1 file modified (tests)",
+        "file_count": 1
+      }
+    },
+    {
+      "phase_id": "phase-4",
+      "heading": "Phase 4: Reconcile HandoffStatus (ContextCore)",
+      "satisfies": [
+        "REQ-4"
+      ],
+      "depends_on": "Phase 1",
+      "repo": "ContextCore",
+      "deliverables": {
+        "summary": "3 files modified (types.py, handoff.yaml, semantic-conventions.md)",
+        "file_count": 1
+      }
+    },
+    {
+      "phase_id": "phase-5",
+      "heading": "Phase 5: Wayfinder Registry Reference (Wayfinder)",
+      "satisfies": [
+        "REQ-5"
+      ],
+      "depends_on": "Phase 1 (registry exists to reference)",
+      "repo": "Wayfinder",
+      "deliverables": {
+        "summary": "1 file modified (skill-semantic-conventions.md), 1 file modified (CLAUDE.md or docs)",
+        "file_count": 1
+      }
+    },
+    {
+      "phase_id": "phase-6",
+      "heading": "Phase 6: Cross-Repo CI (ContextCore + StartD8 SDK)",
+      "satisfies": [
+        "REQ-6"
+      ],
+      "depends_on": "Phases 1, 3",
+      "repo": "Both",
+      "deliverables": {
+        "summary": "1 script created (validate_enum_consistency.py), CI workflows updated in both repos",
+        "file_count": 1
+      }
+    },
+    {
+      "phase_id": "phase-7",
+      "heading": "Phase 7: Documentation Refresh",
+      "satisfies": [
+        "Cleanup"
+      ],
+      "depends_on": "Phases 1-6",
+      "repo": "All three",
+      "deliverables": {
+        "summary": "4 files modified (3 CLAUDE.md files + WEAVER_REGISTRY_REQUIREMENTS.md)",
+        "file_count": 1
+      }
+    }
+  ],
+  "traceability_matrix": {
+    "REQ-1": [
+      "phase-1"
+    ],
+    "REQ-2": [
+      "phase-3"
+    ],
+    "REQ-3": [
+      "phase-2"
+    ],
+    "REQ-4": [
+      "phase-4"
+    ],
+    "REQ-5": [
+      "phase-5"
+    ],
+    "REQ-6": [
+      "phase-6"
+    ],
+    "REQ-7": [
+      "phase-3"
+    ],
+    "REQ-8": [],
+    "REQ-9": [],
+    "REQ-10": [],
+    "CLEANUP": [
+      "phase-7"
+    ]
+  },
+  "dependency_graph": {
+    "phase-1": [],
+    "phase-2": [
+      "phase-1"
+    ],
+    "phase-3": [
+      "phase-1"
+    ],
+    "phase-4": [
+      "phase-1"
+    ],
+    "phase-5": [
+      "phase-1"
+    ],
+    "phase-6": [
+      "phase-1",
+      "phase-3"
+    ],
+    "phase-7": [
+      "phase-1",
+      "phase-6",
+      "phase-2",
+      "phase-3",
+      "phase-4",
+      "phase-5"
+    ]
+  },
+  "conflict_report": {
+    "overlapping_ids": {},
+    "contradictions": []
+  },
+  "statistics": {
+    "total_requirements": 10,
+    "total_phases": 7,
+    "covered_requirements": 8,
+    "coverage_ratio": 0.8
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "version": "1.0.0",
+  "schema_version": "1.0.0",
+  "schema": "contextcore.io/validation-report/v1",
+  "generated_at": "2026-02-16T22:33:57.928051",
+  "project_id": "",
+  "checksums": {
+    "source_checksum": "da289c20f317a321580d037309a30c1281399106fe93029c19b6aacdc25d9782",
+    "artifact_manifest_checksum": "918cb9713c4225a4b9f420ee591dffa77112515807fc1f585cc0408f99cf5bb0",
+    "project_context_checksum": "b0d58f957e3e418498dfde1d0bea7d93f25070704fff54d37e85ff27cf5d848d"
+  },
+  "integrity": {
+    "checksum_chain_complete": true
+  },
+  "coverage": {
+    "overall_coverage_percent": 0.0,
+    "gap_count": 7,
+    "gaps": [
+      "-dashboard",
+      "-loki-rules",
+      "-notification",
+      "-prometheus-rules",
+      "-runbook",
+      "-service-monitor",
+      "-slo"
+    ],
+    "minimum_required": null,
+    "meets_minimum": true
+  },
+  "resolvability": {
+    "summary": {
+      "resolved": 23,
+      "unresolved": 1,
+      "total": 24
+    },
+    "unresolved": [
+      {
+        "artifact_id": "-prometheus-rules",
+        "parameter": "latencyP50Threshold",
+        "reason_code": "value_not_materialized",
+        "reason": "Source mapping exists but no concrete value was produced"
+      }
+    ]
+  },
+  "capabilities": {
+    "schema_features": [
+      "integrity_checksums",
+      "parameter_resolvability",
+      "output_contracts",
+      "design_calibration_hints",
+      "file_ownership",
+      "requirements_hints"
+    ],
+    "optional_sections": [
+      "artifact_task_mapping",
+      "open_questions",
+      "objectives",
+      "derivation_rules",
+      "provenance",
+      "requirements_hints"
+    ]
+  },
+  "diagnostics": [
+    {
+      "severity": "warning",
+      "code": "UNRESOLVED_PARAMETERS",
+      "message": "1 artifact parameters are unresolved"
+    }
+  ]
+}

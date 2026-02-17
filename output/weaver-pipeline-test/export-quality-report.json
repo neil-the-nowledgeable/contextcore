@@ -1,0 +1,48 @@
+{
+  "version": "1.0.0",
+  "schema": "contextcore.io/export-quality-report/v1",
+  "generated_at": "2026-02-16T22:46:44.973932",
+  "strict_quality": false,
+  "deterministic_output": true,
+  "policy_file": "/Users/neilyashinsky/Documents/dev/ContextCore/.contextcore-quality.yaml",
+  "policy_effective": {
+    "coverage_threshold_env": "dev",
+    "min_coverage": null,
+    "scan_path_allowlist": [
+      "grafana/dashboards",
+      "prometheus/rules",
+      "k8s/observability",
+      "loki/rules",
+      "runbooks",
+      "alertmanager"
+    ]
+  },
+  "gates": {
+    "manifest_validation_passed": true,
+    "required_task_mapping_complete": true,
+    "schema_pins_passed": true,
+    "coverage_meets_minimum": true
+  },
+  "coverage": {
+    "overall_coverage_percent": 0.0,
+    "gap_count": 7,
+    "gaps": [
+      "-dashboard",
+      "-loki-rules",
+      "-notification",
+      "-prometheus-rules",
+      "-runbook",
+      "-service-monitor",
+      "-slo"
+    ],
+    "minimum_required": null,
+    "meets_minimum": true
+  },
+  "diagnostics": [
+    {
+      "severity": "warning",
+      "code": "UNRESOLVED_PARAMETERS",
+      "message": "1 artifact parameters are unresolved"
+    }
+  ]
+}

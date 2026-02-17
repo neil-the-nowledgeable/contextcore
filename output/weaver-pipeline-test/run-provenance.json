@@ -1,0 +1,281 @@
+{
+  "run_id": "1f7ea598-3f8d-4c78-8649-b8c97ef8e4e3",
+  "workflow_or_command": "manifest export",
+  "version": "2.0.0",
+  "contextcore_version": "0.1.0",
+  "started_at": "2026-02-16T22:46:44.977338",
+  "completed_at": "2026-02-16T22:46:44.977338",
+  "duration_ms": 0,
+  "environment": {
+    "hostname": "Harold.local",
+    "username": "neilyashinsky",
+    "python_version": "3.14.2",
+    "working_directory": "/Users/neilyashinsky/Documents/dev/ContextCore"
+  },
+  "config_snapshot": {},
+  "inputs": [
+    {
+      "path": "/Users/neilyashinsky/Documents/dev/ContextCore/output/weaver-pipeline-test/.contextcore.yaml",
+      "exists": true,
+      "mtime": "2026-02-16T22:46:43.971396",
+      "sha256": "da289c20f317a321580d037309a30c1281399106fe93029c19b6aacdc25d9782"
+    },
+    {
+      "path": "/Users/neilyashinsky/Documents/dev/ContextCore/.contextcore-quality.yaml",
+      "exists": true,
+      "mtime": "2026-02-14T16:19:11.282814",
+      "sha256": "3b69b2386ecaf551cdbab769f4b9cd32fe3ded7614f48839b5ac36d97ddf91e6"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "output/weaver-pipeline-test/-projectcontext.yaml",
+      "exists": true,
+      "mtime": "2026-02-16T22:46:44.974370",
+      "sha256": "b0d58f957e3e418498dfde1d0bea7d93f25070704fff54d37e85ff27cf5d848d"
+    },
+    {
+      "path": "output/weaver-pipeline-test/-artifact-manifest.yaml",
+      "exists": true,
+      "mtime": "2026-02-16T22:46:44.974716",
+      "sha256": "59bd6db48a020021f1faa87732d088e125090a1c17cc8374b5d35cfa415e02e9"
+    },
+    {
+      "path": "output/weaver-pipeline-test/provenance.json",
+      "exists": true,
+      "mtime": "2026-02-16T22:46:44.975228",
+      "sha256": "d9353c8909be9f425035a25cd2a76642661ec965b7d967b182c05c3b22298599"
+    },
+    {
+      "path": "output/weaver-pipeline-test/onboarding-metadata.json",
+      "exists": true,
+      "mtime": "2026-02-16T22:46:44.975626",
+      "sha256": "27d33bc750d34d446863caed1daebe4f81e3eee95395f85c895e91211e41b409"
+    },
+    {
+      "path": "output/weaver-pipeline-test/validation-report.json",
+      "exists": true,
+      "mtime": "2026-02-16T22:46:44.976181",
+      "sha256": "f666adee685ce629b0bfed4fd8c95763f6fa30f99f0a5ee4742bf124617b8984"
+    },
+    {
+      "path": "output/weaver-pipeline-test/export-quality-report.json",
+      "exists": true,
+      "mtime": "2026-02-16T22:46:44.976453",
+      "sha256": "626272c27e8d9c7ad89e3d4dc34c677a27354ad6c74fdf074e065dd403ef9039"
+    }
+  ],
+  "quality_summary": {
+    "strict_quality": false,
+    "coverage_meets_minimum": true
+  },
+  "artifact_references": {
+    "validation_report_path": "output/weaver-pipeline-test/validation-report.json",
+    "onboarding_metadata_path": "output/weaver-pipeline-test/onboarding-metadata.json",
+    "quality_report_path": "output/weaver-pipeline-test/export-quality-report.json",
+    "provenance_json_path": "output/weaver-pipeline-test/provenance.json"
+  },
+  "artifact_inventory": [
+    {
+      "artifact_id": "export.derivation_rules",
+      "role": "derivation_rules",
+      "description": "Business-to-parameter derivation rules per artifact type",
+      "produced_by": "contextcore.manifest.export",
+      "stage": "export",
+      "source_file": "onboarding-metadata.json",
+      "sha256": "5e681df6549d9596d9adb5d9e24818742e0ab2f63a0ccbef73812fb1df461df1",
+      "produced_at": "2026-02-17T03:46:44.976658+00:00",
+      "consumers": [
+        "artisan.design",
+        "artisan.implement"
+      ],
+      "consumption_hint": "Inject per-task derivation rules into FeatureContext.additional_context to avoid LLM re-derivation of business-to-parameter mappings.",
+      "json_path": "$.derivation_rules",
+      "freshness": {
+        "source_checksum": "da289c20f317a321580d037309a30c1281399106fe93029c19b6aacdc25d9782",
+        "source_file": "manifest.spec.requirements.throughput"
+      }
+    },
+    {
+      "artifact_id": "export.resolved_parameters",
+      "role": "resolved_parameters",
+      "description": "Pre-resolved parameter values per artifact, ready for template substitution",
+      "produced_by": "contextcore.manifest.export",
+      "stage": "export",
+      "source_file": "onboarding-metadata.json",
+      "sha256": "3b9d783aa083b8b73a091e5325660bae5b0dde9031acf786097149b59ee7dfea",
+      "produced_at": "2026-02-17T03:46:44.977111+00:00",
+      "consumers": [
+        "artisan.design",
+        "artisan.implement"
+      ],
+      "consumption_hint": "Use concrete values (e.g., alertSeverity: P2) instead of asking the LLM to derive them from manifest fields.",
+      "json_path": "$.resolved_artifact_parameters",
+      "freshness": {
+        "source_checksum": "da289c20f317a321580d037309a30c1281399106fe93029c19b6aacdc25d9782",
+        "source_file": "manifest.spec.requirements.throughput"
+      }
+    },
+    {
+      "artifact_id": "export.output_contracts",
+      "role": "output_contracts",
+      "description": "Per-artifact-type expected depth, completeness markers, max lines/tokens",
+      "produced_by": "contextcore.manifest.export",
+      "stage": "export",
+      "source_file": "onboarding-metadata.json",
+      "sha256": "c8d697675e9346412b2ccb85e56759d07307aa823082451d8de05686fbb85198",
+      "produced_at": "2026-02-17T03:46:44.977153+00:00",
+      "consumers": [
+        "artisan.design",
+        "artisan.implement",
+        "artisan.test"
+      ],
+      "consumption_hint": "Use expected_depth to override LOC-based calibration. Use completeness_markers for post-generation validation.",
+      "json_path": "$.expected_output_contracts",
+      "freshness": {
+        "source_checksum": "da289c20f317a321580d037309a30c1281399106fe93029c19b6aacdc25d9782",
+        "source_file": "manifest.spec.requirements.throughput"
+      }
+    },
+    {
+      "artifact_id": "export.dependency_graph",
+      "role": "dependency_graph",
+      "description": "Artifact-level dependency ordering",
+      "produced_by": "contextcore.manifest.export",
+      "stage": "export",
+      "source_file": "onboarding-metadata.json",
+      "sha256": "a274cfc76c7041151acad7ee74bbd75398a967eab5df811cd5024cf423b67811",
+      "produced_at": "2026-02-17T03:46:44.977163+00:00",
+      "consumers": [
+        "ingestion.parse",
+        "artisan.plan"
+      ],
+      "consumption_hint": "Use for task ordering instead of LLM-inferred dependency edges.",
+      "json_path": "$.artifact_dependency_graph",
+      "freshness": {
+        "source_checksum": "da289c20f317a321580d037309a30c1281399106fe93029c19b6aacdc25d9782",
+        "source_file": "manifest.spec.requirements.throughput"
+      }
+    },
+    {
+      "artifact_id": "export.calibration_hints",
+      "role": "calibration_hints",
+      "description": "Per-artifact-type expected depth tier and LOC range",
+      "produced_by": "contextcore.manifest.export",
+      "stage": "export",
+      "source_file": "onboarding-metadata.json",
+      "sha256": "8f9e727612b8ab7b2b31fc328d15bbc5447fd496f88b28bc1655d8642d3afa32",
+      "produced_at": "2026-02-17T03:46:44.977184+00:00",
+      "consumers": [
+        "ingestion.calibration",
+        "artisan.design"
+      ],
+      "consumption_hint": "Override LOC-based depth tier when artifact type has a known expected depth (e.g., dashboards are always comprehensive).",
+      "json_path": "$.design_calibration_hints",
+      "freshness": {
+        "source_checksum": "da289c20f317a321580d037309a30c1281399106fe93029c19b6aacdc25d9782",
+        "source_file": "manifest.spec.requirements.throughput"
+      }
+    },
+    {
+      "artifact_id": "export.open_questions",
+      "role": "open_questions",
+      "description": "Unresolved questions from manifest guidance",
+      "produced_by": "contextcore.manifest.export",
+      "stage": "export",
+      "source_file": "onboarding-metadata.json",
+      "sha256": "75bdaea7a5695bc3bef444e7709e75de76d6f0a0323a62e0da87c538676e2a60",
+      "produced_at": "2026-02-17T03:46:44.977192+00:00",
+      "consumers": [
+        "artisan.design"
+      ],
+      "consumption_hint": "Surface in design prompt so LLM does not make decisions that contradict unresolved questions.",
+      "json_path": "$.open_questions",
+      "freshness": {
+        "source_checksum": "da289c20f317a321580d037309a30c1281399106fe93029c19b6aacdc25d9782",
+        "source_file": "manifest.spec.requirements.throughput"
+      }
+    },
+    {
+      "artifact_id": "export.semantic_conventions",
+      "role": "semantic_conventions",
+      "description": "Metric and label naming conventions",
+      "produced_by": "contextcore.manifest.export",
+      "stage": "export",
+      "source_file": "onboarding-metadata.json",
+      "sha256": "4d4cb8de6249654b14b78c850364b89a07633a4c69e9c632a6daa48eb7396fa6",
+      "produced_at": "2026-02-17T03:46:44.977211+00:00",
+      "consumers": [
+        "artisan.design",
+        "artisan.implement"
+      ],
+      "consumption_hint": "Enforce consistent naming in generated observability artifacts.",
+      "json_path": "$.semantic_conventions",
+      "freshness": {
+        "source_checksum": "da289c20f317a321580d037309a30c1281399106fe93029c19b6aacdc25d9782",
+        "source_file": "manifest.spec.requirements.throughput"
+      }
+    },
+    {
+      "artifact_id": "create.project_context",
+      "role": "project_context",
+      "description": "Project context resource produced by contextcore create",
+      "produced_by": "contextcore.create",
+      "stage": "create",
+      "source_file": "project-context.yaml",
+      "sha256": "0c01386018b3fdf8ff75b15fa57eea964e1994c3bc5b4f14704b59c85f685342",
+      "produced_at": "2026-02-17T03:46:41.815119+00:00",
+      "consumers": [
+        "contextcore.manifest.export",
+        "startd8.workflow.plan_ingestion"
+      ],
+      "consumption_hint": "Provides project identity and business context for downstream manifest export and plan-ingestion stages."
+    },
+    {
+      "artifact_id": "polish.polish_report",
+      "role": "polish_report",
+      "description": "Plan quality report produced by contextcore polish",
+      "produced_by": "contextcore.polish",
+      "stage": "polish",
+      "source_file": "polish-report.json",
+      "sha256": "b236f6aad1828c8db66fe0386a525ca90524ab4121570aaa8f9b55441bd93f64",
+      "produced_at": "2026-02-17T03:46:42.348116+00:00",
+      "consumers": [
+        "startd8.workflow.plan_ingestion",
+        "artisan.review"
+      ],
+      "consumption_hint": "Surface polish check results in plan-ingestion and review phases so agents know which quality gates the plan already passes."
+    },
+    {
+      "artifact_id": "fix.fix_report",
+      "role": "fix_report",
+      "description": "Auto-remediation report produced by contextcore fix",
+      "produced_by": "contextcore.fix",
+      "stage": "fix",
+      "source_file": "fix-report.json",
+      "sha256": "0252d0046135e5102680c4189981f665cc91dc0ea9a036a574f551a04147783c",
+      "produced_at": "2026-02-17T03:46:42.774292+00:00",
+      "consumers": [
+        "contextcore.manifest.init_from_plan",
+        "startd8.workflow.plan_ingestion",
+        "artisan.review"
+      ],
+      "consumption_hint": "Surface fix actions so agents know which gaps were auto-remediated vs. need human attention."
+    },
+    {
+      "artifact_id": "fix.remediated_plan",
+      "role": "remediated_plan",
+      "description": "Remediated plan document with deterministic fixes applied",
+      "produced_by": "contextcore.fix",
+      "stage": "fix",
+      "source_file": "WEAVER_CROSS_REPO_ALIGNMENT_PLAN.fixed.md",
+      "sha256": "5175e26eb72db96775fd590c5b7317e4c08c9c1c3d07ae4077c261d67bbd07c1",
+      "produced_at": "2026-02-17T03:46:42.774609+00:00",
+      "consumers": [
+        "contextcore.manifest.analyze_plan",
+        "contextcore.manifest.init_from_plan"
+      ],
+      "consumption_hint": "Use as --plan input instead of original. Passes all fixable polish checks."
+    }
+  ]
+}

@@ -46,6 +46,7 @@ from contextcore.cli.export_io_ops import (
     write_export_outputs,
     atomic_write_with_backup,
 )
+from contextcore.cli.analyze_plan_ops import analyze_plan
 from contextcore.cli.init_from_plan_ops import (
     build_v2_manifest_template,
     enrich_template_from_capability_index,
@@ -1222,6 +1223,13 @@ def create(
     default="update_existing",
     help="Strategy for writing output documents (default: update_existing)",
 )
+@click.option(
+    "--plan-analysis",
+    "plan_analysis_path",
+    type=click.Path(exists=True),
+    default=None,
+    help="Path to plan-analysis.json from 'analyze-plan' stage (enriches inference)",
+)
 def init_from_plan(
     plan: str,
     requirements: tuple,
@@ -1235,6 +1243,7 @@ def init_from_plan(
     force: bool,
     dry_run: bool,
     document_write_strategy: str,
+    plan_analysis_path: Optional[str],
 ):
     """
     Initialize a v2 manifest from plan + requirements with programmatic inference.
@@ -1263,12 +1272,19 @@ def init_from_plan(
         Path(req).read_text(encoding="utf-8") for req in requirements
     ) if requirements else ""
 
+    # Load plan analysis JSON if provided
+    plan_analysis_data: Optional[Dict[str, Any]] = None
+    if plan_analysis_path:
+        plan_analysis_data = json.loads(Path(plan_analysis_path).read_text(encoding="utf-8"))
+        click.echo(f"  Loaded plan analysis: {plan_analysis_path}")
+
     inference = infer_init_from_plan(
         manifest_data=manifest_data,
         plan_text=plan_text,
         requirements_text=req_text,
         project_root=project_root,
         emit_guidance_questions=emit_guidance_questions,
+        plan_analysis=plan_analysis_data,
     )
     manifest_data = inference["manifest_data"]
     inference_warnings = list(inference["warnings"])
@@ -1403,6 +1419,128 @@ def init_from_plan(
         click.echo(f"    4. Run: contextcore manifest export -p {output} -o ./out/export --emit-provenance")
         click.echo(f"    5. Run: contextcore contract a2a-check-pipeline ./out/export")
         click.echo(f"    6. Run: startd8 workflow run plan-ingestion, then contextcore contract a2a-diagnose")
+
+
+@manifest.command(name="analyze-plan")
+@click.option(
+    "--plan",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to a plan document (markdown/text)",
+)
+@click.option(
+    "--requirements",
+    multiple=True,
+    type=click.Path(exists=True),
+    help="Path(s) to requirements documents (can specify multiple)",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    default=None,
+    help="Output path for plan-analysis.json (default: <output-dir>/plan-analysis.json)",
+)
+@click.option(
+    "--output-dir",
+    type=click.Path(),
+    default=None,
+    help="Output directory (default: same dir as plan)",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Preview analysis output without writing files",
+)
+def analyze_plan_cmd(
+    plan: str,
+    requirements: tuple,
+    output: Optional[str],
+    output_dir: Optional[str],
+    dry_run: bool,
+):
+    """
+    Analyze a plan document with its requirements (Stage 1.5).
+
+    Produces plan-analysis.json with structured metadata: requirement inventory,
+    phase metadata, traceability matrix, dependency graph, and conflict detection.
+
+    This output can be fed to ``init-from-plan --plan-analysis`` for richer inference.
+
+    Example:
+        contextcore manifest analyze-plan \\
+          --plan docs/plans/PLAN.md \\
+          --requirements docs/plans/REQS_A.md \\
+          --requirements docs/plans/REQS_B.md
+
+    Then:
+        contextcore manifest init-from-plan \\
+          --plan docs/plans/PLAN.md \\
+          --requirements docs/plans/REQS_A.md \\
+          --requirements docs/plans/REQS_B.md \\
+          --plan-analysis plan-analysis.json
+    """
+    plan_path = Path(plan)
+    plan_text = plan_path.read_text(encoding="utf-8")
+
+    requirements_docs = []
+    for req_path in requirements:
+        req_text = Path(req_path).read_text(encoding="utf-8")
+        requirements_docs.append({"path": str(req_path), "text": req_text})
+
+    result = analyze_plan(
+        plan_text=plan_text,
+        plan_path=str(plan_path),
+        requirements_docs=requirements_docs,
+    )
+
+    # Determine output path
+    if output:
+        out_path = Path(output)
+    elif output_dir:
+        out_path = Path(output_dir) / "plan-analysis.json"
+    else:
+        out_path = plan_path.parent / "plan-analysis.json"
+
+    result_json = json.dumps(result, indent=2, default=str)
+
+    if dry_run:
+        click.echo("=== DRY RUN - analyze-plan preview ===\n")
+        click.echo(result_json[:2000] + ("..." if len(result_json) > 2000 else ""))
+        click.echo(f"\nWould write to: {out_path}")
+        click.echo("\n=== End Preview ===")
+        return
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(result_json, encoding="utf-8")
+
+    # Register in provenance inventory if available
+    try:
+        from contextcore.utils.provenance import extend_inventory
+        extend_inventory(
+            output_dir=str(out_path.parent),
+            stage="analyze-plan",
+            entries=[
+                {
+                    "artifact": str(out_path.name),
+                    "path": str(out_path),
+                    "type": "plan-analysis",
+                }
+            ],
+        )
+    except Exception:
+        pass  # Non-fatal: provenance integration is optional
+
+    stats = result["statistics"]
+    click.echo(f"✓ Plan analysis written: {out_path}")
+    click.echo(f"  Requirements: {stats['total_requirements']} IDs across {len(requirements_docs)} doc(s)")
+    click.echo(f"  Phases: {stats['total_phases']}")
+    click.echo(f"  Coverage: {stats['covered_requirements']}/{stats['total_requirements']} requirements traced ({stats['coverage_ratio']:.0%})")
+    conflicts = result.get("conflict_report", {})
+    overlapping = conflicts.get("overlapping_ids", {})
+    if overlapping:
+        click.echo(f"  Overlapping IDs: {len(overlapping)} (shared across docs)")
+    click.echo(f"\n  Next: contextcore manifest init-from-plan --plan-analysis {out_path}")
 
 
 @manifest.command()

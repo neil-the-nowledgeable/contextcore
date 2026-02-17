@@ -1,0 +1,201 @@
+{
+  "version": "1.1.0",
+  "schema": "contextcore.io/init-from-plan-report/v1",
+  "generated_at": "2026-02-16T22:46:43.966141",
+  "inputs": {
+    "plan": "output/weaver-pipeline-test/WEAVER_CROSS_REPO_ALIGNMENT_PLAN.fixed.md",
+    "requirements": [
+      "docs/plans/WEAVER_CROSS_REPO_ALIGNMENT_REQUIREMENTS.md",
+      "docs/plans/WEAVER_REGISTRY_REQUIREMENTS.md"
+    ],
+    "project_root": null
+  },
+  "output_manifest": "output/weaver-pipeline-test/.contextcore.yaml",
+  "strict_quality": true,
+  "inferences": [
+    {
+      "field_path": "spec.project.description",
+      "value": "Weaver Cross-Repo Alignment \u2014 Implementation Plan. **Requirements:** `WEAVER_CROSS_REPO_ALIGNMENT_REQUIREMENTS.md`",
+      "source": "plan:heading_plus_first_meaningful_line",
+      "confidence": 0.9
+    },
+    {
+      "field_path": "spec.business.criticality",
+      "value": "high",
+      "source": "plan+requirements:contextual_criticality_detection",
+      "confidence": 0.82
+    },
+    {
+      "field_path": "spec.observability.alertChannels",
+      "value": [
+        "#2"
+      ],
+      "source": "plan+requirements:channel_extraction",
+      "confidence": 0.7
+    },
+    {
+      "field_path": "spec.business.owner",
+      "value": "disagrees",
+      "source": "plan+requirements:regex",
+      "confidence": 0.65
+    },
+    {
+      "field_path": "spec.risks",
+      "value": [
+        {
+          "type": "availability",
+          "description": "## Risk Register",
+          "priority": "P2",
+          "mitigation": "Define mitigation in implementation plan"
+        },
+        {
+          "type": "availability",
+          "description": "| Risk | Severity | Mitigation |",
+          "priority": "P2",
+          "mitigation": "Define mitigation in implementation plan"
+        },
+        {
+          "type": "availability",
+          "description": "| R2-S1 | Mandate Option B (automated schema distribution) and remove Option A from Phase 6.2. | gemini-2.5 (gemini-2.5-pro) | The plan explicitly acknowledges Option B as the long",
+          "priority": "P2",
+          "mitigation": "Define mitigation in implementation plan"
+        }
+      ],
+      "source": "plan:risk_line_extraction",
+      "confidence": 0.65
+    },
+    {
+      "field_path": "guidance.constraints",
+      "value": [
+        "C-PLAN-001"
+      ],
+      "source": "plan:guardrail_to_constraint",
+      "confidence": 0.88
+    },
+    {
+      "field_path": "requirement_ids",
+      "value": [
+        "REQ-1",
+        "REQ-10",
+        "REQ-2",
+        "REQ-3",
+        "REQ-4",
+        "REQ-5",
+        "REQ-6",
+        "REQ-7",
+        "REQ-8",
+        "REQ-9"
+      ],
+      "source": "plan+requirements:req_id_extraction",
+      "confidence": 0.85
+    },
+    {
+      "field_path": "strategy.tactics",
+      "value": [
+        "TAC-PLAN-001",
+        "TAC-PLAN-002",
+        "TAC-PLAN-003",
+        "TAC-PLAN-004",
+        "TAC-PLAN-005",
+        "TAC-PLAN-006",
+        "TAC-PLAN-007"
+      ],
+      "source": "plan:phase_milestone_extraction",
+      "confidence": 0.7
+    },
+    {
+      "field_path": "strategy.tactics.enrichment",
+      "value": {
+        "enriched_count": 7,
+        "total": 7
+      },
+      "source": "plan_analysis:merge",
+      "confidence": 0.8
+    },
+    {
+      "field_path": "metadata.links",
+      "value": {
+        "repo": "https://github.com/open-telemetry/weaver",
+        "docs": "https://github.com/your-org//wiki",
+        "dashboard": "http://localhost:3000/d/contextcore-portfolio"
+      },
+      "source": "plan+requirements:url_extraction",
+      "confidence": 0.7
+    },
+    {
+      "field_path": "capability_match",
+      "value": "contextcore.handoff.input_request",
+      "source": "capability_index:trigger_match",
+      "confidence": 0.75
+    }
+  ],
+  "core_inferred_count": 4,
+  "warnings": [],
+  "downstream_readiness": {
+    "score": 80,
+    "verdict": "ready",
+    "checks": [
+      {
+        "check": "requirements_populated",
+        "status": "pass",
+        "detail": "4/4 requirement fields populated (availability, latencyP99, throughput, errorBudget)"
+      },
+      {
+        "check": "targets_defined",
+        "status": "pass",
+        "detail": "1 target(s) defined"
+      },
+      {
+        "check": "observability_configured",
+        "status": "pass",
+        "detail": "alertChannels=yes, logLevel=info"
+      },
+      {
+        "check": "objectives_defined",
+        "status": "pass",
+        "detail": "1 objective(s) defined"
+      },
+      {
+        "check": "guidance_populated",
+        "status": "pass",
+        "detail": "constraints=1, questions=1"
+      },
+      {
+        "check": "risks_defined",
+        "status": "pass",
+        "detail": "3 risk(s) defined"
+      },
+      {
+        "check": "capability_coverage",
+        "status": "pass",
+        "detail": "1 capabilities matched from index"
+      },
+      {
+        "check": "estimated_artifact_coverage",
+        "status": "pass",
+        "detail": "~7 artifacts (7 types x 1 targets)"
+      }
+    ],
+    "estimated_artifact_count": 7,
+    "a2a_gate_readiness": {
+      "checksum_chain": "ready",
+      "derivation_rules": "ready",
+      "design_calibration": "ready",
+      "gap_parity": "ready"
+    },
+    "contract_layer_readiness": {
+      "lifecycle_layers": [
+        "preflight",
+        "runtime",
+        "postexec",
+        "observability",
+        "regression"
+      ],
+      "contract_domains": [
+        "propagation",
+        "schema_compat"
+      ]
+    }
+  },
+  "status": "written"
+}

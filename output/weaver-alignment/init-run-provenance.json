@@ -1,0 +1,56 @@
+{
+  "run_id": "8a12a24a-a907-44f8-a26e-b074e53af955",
+  "workflow_or_command": "manifest init-from-plan",
+  "version": "1.0.0",
+  "contextcore_version": "0.1.0",
+  "started_at": "2026-02-16T22:12:16.235778",
+  "completed_at": "2026-02-16T22:12:16.235778",
+  "duration_ms": 0,
+  "environment": {
+    "hostname": "Harold.local",
+    "username": "neilyashinsky",
+    "python_version": "3.14.2",
+    "working_directory": "/Users/neilyashinsky/Documents/dev/ContextCore"
+  },
+  "config_snapshot": {},
+  "inputs": [
+    {
+      "path": "/Users/neilyashinsky/Documents/dev/ContextCore/output/weaver-alignment/WEAVER_CROSS_REPO_ALIGNMENT_PLAN.fixed.md",
+      "exists": true,
+      "mtime": "2026-02-16T21:32:40.990280",
+      "sha256": "fe2093fe912ed608457042ec556d93492f1ac32de6f865ab8cb8cb4e0cd47817"
+    },
+    {
+      "path": "/Users/neilyashinsky/Documents/dev/ContextCore/docs/plans/WEAVER_CROSS_REPO_ALIGNMENT_REQUIREMENTS.md",
+      "exists": true,
+      "mtime": "2026-02-15T13:01:26.899638",
+      "sha256": "589827303581e1054ac8c2e8a572c2deceba134bd9353fa40b8e3b4ca7e863a0"
+    },
+    {
+      "path": "/Users/neilyashinsky/Documents/dev/ContextCore/docs/plans/WEAVER_REGISTRY_REQUIREMENTS.md",
+      "exists": true,
+      "mtime": "2026-02-11T19:06:36.836178",
+      "sha256": "2513e4d374991e4cc2c0c61b8ea2d4a2b9569bc1403e2b7e7be341f67eee1e69"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "/Users/neilyashinsky/Documents/dev/ContextCore/output/weaver-alignment/.contextcore.yaml",
+      "exists": true,
+      "mtime": "2026-02-16T22:12:16.221647",
+      "sha256": "da289c20f317a321580d037309a30c1281399106fe93029c19b6aacdc25d9782"
+    },
+    {
+      "path": "/Users/neilyashinsky/Documents/dev/ContextCore/output/weaver-alignment/.contextcore.init-from-plan-report.json",
+      "exists": true,
+      "mtime": "2026-02-16T22:12:16.235385",
+      "sha256": "8fb6bb7aa08e2531059274e5bc0b7238542534373519f99049b4bb8d41ef0148"
+    }
+  ],
+  "quality_summary": {
+    "core_inferred_count": 4,
+    "downstream_readiness": "ready",
+    "strict_quality": true
+  },
+  "artifact_references": {}
+}

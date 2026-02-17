@@ -209,6 +209,20 @@ class TacticV2(BaseModel):
         default_factory=list, description="Linked artifacts (PRs, issues, deployments)"
     )
 
+    # Plan structure enrichment (from init-from-plan analysis)
+    satisfies: List[str] = Field(
+        default_factory=list, description="Requirement IDs this tactic satisfies"
+    )
+    depends_on: Optional[str] = Field(
+        None, alias="dependsOn", description="Phase/tactic dependency"
+    )
+    repo: Optional[str] = Field(
+        None, description="Target repository for this tactic"
+    )
+    deliverables: Optional[Dict[str, Any]] = Field(
+        None, description="Expected deliverables (summary, checklist, file_count)"
+    )
+
     model_config = ConfigDict(populate_by_name=True)
 
     @model_validator(mode="after")

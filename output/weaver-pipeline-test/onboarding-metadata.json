@@ -1,0 +1,924 @@
+{
+  "version": "1.0.0",
+  "schema_version": "1.0.0",
+  "schema": "contextcore.io/onboarding-metadata/v1",
+  "project_id": "",
+  "artifact_manifest_path": "-artifact-manifest.yaml",
+  "project_context_path": "-projectcontext.yaml",
+  "crd_reference": "-projectcontext.yaml",
+  "generated_at": "2026-02-16T22:46:44.900667",
+  "artifact_types": {
+    "dashboard": {
+      "output_ext": ".json",
+      "output_path": "grafana/dashboards/{target}-dashboard.json",
+      "description": "Grafana dashboard JSON",
+      "schema_url": "https://grafana.com/docs/grafana/latest/dashboards/build-dashboards/view-dashboard-json-model/",
+      "parameter_keys": [
+        "criticality",
+        "dashboardPlacement",
+        "datasources",
+        "risks"
+      ],
+      "parameter_sources": {
+        "criticality": "manifest.spec.business.criticality",
+        "dashboardPlacement": "manifest.spec.observability.dashboardPlacement",
+        "datasources": "manifest (template default)",
+        "risks": "manifest.spec.risks[]"
+      },
+      "example_output_path": "grafana/dashboards/checkout-api-dashboard.json",
+      "example_snippet": "{\"dashboard\":{\"title\":\"checkout-api Service Dashboard\",\"panels\":[]},\"overwrite\":true}"
+    },
+    "loki_rule": {
+      "output_ext": ".yaml",
+      "output_path": "loki/rules/{target}-loki-rules.yaml",
+      "description": "Loki recording/alerting rules",
+      "schema_url": "https://grafana.com/docs/loki/latest/rules/",
+      "parameter_keys": [
+        "logSelectors",
+        "recordingRules",
+        "labelExtractors",
+        "logFormat"
+      ],
+      "parameter_sources": {
+        "logSelectors": "manifest (target-based)",
+        "recordingRules": "manifest (template default)",
+        "labelExtractors": "manifest (template default)",
+        "logFormat": "manifest.spec.observability.logLevel"
+      },
+      "example_output_path": "loki/rules/checkout-api-loki-rules.yaml",
+      "example_snippet": "groups:\n  - name: checkout-api\n    rules:\n      - alert: HighErrorRate\n        expr: ..."
+    },
+    "notification_policy": {
+      "output_ext": ".yaml",
+      "output_path": "alertmanager/{target}-notification.yaml",
+      "description": "Alert routing and notification config",
+      "schema_url": "https://prometheus.io/docs/alerting/latest/configuration/",
+      "parameter_keys": [
+        "alertChannels",
+        "owner",
+        "owners"
+      ],
+      "parameter_sources": {
+        "alertChannels": "manifest.spec.observability.alertChannels",
+        "owner": "manifest.spec.business.owner",
+        "owners": "manifest.metadata.owners"
+      },
+      "example_output_path": "alertmanager/checkout-api-notification.yaml",
+      "example_snippet": "receivers:\n  - name: checkout-api-team\n    slack_configs:\n      - channel: '#alerts'"
+    },
+    "prometheus_rule": {
+      "output_ext": ".yaml",
+      "output_path": "prometheus/rules/{target}-prometheus-rules.yaml",
+      "description": "Prometheus alerting rules",
+      "schema_url": "https://prometheus-operator.dev/docs/operator/api/#monitoring.coreos.com/v1.PrometheusRule",
+      "parameter_keys": [
+        "alertSeverity",
+        "availabilityThreshold",
+        "latencyThreshold",
+        "latencyP50Threshold",
+        "throughput"
+      ],
+      "parameter_sources": {
+        "alertSeverity": "manifest.spec.business.criticality (\u2192 severity map)",
+        "availabilityThreshold": "manifest.spec.requirements.availability",
+        "latencyThreshold": "manifest.spec.requirements.latencyP99",
+        "latencyP50Threshold": "manifest.spec.requirements.latencyP50",
+        "throughput": "manifest.spec.requirements.throughput"
+      },
+      "example_output_path": "prometheus/rules/checkout-api-prometheus-rules.yaml",
+      "example_snippet": "apiVersion: monitoring.coreos.com/v1\nkind: PrometheusRule\nmetadata:\n  name: checkout-api-alerts\nspec:\n  groups:\n    - name: availability\n      rules:\n        - alert: LowAvailability\n          expr: ..."
+    },
+    "runbook": {
+      "output_ext": ".md",
+      "output_path": "runbooks/{target}-runbook.md",
+      "description": "Incident response runbook",
+      "schema_url": "https://docs.github.com/en/contributing/writing-for-github-docs/creating-markdown-runbooks",
+      "parameter_keys": [
+        "risks",
+        "escalationContacts"
+      ],
+      "parameter_sources": {
+        "risks": "manifest.spec.risks[]",
+        "escalationContacts": "manifest.metadata.owners"
+      },
+      "example_output_path": "runbooks/checkout-api-runbook.md",
+      "example_snippet": "# checkout-api Incident Runbook\n\n## Overview\n\n## Risks\n\n## Escalation Contacts"
+    },
+    "service_monitor": {
+      "output_ext": ".yaml",
+      "output_path": "k8s/observability/{target}-service-monitor.yaml",
+      "description": "Kubernetes ServiceMonitor",
+      "schema_url": "https://prometheus-operator.dev/docs/operator/api/#monitoring.coreos.com/v1.ServiceMonitor",
+      "parameter_keys": [
+        "metricsInterval",
+        "namespace"
+      ],
+      "parameter_sources": {
+        "metricsInterval": "manifest.spec.observability.metricsInterval",
+        "namespace": "crd.spec.targets[].namespace or default"
+      },
+      "example_output_path": "k8s/observability/checkout-api-service-monitor.yaml",
+      "example_snippet": "apiVersion: monitoring.coreos.com/v1\nkind: ServiceMonitor\nmetadata:\n  name: checkout-api\nspec:\n  selector:\n    matchLabels:\n      app: checkout-api\n  endpoints:\n    - port: metrics\n      interval: 30s"
+    },
+    "slo_definition": {
+      "output_ext": ".yaml",
+      "output_path": "slo/{target}-slo.yaml",
+      "description": "OpenSLO/Sloth SLO definition",
+      "schema_url": "https://openslo.com/",
+      "parameter_keys": [
+        "availability",
+        "latencyP99",
+        "errorBudget",
+        "throughput"
+      ],
+      "parameter_sources": {
+        "availability": "manifest.spec.requirements.availability",
+        "latencyP99": "manifest.spec.requirements.latencyP99",
+        "errorBudget": "manifest.spec.requirements.errorBudget",
+        "throughput": "manifest.spec.requirements.throughput"
+      },
+      "example_output_path": "slo/checkout-api-slo.yaml",
+      "example_snippet": "apiVersion: openslo.github.io/v1\nkind: SLO\nmetadata:\n  name: checkout-api\nspec:\n  target: 99.5\n  timeWindow:\n    duration: 30d"
+    }
+  },
+  "output_path_conventions": {
+    "dashboard": {
+      "output_ext": ".json",
+      "output_path": "grafana/dashboards/{target}-dashboard.json",
+      "description": "Grafana dashboard JSON",
+      "schema_url": "https://grafana.com/docs/grafana/latest/dashboards/build-dashboards/view-dashboard-json-model/"
+    },
+    "prometheus_rule": {
+      "output_ext": ".yaml",
+      "output_path": "prometheus/rules/{target}-prometheus-rules.yaml",
+      "description": "Prometheus alerting rules",
+      "schema_url": "https://prometheus-operator.dev/docs/operator/api/#monitoring.coreos.com/v1.PrometheusRule"
+    },
+    "slo_definition": {
+      "output_ext": ".yaml",
+      "output_path": "slo/{target}-slo.yaml",
+      "description": "OpenSLO/Sloth SLO definition",
+      "schema_url": "https://openslo.com/"
+    },
+    "service_monitor": {
+      "output_ext": ".yaml",
+      "output_path": "k8s/observability/{target}-service-monitor.yaml",
+      "description": "Kubernetes ServiceMonitor",
+      "schema_url": "https://prometheus-operator.dev/docs/operator/api/#monitoring.coreos.com/v1.ServiceMonitor"
+    },
+    "loki_rule": {
+      "output_ext": ".yaml",
+      "output_path": "loki/rules/{target}-loki-rules.yaml",
+      "description": "Loki recording/alerting rules",
+      "schema_url": "https://grafana.com/docs/loki/latest/rules/"
+    },
+    "notification_policy": {
+      "output_ext": ".yaml",
+      "output_path": "alertmanager/{target}-notification.yaml",
+      "description": "Alert routing and notification config",
+      "schema_url": "https://prometheus.io/docs/alerting/latest/configuration/"
+    },
+    "runbook": {
+      "output_ext": ".md",
+      "output_path": "runbooks/{target}-runbook.md",
+      "description": "Incident response runbook",
+      "schema_url": "https://docs.github.com/en/contributing/writing-for-github-docs/creating-markdown-runbooks"
+    },
+    "alert_template": {
+      "output_ext": ".yaml",
+      "output_path": "alertmanager/templates/{target}-alert-template.yaml",
+      "description": "Alert message template",
+      "schema_url": "https://prometheus.io/docs/alerting/latest/configuration/"
+    }
+  },
+  "parameter_schema": {
+    "dashboard": [
+      "criticality",
+      "dashboardPlacement",
+      "datasources",
+      "risks"
+    ],
+    "prometheus_rule": [
+      "alertSeverity",
+      "availabilityThreshold",
+      "latencyThreshold",
+      "latencyP50Threshold",
+      "throughput"
+    ],
+    "slo_definition": [
+      "availability",
+      "latencyP99",
+      "errorBudget",
+      "throughput"
+    ],
+    "service_monitor": [
+      "metricsInterval",
+      "namespace"
+    ],
+    "loki_rule": [
+      "logSelectors",
+      "recordingRules",
+      "labelExtractors",
+      "logFormat"
+    ],
+    "notification_policy": [
+      "alertChannels",
+      "owner",
+      "owners"
+    ],
+    "runbook": [
+      "risks",
+      "escalationContacts"
+    ],
+    "alert_template": [
+      "alertSeverity",
+      "summaryTemplate",
+      "descriptionTemplate"
+    ]
+  },
+  "coverage": {
+    "totalRequired": 4,
+    "totalExisting": 0,
+    "totalOutdated": 0,
+    "overallCoverage": 0.0,
+    "byTarget": [
+      {
+        "target": "",
+        "namespace": "default",
+        "requiredCount": 4,
+        "existingCount": 0,
+        "coveragePercent": 0.0,
+        "gaps": [
+          "-dashboard",
+          "-prometheus-rules",
+          "-service-monitor",
+          "-notification"
+        ]
+      }
+    ],
+    "byType": {
+      "dashboard": 1,
+      "prometheus_rule": 1,
+      "slo_definition": 1,
+      "service_monitor": 1,
+      "loki_rule": 1,
+      "notification_policy": 1,
+      "runbook": 1
+    },
+    "gaps": [
+      "-dashboard",
+      "-loki-rules",
+      "-notification",
+      "-prometheus-rules",
+      "-runbook",
+      "-service-monitor",
+      "-slo"
+    ]
+  },
+  "semantic_conventions": {
+    "attributeNamespaces": [
+      "gen_ai.*",
+      "agent.*",
+      "io.contextcore.*"
+    ],
+    "metrics": {
+      "contextcore": [
+        "contextcore_task_progress",
+        "contextcore_task_status",
+        "contextcore_install_completeness_percent"
+      ],
+      "beaver": [
+        "startd8_active_sessions",
+        "startd8_requests_total",
+        "startd8_tokens_total",
+        "startd8_response_time_ms",
+        "startd8_context_usage_ratio",
+        "startd8_truncations_total",
+        "startd8_cost_total"
+      ]
+    },
+    "queryTemplates": {
+      "task_by_project": "{ span.io.contextcore.project.id = \"$project\" }",
+      "agent_insights": "{ span.agent.insight.type = \"$type\" }",
+      "gen_ai_operations": "{ span.gen_ai.operation.name = \"$operation\" }",
+      "task_logs": "{job=\"contextcore\"} | json | project_id=\"$project\"",
+      "task_metrics": "contextcore_task_progress{project=\"$project\"}"
+    },
+    "logFormat": "otel"
+  },
+  "provenance": {
+    "generatedAt": "2026-02-16T22:46:44.901147",
+    "durationMs": 32,
+    "sourcePath": "/Users/neilyashinsky/Documents/dev/ContextCore/output/weaver-pipeline-test/.contextcore.yaml",
+    "sourceChecksum": "da289c20f317a321580d037309a30c1281399106fe93029c19b6aacdc25d9782",
+    "contextcoreVersion": "0.1.0",
+    "pythonVersion": "3.14.2",
+    "hostname": "Harold.local",
+    "username": "neilyashinsky",
+    "workingDirectory": "/Users/neilyashinsky/Documents/dev/ContextCore",
+    "git": {
+      "commitSha": "f73207aba13344e188440216a45485b710c5754d",
+      "branch": "main",
+      "isDirty": true,
+      "remoteUrl": "https://github.com/neil-the-nowledgeable/contextcore.git"
+    },
+    "cliArgs": [
+      "/opt/homebrew/bin/contextcore",
+      "manifest",
+      "export",
+      "-p",
+      "output/weaver-pipeline-test/.contextcore.yaml",
+      "-o",
+      "output/weaver-pipeline-test",
+      "--emit-provenance",
+      "--emit-run-provenance",
+      "--no-strict-quality"
+    ],
+    "cliOptions": {
+      "path": "output/weaver-pipeline-test/.contextcore.yaml",
+      "output_dir": "output/weaver-pipeline-test",
+      "namespace": "default",
+      "existing": [],
+      "scan_existing": null,
+      "format": "yaml",
+      "dry_run": false,
+      "emit_provenance": true,
+      "embed_provenance": false,
+      "emit_onboarding": true,
+      "min_coverage": null,
+      "task_mapping": null,
+      "emit_run_provenance": true,
+      "run_provenance_path": "output/weaver-pipeline-test/run-provenance.json"
+    },
+    "outputDirectory": "output/weaver-pipeline-test",
+    "outputFiles": [
+      "-projectcontext.yaml",
+      "-artifact-manifest.yaml"
+    ]
+  },
+  "guidance": {
+    "focus": {
+      "areas": [
+        "reliability"
+      ],
+      "reason": "Focus on core stability"
+    },
+    "constraints": [
+      {
+        "id": "C-PLAN-001",
+        "rule": "Keep `skill.*` and `capability.*` definitions (Wayfinder-specific)",
+        "severity": "blocking",
+        "rationale": "Imported from implementation plan guardrails",
+        "appliesTo": []
+      }
+    ],
+    "preferences": [],
+    "questions": [
+      {
+        "id": "Q-001",
+        "question": "What is the expected peak traffic pattern for this service?",
+        "status": "open",
+        "priority": "medium"
+      }
+    ]
+  },
+  "capabilities": {
+    "schema_features": [
+      "integrity_checksums",
+      "parameter_resolvability",
+      "output_contracts",
+      "design_calibration_hints",
+      "file_ownership",
+      "requirements_hints"
+    ],
+    "optional_sections": [
+      "artifact_task_mapping",
+      "open_questions",
+      "objectives",
+      "derivation_rules",
+      "provenance",
+      "requirements_hints"
+    ]
+  },
+  "derivation_rules": {
+    "dashboard": [
+      {
+        "property": "title",
+        "sourceField": "spec.targets[].name",
+        "transformation": "'{name} Service Dashboard'"
+      },
+      {
+        "property": "panels.availability",
+        "sourceField": "spec.requirements.availability",
+        "transformation": "SLO threshold: 99.9%",
+        "rationale": "Dashboard shows availability against SLO target"
+      }
+    ],
+    "loki_rule": [
+      {
+        "property": "logSelectors",
+        "sourceField": "spec.targets[].name",
+        "transformation": "{job=\"\"}",
+        "rationale": "Log selectors derived from service target name"
+      },
+      {
+        "property": "logFormat",
+        "sourceField": "spec.observability.logLevel",
+        "transformation": "otel",
+        "rationale": "Log format aligned with OTel log bridge conventions"
+      }
+    ],
+    "notification_policy": [
+      {
+        "property": "channels",
+        "sourceField": "spec.observability.alertChannels",
+        "transformation": "Channels: ['#2']"
+      }
+    ],
+    "prometheus_rule": [
+      {
+        "property": "severity",
+        "sourceField": "spec.business.criticality",
+        "transformation": "high \u2192 P2",
+        "rationale": "Alert severity is derived from business criticality"
+      },
+      {
+        "property": "threshold",
+        "sourceField": "spec.requirements.availability",
+        "transformation": "Target: 99.9%"
+      }
+    ],
+    "runbook": [
+      {
+        "property": "risks",
+        "sourceField": "spec.risks[]",
+        "transformation": "Risk count: 3",
+        "rationale": "Runbook should address documented risks"
+      }
+    ],
+    "service_monitor": [
+      {
+        "property": "scrapeInterval",
+        "sourceField": "spec.observability.metricsInterval",
+        "transformation": "Interval: 30s"
+      }
+    ],
+    "slo_definition": [
+      {
+        "property": "objective",
+        "sourceField": "spec.requirements.availability",
+        "transformation": "Availability SLO: 99.9%"
+      },
+      {
+        "property": "errorBudget",
+        "sourceField": "spec.requirements.errorBudget",
+        "transformation": "Error budget: 0.1%"
+      }
+    ]
+  },
+  "objectives": [
+    {
+      "id": "OBJ-001",
+      "description": "Example objective - update with real business goal",
+      "keyResults": [
+        {
+          "metricKey": "availability",
+          "unit": "%",
+          "target": 99.9,
+          "targetOperator": "gte",
+          "window": "30d"
+        }
+      ]
+    }
+  ],
+  "artifact_dependency_graph": {
+    "-notification": [
+      "-prometheus-rules"
+    ],
+    "-prometheus-rules": [
+      "-service-monitor"
+    ],
+    "-runbook": [
+      "-prometheus-rules",
+      "-notification"
+    ],
+    "-slo": [
+      "-service-monitor"
+    ]
+  },
+  "resolved_artifact_parameters": {
+    "-dashboard": {
+      "criticality": "high",
+      "dashboardPlacement": "standard",
+      "datasources": [
+        "Tempo",
+        "Loki",
+        "mimir"
+      ],
+      "risks": [
+        {
+          "type": "availability",
+          "description": "## Risk Register",
+          "priority": "P2"
+        },
+        {
+          "type": "availability",
+          "description": "| Risk | Severity | Mitigation |",
+          "priority": "P2"
+        },
+        {
+          "type": "availability",
+          "description": "| R2-S1 | Mandate Option B (automated schema distribution) and remove Option A from Phase 6.2. | gemini-2.5 (gemini-2.5-pro) | The plan explicitly acknowledges Option B as the long",
+          "priority": "P2"
+        }
+      ]
+    },
+    "-loki-rules": {
+      "logSelectors": [
+        "{app=\"\"}"
+      ],
+      "recordingRules": [
+        "_error_rate_5m",
+        "_request_rate_5m"
+      ],
+      "labelExtractors": [
+        "level",
+        "status_code",
+        "method",
+        "path"
+      ],
+      "logFormat": "otel"
+    },
+    "-notification": {
+      "alertChannels": [
+        "#2"
+      ],
+      "owner": "disagrees",
+      "owners": [
+        {
+          "team": "disagrees",
+          "slack": "#alerts",
+          "email": "team@example.com",
+          "oncall": null
+        }
+      ]
+    },
+    "-prometheus-rules": {
+      "alertSeverity": "P2",
+      "availabilityThreshold": "99.9",
+      "latencyThreshold": "500ms",
+      "throughput": "100rps"
+    },
+    "-runbook": {
+      "risks": [
+        {
+          "type": "availability",
+          "description": "## Risk Register",
+          "priority": "P2",
+          "mitigation": "Define mitigation in implementation plan"
+        },
+        {
+          "type": "availability",
+          "description": "| Risk | Severity | Mitigation |",
+          "priority": "P2",
+          "mitigation": "Define mitigation in implementation plan"
+        },
+        {
+          "type": "availability",
+          "description": "| R2-S1 | Mandate Option B (automated schema distribution) and remove Option A from Phase 6.2. | gemini-2.5 (gemini-2.5-pro) | The plan explicitly acknowledges Option B as the long",
+          "priority": "P2",
+          "mitigation": "Define mitigation in implementation plan"
+        }
+      ],
+      "escalationContacts": [
+        {
+          "team": "disagrees",
+          "slack": "#alerts",
+          "email": "team@example.com",
+          "oncall": null
+        }
+      ]
+    },
+    "-service-monitor": {
+      "metricsInterval": "30s",
+      "namespace": "default"
+    },
+    "-slo": {
+      "availability": "99.9",
+      "latencyP99": "500ms",
+      "errorBudget": "0.1",
+      "throughput": "100rps"
+    }
+  },
+  "parameter_resolvability": {
+    "-dashboard": {
+      "criticality": {
+        "status": "resolved",
+        "source_path": "manifest.spec.business.criticality"
+      },
+      "dashboardPlacement": {
+        "status": "resolved",
+        "source_path": "manifest.spec.observability.dashboardPlacement"
+      },
+      "datasources": {
+        "status": "resolved",
+        "source_path": "manifest (template default)"
+      },
+      "risks": {
+        "status": "resolved",
+        "source_path": "manifest.spec.risks[]"
+      }
+    },
+    "-loki-rules": {
+      "logSelectors": {
+        "status": "resolved",
+        "source_path": "manifest (target-based)"
+      },
+      "recordingRules": {
+        "status": "resolved",
+        "source_path": "manifest (template default)"
+      },
+      "labelExtractors": {
+        "status": "resolved",
+        "source_path": "manifest (template default)"
+      },
+      "logFormat": {
+        "status": "resolved",
+        "source_path": "manifest.spec.observability.logLevel"
+      }
+    },
+    "-notification": {
+      "alertChannels": {
+        "status": "resolved",
+        "source_path": "manifest.spec.observability.alertChannels"
+      },
+      "owner": {
+        "status": "resolved",
+        "source_path": "manifest.spec.business.owner"
+      },
+      "owners": {
+        "status": "resolved",
+        "source_path": "manifest.metadata.owners"
+      }
+    },
+    "-prometheus-rules": {
+      "alertSeverity": {
+        "status": "resolved",
+        "source_path": "manifest.spec.business.criticality (\u2192 severity map)"
+      },
+      "availabilityThreshold": {
+        "status": "resolved",
+        "source_path": "manifest.spec.requirements.availability"
+      },
+      "latencyThreshold": {
+        "status": "resolved",
+        "source_path": "manifest.spec.requirements.latencyP99"
+      },
+      "latencyP50Threshold": {
+        "status": "unresolved",
+        "source_path": "manifest.spec.requirements.latencyP50",
+        "reason_code": "value_not_materialized",
+        "reason": "Source mapping exists but no concrete value was produced"
+      },
+      "throughput": {
+        "status": "resolved",
+        "source_path": "manifest.spec.requirements.throughput"
+      }
+    },
+    "-runbook": {
+      "risks": {
+        "status": "resolved",
+        "source_path": "manifest.spec.risks[]"
+      },
+      "escalationContacts": {
+        "status": "resolved",
+        "source_path": "manifest.metadata.owners"
+      }
+    },
+    "-service-monitor": {
+      "metricsInterval": {
+        "status": "resolved",
+        "source_path": "manifest.spec.observability.metricsInterval"
+      },
+      "namespace": {
+        "status": "resolved",
+        "source_path": "crd.spec.targets[].namespace or default"
+      }
+    },
+    "-slo": {
+      "availability": {
+        "status": "resolved",
+        "source_path": "manifest.spec.requirements.availability"
+      },
+      "latencyP99": {
+        "status": "resolved",
+        "source_path": "manifest.spec.requirements.latencyP99"
+      },
+      "errorBudget": {
+        "status": "resolved",
+        "source_path": "manifest.spec.requirements.errorBudget"
+      },
+      "throughput": {
+        "status": "resolved",
+        "source_path": "manifest.spec.requirements.throughput"
+      }
+    }
+  },
+  "parameter_resolvability_summary": {
+    "resolved": 23,
+    "unresolved": 1,
+    "total": 24
+  },
+  "open_questions": [
+    {
+      "id": "Q-001",
+      "question": "What is the expected peak traffic pattern for this service?",
+      "status": "open",
+      "priority": "medium"
+    }
+  ],
+  "expected_output_contracts": {
+    "dashboard": {
+      "expected_depth": "comprehensive",
+      "max_lines": 300,
+      "max_tokens": 1500,
+      "completeness_markers": [
+        "panels",
+        "templating",
+        "title",
+        "datasource"
+      ],
+      "red_flag": "Calibrated as 'brief' \u2014 will produce a skeleton, not a usable dashboard",
+      "fields": [
+        "criticality",
+        "dashboardPlacement",
+        "datasources",
+        "risks"
+      ]
+    },
+    "loki_rule": {
+      "expected_depth": "standard",
+      "max_lines": 150,
+      "max_tokens": 750,
+      "completeness_markers": [
+        "groups",
+        "rules",
+        "expr"
+      ],
+      "red_flag": "Calibrated as 'brief' \u2014 likely to produce incomplete recording rules",
+      "fields": [
+        "logSelectors",
+        "recordingRules",
+        "labelExtractors",
+        "logFormat"
+      ]
+    },
+    "notification_policy": {
+      "expected_depth": "standard",
+      "max_lines": 150,
+      "max_tokens": 750,
+      "completeness_markers": [
+        "receivers",
+        "routes"
+      ],
+      "red_flag": "Calibrated as 'comprehensive' \u2014 over-engineering a routing config",
+      "fields": [
+        "alertChannels",
+        "owner",
+        "owners"
+      ]
+    },
+    "prometheus_rule": {
+      "expected_depth": "standard",
+      "max_lines": 150,
+      "max_tokens": 750,
+      "completeness_markers": [
+        "groups",
+        "rules",
+        "alert",
+        "expr"
+      ],
+      "red_flag": "Calibrated as 'brief' \u2014 likely to produce incomplete alert rules",
+      "fields": [
+        "alertSeverity",
+        "availabilityThreshold",
+        "latencyThreshold",
+        "latencyP50Threshold",
+        "throughput"
+      ]
+    },
+    "runbook": {
+      "expected_depth": "standard-comprehensive",
+      "max_lines": 300,
+      "max_tokens": 1500,
+      "completeness_markers": [
+        "Overview",
+        "Risks",
+        "Escalation",
+        "Procedures"
+      ],
+      "red_flag": "Calibrated as 'brief' \u2014 runbook will lack incident procedures",
+      "fields": [
+        "risks",
+        "escalationContacts"
+      ]
+    },
+    "service_monitor": {
+      "expected_depth": "brief",
+      "max_lines": 50,
+      "max_tokens": 250,
+      "completeness_markers": [
+        "selector",
+        "endpoints",
+        "interval"
+      ],
+      "red_flag": "Calibrated as 'comprehensive' \u2014 over-engineering a simple YAML",
+      "fields": [
+        "metricsInterval",
+        "namespace"
+      ]
+    },
+    "slo_definition": {
+      "expected_depth": "standard",
+      "max_lines": 150,
+      "max_tokens": 750,
+      "completeness_markers": [
+        "target",
+        "timeWindow",
+        "indicator"
+      ],
+      "red_flag": "Calibrated as 'comprehensive' \u2014 over-engineering for a simple spec",
+      "fields": [
+        "availability",
+        "latencyP99",
+        "errorBudget",
+        "throughput"
+      ]
+    }
+  },
+  "design_calibration_hints": {
+    "dashboard": {
+      "expected_depth": "comprehensive",
+      "expected_loc_range": "51-300",
+      "red_flag": "Calibrated as 'brief' \u2014 will produce a skeleton, not a usable dashboard"
+    },
+    "loki_rule": {
+      "expected_depth": "standard",
+      "expected_loc_range": "51-150",
+      "red_flag": "Calibrated as 'brief' \u2014 likely to produce incomplete recording rules"
+    },
+    "notification_policy": {
+      "expected_depth": "standard",
+      "expected_loc_range": "51-150",
+      "red_flag": "Calibrated as 'comprehensive' \u2014 over-engineering a routing config"
+    },
+    "prometheus_rule": {
+      "expected_depth": "standard",
+      "expected_loc_range": "51-150",
+      "red_flag": "Calibrated as 'brief' \u2014 likely to produce incomplete alert rules"
+    },
+    "runbook": {
+      "expected_depth": "standard-comprehensive",
+      "expected_loc_range": "51-300",
+      "red_flag": "Calibrated as 'brief' \u2014 runbook will lack incident procedures"
+    },
+    "service_monitor": {
+      "expected_depth": "brief",
+      "expected_loc_range": "<=50",
+      "red_flag": "Calibrated as 'comprehensive' \u2014 over-engineering a simple YAML"
+    },
+    "slo_definition": {
+      "expected_depth": "standard",
+      "expected_loc_range": "51-150",
+      "red_flag": "Calibrated as 'comprehensive' \u2014 over-engineering for a simple spec"
+    }
+  },
+  "requirements_hints": [
+    {
+      "id": "REQ-AVAILABILITY",
+      "labels": [
+        "nfr",
+        "contextcore-export"
+      ],
+      "priority": "medium",
+      "acceptance_anchors": [
+        "spec.requirements.availability"
+      ]
+    },
+    {
+      "id": "REQ-ERRORBUDGET",
+      "labels": [
+        "nfr",
+        "contextcore-export"
+      ],
+      "priority": "medium",
+      "acceptance_anchors": [
+        "spec.requirements.errorBudget"
+      ]
+    }
+  ],
+  "artifact_manifest_checksum": "59bd6db48a020021f1faa87732d088e125090a1c17cc8374b5d35cfa415e02e9",
+  "project_context_checksum": "b0d58f957e3e418498dfde1d0bea7d93f25070704fff54d37e85ff27cf5d848d",
+  "source_checksum": "da289c20f317a321580d037309a30c1281399106fe93029c19b6aacdc25d9782",
+  "source_path_relative": "manifest.spec.requirements.throughput"
+}

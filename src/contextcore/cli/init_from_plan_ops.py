@@ -15,6 +15,15 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+# ── Plan structure metadata patterns (Option 2 enrichment) ──────────
+_REQ_ID_PATTERN = re.compile(r'\b((?:REQ|FR|NFR)[-_][\w-]*\d+)\b', re.IGNORECASE)
+_SATISFIES_PATTERN = re.compile(r'\*{0,2}Satisfies:?\*{0,2}\s*(.*)', re.IGNORECASE)
+_DEPENDS_ON_PATTERN = re.compile(r'\*{0,2}Depends\s+on:?\*{0,2}\s*(.*)', re.IGNORECASE)
+_REPO_PATTERN = re.compile(r'\*{0,2}Repos?:?\*{0,2}\s*(.*)', re.IGNORECASE)
+_DELIVERABLES_PATTERN = re.compile(r'\*{0,2}Deliverables?:?\*{0,2}\s*(.*)', re.IGNORECASE)
+_CHECKLIST_PATTERN = re.compile(r'-\s*\[([x ])\]\s*`?([^`\n]+)`?', re.IGNORECASE)
+_VALIDATION_PATTERN = re.compile(r'\*{0,2}Validation:?\*{0,2}\s*(.*)', re.IGNORECASE)
+
 
 def build_v2_manifest_template(name: str) -> Dict[str, Any]:
     """Build a baseline v2 manifest payload."""
@@ -230,6 +239,7 @@ def infer_init_from_plan(
     requirements_text: str,
     project_root: Optional[str],
     emit_guidance_questions: bool,
+    plan_analysis: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Infer manifest fields from plan/requirements text."""
     text = "\n".join([plan_text, requirements_text])
@@ -435,29 +445,120 @@ def infer_init_from_plan(
             0.8,
         )
 
-    # ── Tactics extraction from plan phases/milestones/action items ──
+    # ── Requirement ID extraction (REQ-N, FR-N, NFR-N) ────────────
+    all_req_ids = sorted(set(_REQ_ID_PATTERN.findall(text)))
+    if all_req_ids:
+        add_inference(
+            "requirement_ids",
+            all_req_ids,
+            "plan+requirements:req_id_extraction",
+            0.85,
+        )
+
+    # ── Tactics extraction with phase-accumulator (enriched) ────────
     tactics: List[Dict[str, Any]] = []
+    obj_ids = [o["id"] for o in manifest_data["strategy"].get("objectives", [])]
+
+    # Phase-accumulator: collect metadata lines between headings
+    current_heading: Optional[str] = None
+    current_meta: Dict[str, Any] = {}
     in_phases = False
     in_milestones = False
     in_action_items = False
-    obj_ids = [o["id"] for o in manifest_data["strategy"].get("objectives", [])]
+    deliverable_lines: List[str] = []
+    collecting_deliverables = False
+
+    def _flush_tactic(heading_text: str, meta: Dict[str, Any]) -> None:
+        """Flush accumulated heading + metadata into a tactic dict."""
+        if len(heading_text) <= 10 or len(tactics) >= 15:
+            return
+        tac_id = f"TAC-PLAN-{len(tactics)+1:03d}"
+        tactic: Dict[str, Any] = {
+            "id": tac_id,
+            "description": heading_text[:180],
+            "status": "planned",
+            "linkedObjectives": obj_ids[:1] if obj_ids else [],
+        }
+        # Enrichment fields from inline metadata
+        if meta.get("satisfies"):
+            tactic["satisfies"] = meta["satisfies"]
+        if meta.get("depends_on"):
+            tactic["dependsOn"] = meta["depends_on"]
+        if meta.get("repo"):
+            tactic["repo"] = meta["repo"]
+        if meta.get("deliverables"):
+            tactic["deliverables"] = meta["deliverables"]
+        tactics.append(tactic)
+
     for ln in plan_lines:
         lowered_line = ln.lower()
-        if re.match(r"^#{2,3}\s*(phase|milestone|action|step|task)\b", lowered_line):
+
+        # Detect phase/milestone headings (## Phase N: ...)
+        phase_match = re.match(r"^#{2,3}\s*(phase|milestone|action|step|task)\b", lowered_line)
+        if phase_match:
+            # Flush previous phase if any
+            if current_heading is not None:
+                if deliverable_lines:
+                    current_meta["deliverables"] = {
+                        "summary": "; ".join(deliverable_lines[:5]),
+                        "file_count": len(deliverable_lines),
+                    }
+                _flush_tactic(current_heading, current_meta)
+
+            heading_text = re.sub(r"^#{2,3}\s*", "", ln).strip()
+            current_heading = heading_text
+            current_meta = {}
+            deliverable_lines = []
+            collecting_deliverables = False
             in_phases = True
             in_milestones = False
             in_action_items = False
-            # The heading itself may describe a phase
-            heading_text = re.sub(r"^#{2,3}\s*", "", ln).strip()
-            if len(heading_text) > 10:
-                tac_id = f"TAC-PLAN-{len(tactics)+1:03d}"
-                tactics.append({
-                    "id": tac_id,
-                    "description": heading_text[:180],
-                    "status": "planned",
-                    "linkedObjectives": obj_ids[:1] if obj_ids else [],
-                })
             continue
+
+        # Collect metadata lines between headings
+        if current_heading is not None and in_phases:
+            # Satisfies:
+            m = _SATISFIES_PATTERN.match(ln)
+            if m:
+                raw = m.group(1).strip()
+                # Extract REQ-IDs from the Satisfies line
+                ids = _REQ_ID_PATTERN.findall(raw)
+                current_meta["satisfies"] = ids if ids else [raw]
+                continue
+            # Depends on:
+            m = _DEPENDS_ON_PATTERN.match(ln)
+            if m:
+                current_meta["depends_on"] = m.group(1).strip()
+                continue
+            # Repo:
+            m = _REPO_PATTERN.match(ln)
+            if m:
+                current_meta["repo"] = m.group(1).strip()
+                continue
+            # Deliverables: (start collecting)
+            m = _DELIVERABLES_PATTERN.match(ln)
+            if m:
+                inline = m.group(1).strip()
+                if inline:
+                    deliverable_lines.append(inline)
+                collecting_deliverables = True
+                continue
+            # Validation: (stop deliverable collection)
+            m = _VALIDATION_PATTERN.match(ln)
+            if m:
+                collecting_deliverables = False
+                continue
+            # Checklist items under Deliverables
+            if collecting_deliverables:
+                cm = _CHECKLIST_PATTERN.match(ln)
+                if cm:
+                    deliverable_lines.append(cm.group(2).strip())
+                    continue
+                # A non-indented non-empty line that isn't a checklist ends collection
+                if ln.strip() and not ln.startswith(" ") and not ln.startswith("-"):
+                    collecting_deliverables = False
+
+        # Other section headings (milestones, action items, deliverables sections)
         if lowered_line.startswith("### milestones"):
             in_milestones = True
             in_phases = False
@@ -468,13 +569,27 @@ def infer_init_from_plan(
             in_phases = False
             in_milestones = False
             continue
+        # Reset on new top-level heading
         if (in_phases or in_milestones or in_action_items) and ln.startswith("## "):
+            # Flush current phase before resetting
+            if current_heading is not None and in_phases:
+                if deliverable_lines:
+                    current_meta["deliverables"] = {
+                        "summary": "; ".join(deliverable_lines[:5]),
+                        "file_count": len(deliverable_lines),
+                    }
+                _flush_tactic(current_heading, current_meta)
+                current_heading = None
+                current_meta = {}
+                deliverable_lines = []
+                collecting_deliverables = False
             in_phases = False
             in_milestones = False
             in_action_items = False
-        if (in_phases or in_milestones or in_action_items) and ln.startswith("- "):
+        # Bullet items under milestones/action items
+        if (in_milestones or in_action_items) and ln.startswith("- "):
             item_text = ln.lstrip("- ").strip()
-            if len(item_text) > 10 and len(tactics) < 10:
+            if len(item_text) > 10 and len(tactics) < 15:
                 tac_id = f"TAC-PLAN-{len(tactics)+1:03d}"
                 tactics.append({
                     "id": tac_id,
@@ -482,14 +597,58 @@ def infer_init_from_plan(
                     "status": "planned",
                     "linkedObjectives": obj_ids[:1] if obj_ids else [],
                 })
+
+    # Flush final phase
+    if current_heading is not None:
+        if deliverable_lines:
+            current_meta["deliverables"] = {
+                "summary": "; ".join(deliverable_lines[:5]),
+                "file_count": len(deliverable_lines),
+            }
+        _flush_tactic(current_heading, current_meta)
+
+    # ── Merge plan_analysis data (Option 3 enrichment) ─────────────
+    if plan_analysis and tactics:
+        pa_phases = plan_analysis.get("phase_metadata", [])
+        trace_matrix = plan_analysis.get("traceability_matrix", {})
+
+        # Build a lookup by phase heading prefix for fuzzy matching
+        for pa_phase in pa_phases:
+            pa_heading = pa_phase.get("heading", "").lower()
+            for tactic in tactics:
+                tac_desc = tactic["description"].lower()
+                # Match if the tactic description contains the phase heading or vice versa
+                if pa_heading and (pa_heading in tac_desc or tac_desc in pa_heading):
+                    # Higher-confidence data from plan_analysis overrides inline
+                    if pa_phase.get("satisfies") and not tactic.get("satisfies"):
+                        tactic["satisfies"] = pa_phase["satisfies"]
+                    if pa_phase.get("depends_on") and not tactic.get("dependsOn"):
+                        tactic["dependsOn"] = pa_phase["depends_on"]
+                    if pa_phase.get("repo") and not tactic.get("repo"):
+                        tactic["repo"] = pa_phase["repo"]
+                    if pa_phase.get("deliverables") and not tactic.get("deliverables"):
+                        tactic["deliverables"] = pa_phase["deliverables"]
+                    break
+
     if tactics:
         manifest_data["strategy"]["tactics"] = tactics
+        enriched_count = sum(
+            1 for t in tactics
+            if t.get("satisfies") or t.get("dependsOn") or t.get("repo") or t.get("deliverables")
+        )
         add_inference(
             "strategy.tactics",
             [t["id"] for t in tactics],
             "plan:phase_milestone_extraction",
             0.7,
         )
+        if enriched_count > 0:
+            add_inference(
+                "strategy.tactics.enrichment",
+                {"enriched_count": enriched_count, "total": len(tactics)},
+                "plan:phase_metadata_enrichment" if not plan_analysis else "plan_analysis:merge",
+                0.8 if plan_analysis else 0.7,
+            )
 
     if emit_guidance_questions:
         questions = [ln for ln in plan_lines if ln.endswith("?")]
