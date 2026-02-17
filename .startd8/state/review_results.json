@@ -1,50 +1,45 @@
 {
   "_cache_meta": {
     "schema_version": 2,
-    "created_at": "2026-02-17T15:29:13.744006+00:00",
+    "created_at": "2026-02-17T15:36:13.958479+00:00",
     "source_checksum": "2f6604b6927fd8585a63da014b39dc4d38d13642361b90755391497ec6a26a46"
   },
   "tasks": {
-    "PI-001b": {
-      "task_id": "PI-001b",
-      "score": 62,
+    "PI-001c": {
+      "task_id": "PI-001c",
+      "score": 72,
       "verdict": "FAIL",
       "passed": false,
-      "cost": 0.03986,
+      "cost": 0.022135000000000002,
       "tokens": {
-        "input": 2972,
-        "output": 1000
+        "input": 1117,
+        "output": 662
       },
       "status": "reviewed",
       "strengths": [
-        "Well-structured Grafana dashboard JSON with proper use of `__inputs`, `__requires`, `annotations`, and `panels` sections",
-        "Good observability coverage: includes capability index size, lookup latency (p50/p95/p99), query rate, error rate, and query throughput by operation",
-        "Proper use of Grafana templating variables (`$datasource`, `$namespace`, `$interval`)",
-        "Appropriate panel types chosen (stat for KPIs, timeseries for trends, row for organization)",
-        "Sensible threshold values for color-coded alerts (e.g., error rate at 1% yellow, 5% red; latency at 0.5s yellow, 2s red)",
-        "Correct use of `histogram_quantile` for latency percentiles",
-        "Smart use of `clamp_min` to prevent division by zero in error rate calculation",
-        "Proper use of `graphTooltip: 2` for shared crosshair tooltip mode",
-        "Collapsed row sections for organized dashboard layout"
+        "Well-structured ServiceMonitor YAML with comprehensive comments and clear documentation of prerequisites",
+        "Proper use of Kubernetes recommended labels (`app.kubernetes.io/*`)",
+        "Security-conscious configuration: mTLS with `insecureSkipVerify: false`, bearer token authentication",
+        "Sensible operational defaults: `sampleLimit`, `targetLimit`, `scrapeTimeout` relative to `interval`",
+        "Thoughtful metric relabelings to drop high-cardinality metrics with explanation of what's preserved",
+        "Environment relabeling for multi-cluster/multi-env dashboard support",
+        "Clean, idiomatic Prometheus Operator resource definition compatible with v0.60+"
       ],
       "issues": [
-        "[severity: BLOCKING] The generated code is **truncated** \u2014 the output cuts off mid-JSON at approximately 13,000 characters (visible truncation marker: `\"c` inside a threshold step, and `# ... [truncated \u2014 12981 chars omitted] ...`). This means the JSON is syntactically invalid and cannot be parsed or used as-is. The dashboard is incomplete \u2014 missing the rest of the \"Query Performance\" collapsed row panels, likely additional rows/panels, the `templating` section (where `$datasource`, `$namespace`, `$interval` variables would be defined), the `time` section, `refresh`, `schemaVersion`, `tags`, `timezone`, `title`, `uid`, and the closing braces.",
-        "[severity: BLOCKING] Without the `templating` section, the dashboard variables (`$datasource`, `$namespace`, `$interval`) referenced throughout all panel queries would be undefined, making the dashboard non-functional even if the JSON were completed.",
-        "[severity: MAJOR] Test results show both validators were **skipped** with reason `unknown_validator`, meaning there was effectively **no validation** performed. The \"passed\" status is misleading \u2014 it passed vacuously because no checks ran. This means we have no actual quality assurance on the output.",
-        "[severity: MINOR] The file is named `ContextCore-dashboard.json` but the comment line shows `# File: ContextCore-dashboard.json` \u2014 a comment syntax that is invalid in JSON (JSON does not support comments). This would cause a parse error if included in the actual file.",
-        "[severity: MINOR] Panel layout has a potential overlap: panel id=2 (latency) at x=6, w=12 spans columns 6-17, and panel id=4 (error rate) at x=18, w=6 spans columns 18-23. This works, but panel id=1 at x=0, w=6 and panel id=2 at x=6, w=12 leaves the first row using only 18 columns plus the error rate stat at x=18 \u2014 layout is functional but the latency panel could have been wider."
+        "[MAJOR] The task description is extremely vague \u2014 \"Fallback parsed feature from plan text\" and \"Capability Index Structural Enhancement Plan\" suggest this may be part of a larger structural enhancement to a capability index, but the generated code is a standalone ServiceMonitor with no clear connection to any \"capability index\" or \"structural enhancement.\" The implementation may not actually address what was intended.",
+        "[MAJOR] The constraint \"Preserve existing sections\" implies there should be an existing file whose sections need to be preserved, but there's no evidence that existing content was considered or retained. If a prior version of this file existed, sections may have been lost. Without the original file to compare, this is a significant risk.",
+        "[MAJOR] The test results show both validators were **skipped** due to `unknown_validator`, meaning no actual validation occurred. The `\"status\": \"passed\"` is misleading \u2014 nothing was actually verified. The \"Preserve existing sections\" constraint was not validated at all.",
+        "[MINOR] The `namespace: observability` placement means the ServiceMonitor must be in the same namespace as Prometheus or Prometheus must be configured with `serviceMonitorNamespaceSelector` to pick it up \u2014 this is a common gotcha that should be noted.",
+        "[MINOR] Hardcoded `environment: production` reduces reusability; this should ideally be parameterized or templated (e.g., via Kustomize or Helm)."
       ],
       "suggestions": [
-        "Regenerate the full, complete JSON file without truncation \u2014 this is the primary fix needed",
-        "Include the `templating` section with proper variable definitions for `$datasource` (type: datasource), `$namespace` (type: query), and `$interval` (type: interval)",
-        "Include required top-level fields: `title`, `uid`, `schemaVersion`, `tags`, `timezone`, `time`, `refresh`, `version`, and `style`",
-        "Add a `$__rate_interval` or validate that `$interval` is properly configured for rate() queries (Grafana best practice recommends `$__rate_interval`)",
-        "Ensure actual validators are configured and run properly \u2014 the skipped validators provide no confidence in correctness",
-        "Remove the `# File:` comment line or place it outside the JSON content",
-        "Consider adding an \"Alerting\" or \"SLO\" row with panels showing SLI compliance if this is meant to be a production observability dashboard",
-        "Add `\"version\": 1` and a proper `schemaVersion` (e.g., 39 for modern Grafana) to the dashboard root"
+        "Clarify the relationship between this ServiceMonitor and the \"Capability Index Structural Enhancement Plan\" \u2014 if this is meant to enable monitoring of a service that supports capability indexing, document that connection explicitly",
+        "If an existing version of this file exists, do a diff to ensure all existing sections are preserved per the constraint",
+        "Implement proper validators (YAML schema validation, key preservation checking) rather than relying on skipped unknown validators",
+        "Consider parameterizing the `environment` label and namespace values using Kustomize overlays or Helm values for multi-environment deployments",
+        "Add a `ServiceMonitor` validation against the CRD schema (e.g., using `kubeconform` with CRD schemas) to ensure structural correctness beyond basic YAML validity"
       ],
-      "reviewed_code_hash": "8512686a167ca5cff2613e21422b5fab7314eccb203b414f1ddb216148cb1855"
+      "reviewed_code_hash": "0588fccee2b8514cefd77cd4332d51c09296fc0fcb881a2f7cc57796a80144f1"
     }
   }
 }
