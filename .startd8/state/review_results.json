@@ -1,44 +1,50 @@
 {
   "_cache_meta": {
     "schema_version": 2,
-    "created_at": "2026-02-17T04:05:49.101608+00:00",
+    "created_at": "2026-02-17T15:29:13.744006+00:00",
     "source_checksum": "2f6604b6927fd8585a63da014b39dc4d38d13642361b90755391497ec6a26a46"
   },
   "tasks": {
-    "PI-001a": {
-      "task_id": "PI-001a",
-      "score": 82,
-      "verdict": "PASS",
-      "passed": true,
-      "cost": 0.02793,
+    "PI-001b": {
+      "task_id": "PI-001b",
+      "score": 62,
+      "verdict": "FAIL",
+      "passed": false,
+      "cost": 0.03986,
       "tokens": {
-        "input": 1566,
-        "output": 804
+        "input": 2972,
+        "output": 1000
       },
       "status": "reviewed",
       "strengths": [
-        "**Well-structured x-capability-index block**: The custom extension is clearly defined with version, schema, last_modified, capabilities list with meaningful fields (id, type, channel, severity_filter, receiver_ref, description), and tags. This is a thoughtful structural enhancement for discoverability.",
-        "**Correct Alertmanager v0.27.x syntax**: Uses `matchers` (not deprecated `match`/`match_re`), proper quoting on matcher expressions like `severity=\"critical\"` and `severity=~\"warning|info\"`.",
-        "**Preserves all existing sections**: The file contains all standard Alertmanager sections \u2014 `global`, `templates`, `route`, `receivers`, `inhibit_rules` \u2014 satisfying the \"preserve existing sections\" constraint.",
-        "**Good operational documentation**: Header comments explain the target version, that `x-capability-index` is ignored at runtime, and include a validation command.",
-        "**Coherent cross-referencing**: Each capability's `receiver_ref` correctly maps to a defined receiver name in the `receivers` section.",
-        "**Reasonable routing logic**: Critical alerts go to email (with `continue: true`) and then PagerDuty with shorter group_wait/repeat_interval; warning/info go to Slack. The inhibition rules are sensible.",
-        "**Placeholder values are clearly marked**: Passwords, API URLs, and service keys use obvious placeholder strings."
+        "Well-structured Grafana dashboard JSON with proper use of `__inputs`, `__requires`, `annotations`, and `panels` sections",
+        "Good observability coverage: includes capability index size, lookup latency (p50/p95/p99), query rate, error rate, and query throughput by operation",
+        "Proper use of Grafana templating variables (`$datasource`, `$namespace`, `$interval`)",
+        "Appropriate panel types chosen (stat for KPIs, timeseries for trends, row for organization)",
+        "Sensible threshold values for color-coded alerts (e.g., error rate at 1% yellow, 5% red; latency at 0.5s yellow, 2s red)",
+        "Correct use of `histogram_quantile` for latency percentiles",
+        "Smart use of `clamp_min` to prevent division by zero in error rate calculation",
+        "Proper use of `graphTooltip: 2` for shared crosshair tooltip mode",
+        "Collapsed row sections for organized dashboard layout"
       ],
       "issues": [
-        "[MINOR] **PagerDuty config uses `service_key` (v1) instead of `routing_key` (v2)**: The `global` section sets `pagerduty_url` to the v2 endpoint (`/v2/enqueue`), but the receiver uses `service_key` which is the PagerDuty v1 field. For v2 integration, this should be `routing_key`. While this is a placeholder config, it's technically inconsistent.",
-        "[MINOR] **Validators were all skipped**: Both validators (`valid_format` and `existing_keys_preserved`) were skipped with reason `unknown_validator`, meaning no actual validation was performed. The \"passed\" status is misleading \u2014 there's no evidence the YAML was machine-validated.",
-        "[MINOR] **No time_intervals or mute_time_intervals section**: While not required, the design mentions \"capability index structural enhancement\" which could benefit from referencing time-based routing capabilities available in v0.27.x.",
-        "[MINOR] **`smtp_auth_password` in plaintext**: Best practice would be to note that this should reference a secret or environment variable, though for a template/example config this is acceptable."
+        "[severity: BLOCKING] The generated code is **truncated** \u2014 the output cuts off mid-JSON at approximately 13,000 characters (visible truncation marker: `\"c` inside a threshold step, and `# ... [truncated \u2014 12981 chars omitted] ...`). This means the JSON is syntactically invalid and cannot be parsed or used as-is. The dashboard is incomplete \u2014 missing the rest of the \"Query Performance\" collapsed row panels, likely additional rows/panels, the `templating` section (where `$datasource`, `$namespace`, `$interval` variables would be defined), the `time` section, `refresh`, `schemaVersion`, `tags`, `timezone`, `title`, `uid`, and the closing braces.",
+        "[severity: BLOCKING] Without the `templating` section, the dashboard variables (`$datasource`, `$namespace`, `$interval`) referenced throughout all panel queries would be undefined, making the dashboard non-functional even if the JSON were completed.",
+        "[severity: MAJOR] Test results show both validators were **skipped** with reason `unknown_validator`, meaning there was effectively **no validation** performed. The \"passed\" status is misleading \u2014 it passed vacuously because no checks ran. This means we have no actual quality assurance on the output.",
+        "[severity: MINOR] The file is named `ContextCore-dashboard.json` but the comment line shows `# File: ContextCore-dashboard.json` \u2014 a comment syntax that is invalid in JSON (JSON does not support comments). This would cause a parse error if included in the actual file.",
+        "[severity: MINOR] Panel layout has a potential overlap: panel id=2 (latency) at x=6, w=12 spans columns 6-17, and panel id=4 (error rate) at x=18, w=6 spans columns 18-23. This works, but panel id=1 at x=0, w=6 and panel id=2 at x=6, w=12 leaves the first row using only 18 columns plus the error rate stat at x=18 \u2014 layout is functional but the latency panel could have been wider."
       ],
       "suggestions": [
-        "Change `service_key` to `routing_key` in the `pagerduty-oncall` receiver to be consistent with the v2 API endpoint configured in `global`.",
-        "Consider adding a `metadata` or `notes` field in the capability index entries to reference runbook URLs or escalation policies.",
-        "Add a comment near `smtp_auth_password` recommending secret management (e.g., Kubernetes secrets, environment variable substitution).",
-        "The `x-capability-index` could include a `hash` or `config_checksum` field to enable drift detection, which would strengthen the \"operational clarity\" goal mentioned in the task title.",
-        "Consider adding explicit `active_time_intervals` or `mute_time_intervals` references in the capability index for completeness with v0.27.x features."
+        "Regenerate the full, complete JSON file without truncation \u2014 this is the primary fix needed",
+        "Include the `templating` section with proper variable definitions for `$datasource` (type: datasource), `$namespace` (type: query), and `$interval` (type: interval)",
+        "Include required top-level fields: `title`, `uid`, `schemaVersion`, `tags`, `timezone`, `time`, `refresh`, `version`, and `style`",
+        "Add a `$__rate_interval` or validate that `$interval` is properly configured for rate() queries (Grafana best practice recommends `$__rate_interval`)",
+        "Ensure actual validators are configured and run properly \u2014 the skipped validators provide no confidence in correctness",
+        "Remove the `# File:` comment line or place it outside the JSON content",
+        "Consider adding an \"Alerting\" or \"SLO\" row with panels showing SLI compliance if this is meant to be a production observability dashboard",
+        "Add `\"version\": 1` and a proper `schemaVersion` (e.g., 39 for modern Grafana) to the dashboard root"
       ],
-      "reviewed_code_hash": "200f1d16fbf3d4bfb366dbd9525c5df8228b41e0d98491a3f8380258e45d1ec0"
+      "reviewed_code_hash": "8512686a167ca5cff2613e21422b5fab7314eccb203b414f1ddb216148cb1855"
     }
   }
 }
