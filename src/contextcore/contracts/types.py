@@ -301,6 +301,124 @@ class EvaluationPolicy(str, Enum):
     """Any stamp of any kind satisfies the gate."""
 
 
+# ---------------------------------------------------------------------------
+# Layer 3: Semantic Convention types
+# ---------------------------------------------------------------------------
+
+
+class RequirementLevel(str, Enum):
+    """Requirement level for semantic conventions (Layer 3)."""
+
+    REQUIRED = "required"
+    """Attribute must be present."""
+
+    RECOMMENDED = "recommended"
+    """Attribute should be present but absence is tolerated."""
+
+    OPT_IN = "opt_in"
+    """Attribute is entirely optional."""
+
+
+# ---------------------------------------------------------------------------
+# Layer 5: Capability Propagation types
+# ---------------------------------------------------------------------------
+
+
+class CapabilityChainStatus(str, Enum):
+    """End-to-end capability propagation status (Layer 5)."""
+
+    INTACT = "intact"
+    """Capability propagated without change."""
+
+    ATTENUATED = "attenuated"
+    """Capability was narrowed (valid attenuation)."""
+
+    ESCALATION_BLOCKED = "escalation_blocked"
+    """Attempted capability escalation was blocked."""
+
+    BROKEN = "broken"
+    """Capability missing or chain verification fails."""
+
+
+# ---------------------------------------------------------------------------
+# Layer 6: SLO Budget types
+# ---------------------------------------------------------------------------
+
+
+class BudgetType(str, Enum):
+    """Budget metric type (Layer 6)."""
+
+    LATENCY_MS = "latency_ms"
+    COST_DOLLARS = "cost_dollars"
+    TOKEN_COUNT = "token_count"
+    ERROR_RATE = "error_rate"
+    CUSTOM = "custom"
+
+
+class OverflowPolicy(str, Enum):
+    """Policy when a budget allocation is exceeded (Layer 6)."""
+
+    WARN = "warn"
+    """Log a warning but continue execution."""
+
+    BLOCK = "block"
+    """Halt execution if budget is exceeded."""
+
+    REDISTRIBUTE = "redistribute"
+    """Redistribute remaining budget from under-budget phases."""
+
+
+class BudgetHealth(str, Enum):
+    """Budget health status at a boundary check (Layer 6)."""
+
+    WITHIN_BUDGET = "within_budget"
+    OVER_ALLOCATION = "over_allocation"
+    BUDGET_EXHAUSTED = "budget_exhausted"
+
+
+# ---------------------------------------------------------------------------
+# Layer 7: Data Lineage types
+# ---------------------------------------------------------------------------
+
+
+class TransformOp(str, Enum):
+    """Transformation operation type (Layer 7)."""
+
+    PASSTHROUGH = "passthrough"
+    """Value forwarded without change."""
+
+    CLASSIFY = "classify"
+    """Value classified into a category."""
+
+    TRANSFORM = "transform"
+    """Value transformed (different output)."""
+
+    DERIVE = "derive"
+    """New value derived from one or more inputs."""
+
+    AGGREGATE = "aggregate"
+    """Multiple values aggregated into one."""
+
+    FILTER = "filter"
+    """Value filtered (subset selection)."""
+
+
+class LineageStatus(str, Enum):
+    """Data lineage chain verification status (Layer 7)."""
+
+    VERIFIED = "verified"
+    """Lineage chain matches declared spec."""
+
+    MUTATION_DETECTED = "mutation_detected"
+    """Unexpected hash change in a passthrough stage."""
+
+    CHAIN_BROKEN = "chain_broken"
+    """Missing transformation record in the chain."""
+
+    INCOMPLETE = "incomplete"
+    """Lineage exists but doesn't cover all declared stages."""
+
+
 # Convenience lists for validation
 TASK_STATUS_VALUES = [s.value for s in TaskStatus]
 PRIORITY_VALUES = [p.value for p in Priority]
@@ -314,3 +432,10 @@ CHAIN_STATUS_VALUES = [s.value for s in ChainStatus]
 COMPATIBILITY_LEVEL_VALUES = [c.value for c in CompatibilityLevel]
 ENFORCEMENT_MODE_VALUES = [e.value for e in EnforcementMode]
 EVALUATION_POLICY_VALUES = [e.value for e in EvaluationPolicy]
+REQUIREMENT_LEVEL_VALUES = [r.value for r in RequirementLevel]
+CAPABILITY_CHAIN_STATUS_VALUES = [c.value for c in CapabilityChainStatus]
+BUDGET_TYPE_VALUES = [b.value for b in BudgetType]
+OVERFLOW_POLICY_VALUES = [o.value for o in OverflowPolicy]
+BUDGET_HEALTH_VALUES = [b.value for b in BudgetHealth]
+TRANSFORM_OP_VALUES = [t.value for t in TransformOp]
+LINEAGE_STATUS_VALUES = [l.value for l in LineageStatus]

@@ -94,6 +94,17 @@ from contextcore.contracts.types import (
     CompatibilityLevel,
     # Runtime enforcement types
     EnforcementMode,
+    # Semantic convention types (Layer 3)
+    RequirementLevel,
+    # Capability propagation types (Layer 5)
+    CapabilityChainStatus,
+    # SLO budget types (Layer 6)
+    BudgetType,
+    OverflowPolicy,
+    BudgetHealth,
+    # Data lineage types (Layer 7)
+    TransformOp,
+    LineageStatus,
     # Value lists for validation
     TASK_STATUS_VALUES,
     PRIORITY_VALUES,
@@ -106,6 +117,13 @@ from contextcore.contracts.types import (
     CHAIN_STATUS_VALUES,
     COMPATIBILITY_LEVEL_VALUES,
     ENFORCEMENT_MODE_VALUES,
+    REQUIREMENT_LEVEL_VALUES,
+    CAPABILITY_CHAIN_STATUS_VALUES,
+    BUDGET_TYPE_VALUES,
+    OVERFLOW_POLICY_VALUES,
+    BUDGET_HEALTH_VALUES,
+    TRANSFORM_OP_VALUES,
+    LINEAGE_STATUS_VALUES,
 )
 from contextcore.contracts.validate import (
     ContractValidator,
@@ -231,4 +249,22 @@ __all__ = [
     "BLRP_MAX_QUEUE_SIZE",
     "BLRP_MAX_EXPORT_BATCH_SIZE",
     "BLRP_EXPORT_TIMEOUT_MS",
+    # Semantic convention types (Layer 3)
+    "RequirementLevel",
+    "REQUIREMENT_LEVEL_VALUES",
+    # Capability propagation types (Layer 5)
+    "CapabilityChainStatus",
+    "CAPABILITY_CHAIN_STATUS_VALUES",
+    # SLO budget types (Layer 6)
+    "BudgetType",
+    "OverflowPolicy",
+    "BudgetHealth",
+    "BUDGET_TYPE_VALUES",
+    "OVERFLOW_POLICY_VALUES",
+    "BUDGET_HEALTH_VALUES",
+    # Data lineage types (Layer 7)
+    "TransformOp",
+    "LineageStatus",
+    "TRANSFORM_OP_VALUES",
+    "LINEAGE_STATUS_VALUES",
 ]
