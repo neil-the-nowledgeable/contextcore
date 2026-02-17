@@ -5,6 +5,15 @@ import re
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 
+from contextcore.cli.init_from_plan_ops import (
+    _REQ_ID_PATTERN,
+    _SATISFIES_PATTERN,
+    _DEPENDS_ON_PATTERN,
+    _REPO_PATTERN,
+    _DELIVERABLES_PATTERN,
+    _VALIDATION_PATTERN,
+)
+
 
 # ---------------------------------------------------------------------------
 # Context propagation signal patterns
@@ -47,6 +56,17 @@ _PROPAGATION_SIGNALS = {
 
 # Minimum signal groups that must match for detection to fire.
 _PROPAGATION_DETECTION_THRESHOLD = 2
+
+# ---------------------------------------------------------------------------
+# Pipeline readiness patterns
+# ---------------------------------------------------------------------------
+# Phase heading regex mirrors the inline pattern in init_from_plan_ops.py
+# (line ~497).  Keep in sync if either changes.
+_PHASE_HEADING_PATTERN = re.compile(
+    r'^#{2,3}\s*(phase|milestone|action|step|task)\b',
+    re.IGNORECASE | re.MULTILINE,
+)
+_H1_TITLE_PATTERN = re.compile(r'^#\s+\S', re.MULTILINE)
 
 
 class CheckResult:
@@ -127,7 +147,10 @@ def check_plan_structure(content: str, result: PolishResult):
     if overview_text is None:
         chk_overview.fail(
             "Missing 'Overview' section.",
-            detail="Add a top-level '## Overview' section describing the high-level purpose, objectives, and goals.",
+            detail=(
+                "Add a top-level '## Overview' section describing the high-level purpose, objectives, and goals. "
+                "init-from-plan uses the Overview to seed spec.project.description."
+            ),
         )
         result.add_check(chk_overview)
         # Mark downstream checks as skipped (they depend on Overview existing)
@@ -174,7 +197,10 @@ def check_plan_structure(content: str, result: PolishResult):
     else:
         chk_reqs.fail(
             "No 'Functional Requirements' section found.",
-            detail="Add a section listing FR-001, FR-002, etc. with descriptions and acceptance criteria.",
+            detail=(
+                "Add a section listing FR-001, FR-002, etc. with descriptions and acceptance criteria. "
+                "init-from-plan extracts REQ-IDs from this section for the traceability matrix."
+            ),
         )
     result.add_check(chk_reqs)
 
@@ -186,7 +212,10 @@ def check_plan_structure(content: str, result: PolishResult):
     else:
         chk_risks.fail(
             "No 'Risks' section found.",
-            detail="Add a section listing risks and mitigations.",
+            detail=(
+                "Add a section listing risks and mitigations. "
+                "init-from-plan uses risk keywords to populate spec.risks with typed entries."
+            ),
         )
     result.add_check(chk_risks)
 
@@ -200,7 +229,11 @@ def check_plan_structure(content: str, result: PolishResult):
     else:
         chk_tests.fail(
             "No 'Validation' or 'Test Obligations' section found.",
-            detail="Add a section describing how the plan's implementation will be verified.",
+            detail=(
+                "Add a top-level section describing how the plan's implementation will be verified. "
+                "This is the document-level validation section, distinct from per-phase "
+                "**Validation:** lines checked by pipeline-validation-criteria."
+            ),
         )
     result.add_check(chk_tests)
 
@@ -257,6 +290,158 @@ def check_context_propagation(content: str, result: PolishResult):
     result.add_check(chk)
 
 
+def check_pipeline_readiness(content: str, result: PolishResult):
+    """Validate structural elements that downstream pipeline stages depend on.
+
+    Six checks prefixed ``pipeline-`` ensure the plan contains the patterns
+    that ``analyze-plan`` and ``init-from-plan`` need to produce enriched
+    manifests (tactics, traceability matrices, readiness verdicts).
+    """
+
+    # ── Check 1: Phase / milestone headings exist ─────────────────────
+    chk_phases = CheckResult("pipeline-phases-exist", "Phase/milestone headings exist")
+    phases_found = _PHASE_HEADING_PATTERN.findall(content)
+    has_phases = len(phases_found) > 0
+    if has_phases:
+        chk_phases.pass_(f"{len(phases_found)} phase/milestone heading(s) found.")
+    else:
+        chk_phases.fail(
+            "No phase or milestone headings found.",
+            detail=(
+                "WHY: analyze-plan extracts phase_metadata[] and init-from-plan converts "
+                "each phase heading into a tactic (TAC-PLAN-NNN). Without phases, "
+                "strategy.tactics will be empty.\n"
+                "EXPECTED FORMAT:\n"
+                "  ## Phase 1: Setup Infrastructure\n"
+                "  ## Milestone 2: Core Implementation\n"
+                "  ### Step 3: Integration Testing\n"
+                "IMPACT IF MISSING: 0 tactics in manifest, empty traceability matrix."
+            ),
+        )
+    result.add_check(chk_phases)
+
+    # ── Check 2: Phase metadata lines (Satisfies / Depends on / Repo) ─
+    chk_meta = CheckResult("pipeline-phase-metadata", "Phase metadata lines present")
+    if not has_phases:
+        chk_meta.skip("No phases found — metadata check not applicable.")
+    else:
+        has_satisfies = bool(_SATISFIES_PATTERN.search(content))
+        has_depends = bool(_DEPENDS_ON_PATTERN.search(content))
+        has_repo = bool(_REPO_PATTERN.search(content))
+        if has_satisfies or has_depends or has_repo:
+            found = []
+            if has_satisfies:
+                found.append("Satisfies")
+            if has_depends:
+                found.append("Depends on")
+            if has_repo:
+                found.append("Repo")
+            chk_meta.pass_(f"Phase metadata found: {', '.join(found)}.")
+        else:
+            chk_meta.fail(
+                "Phases exist but no Satisfies/Depends on/Repo metadata found.",
+                detail=(
+                    "WHY: init-from-plan enriches each tactic with satisfies, dependsOn, "
+                    "and repo fields. analyze-plan builds the traceability_matrix from "
+                    "Satisfies lines. Without metadata, tactics are unenriched stubs.\n"
+                    "EXPECTED FORMAT (under a phase heading):\n"
+                    "  **Satisfies:** REQ-001, FR-002\n"
+                    "  **Depends on:** Phase 1\n"
+                    "  **Repo:** contextcore\n"
+                    "IMPACT IF MISSING: coverage_ratio = 0.0 in traceability matrix, "
+                    "unenriched tactics with no requirement links."
+                ),
+            )
+    result.add_check(chk_meta)
+
+    # ── Check 3: REQ-ID identifiers anywhere in document ──────────────
+    chk_req_ids = CheckResult("pipeline-req-ids-found", "Requirement IDs present (REQ-/FR-/NFR-)")
+    req_ids = _REQ_ID_PATTERN.findall(content)
+    if req_ids:
+        unique_ids = sorted(set(req_ids))
+        chk_req_ids.pass_(f"{len(unique_ids)} unique requirement ID(s) found.")
+    else:
+        chk_req_ids.fail(
+            "No requirement identifiers (REQ-N, FR-N, NFR-N) found.",
+            detail=(
+                "WHY: init-from-plan extracts all REQ-IDs and records them as "
+                "requirement_ids inference. analyze-plan uses them to build the "
+                "traceability_matrix mapping requirements to phases.\n"
+                "EXPECTED FORMAT:\n"
+                "  REQ-001, FR-002, NFR-003  (anywhere in the document)\n"
+                "IMPACT IF MISSING: Empty requirement_ids, traceability_matrix "
+                "has 0 mapped requirements, coverage_ratio = 0.0."
+            ),
+        )
+    result.add_check(chk_req_ids)
+
+    # ── Check 4: H1 title exists ──────────────────────────────────────
+    chk_title = CheckResult("pipeline-plan-title", "Plan has H1 title")
+    if _H1_TITLE_PATTERN.search(content):
+        chk_title.pass_("H1 title found.")
+    else:
+        chk_title.fail(
+            "No H1 title (# Title) found.",
+            detail=(
+                "WHY: init-from-plan uses the first '# ...' heading as the project "
+                "description seed for spec.project.description.\n"
+                "EXPECTED FORMAT:\n"
+                "  # My Plan Title\n"
+                "IMPACT IF MISSING: spec.project.description falls back to "
+                "first prose line, which may be vague or empty."
+            ),
+        )
+    result.add_check(chk_title)
+
+    # ── Check 5: Deliverables lines ───────────────────────────────────
+    chk_deliverables = CheckResult("pipeline-deliverables", "Per-phase deliverables declared")
+    if not has_phases:
+        chk_deliverables.skip("No phases found — deliverables check not applicable.")
+    else:
+        if _DELIVERABLES_PATTERN.search(content):
+            chk_deliverables.pass_("Deliverables line(s) found.")
+        else:
+            chk_deliverables.fail(
+                "Phases exist but no **Deliverables:** lines found.",
+                detail=(
+                    "WHY: init-from-plan collects deliverable checklists under each "
+                    "phase and attaches them to tactics as tactic.deliverables "
+                    "(summary + file_count).\n"
+                    "EXPECTED FORMAT (under a phase heading):\n"
+                    "  **Deliverables:**\n"
+                    "  - [ ] `src/module.py` — New module\n"
+                    "  - [ ] `tests/test_module.py` — Tests\n"
+                    "IMPACT IF MISSING: Tactics have no deliverables field, "
+                    "deliverable validation in TaskTracker is skipped."
+                ),
+            )
+    result.add_check(chk_deliverables)
+
+    # ── Check 6: Per-phase validation criteria ────────────────────────
+    chk_validation = CheckResult(
+        "pipeline-validation-criteria", "Per-phase validation criteria declared"
+    )
+    if not has_phases:
+        chk_validation.skip("No phases found — validation criteria check not applicable.")
+    else:
+        if _VALIDATION_PATTERN.search(content):
+            chk_validation.pass_("Per-phase validation line(s) found.")
+        else:
+            chk_validation.fail(
+                "Phases exist but no per-phase **Validation:** lines found.",
+                detail=(
+                    "WHY: init-from-plan uses **Validation:** lines to delimit the "
+                    "deliverables section and to signal phase-level acceptance criteria "
+                    "to downstream review stages.\n"
+                    "EXPECTED FORMAT (under a phase heading, after deliverables):\n"
+                    "  **Validation:** Unit tests pass, integration smoke test green\n"
+                    "IMPACT IF MISSING: Deliverable collection may over-run into "
+                    "subsequent content; no per-phase acceptance criteria for review."
+                ),
+            )
+    result.add_check(chk_validation)
+
+
 def polish_file(file_path: Path) -> Optional[PolishResult]:
     """Applies all polish checks to a single file."""
     try:
@@ -270,6 +455,7 @@ def polish_file(file_path: Path) -> Optional[PolishResult]:
     result = PolishResult(str(file_path))
     check_plan_structure(content, result)
     check_context_propagation(content, result)
+    check_pipeline_readiness(content, result)
 
     return result
 
