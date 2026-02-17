@@ -10,17 +10,21 @@ Public API::
     from contextcore.contracts.propagation import (
         # Schema models
         ContextContract,
+        EvaluationSpec,
         FieldSpec,
         PhaseContract,
         PropagationChainSpec,
         ChainEndpoint,
+        QualitySpec,
         # Loader
         ContractLoader,
         # Validator
         BoundaryValidator,
         ContractValidationResult,
         FieldValidationResult,
+        QualityViolation,
         # Tracker
+        EvaluationResult,
         PropagationTracker,
         PropagationChainResult,
         FieldProvenance,
@@ -40,13 +44,16 @@ from contextcore.contracts.propagation.otel import (
 from contextcore.contracts.propagation.schema import (
     ChainEndpoint,
     ContextContract,
+    EvaluationSpec,
     FieldSpec,
     PhaseContract,
     PhaseEntryContract,
     PhaseExitContract,
     PropagationChainSpec,
+    QualitySpec,
 )
 from contextcore.contracts.propagation.tracker import (
+    EvaluationResult,
     FieldProvenance,
     PropagationChainResult,
     PropagationTracker,
@@ -55,24 +62,29 @@ from contextcore.contracts.propagation.validator import (
     BoundaryValidator,
     ContractValidationResult,
     FieldValidationResult,
+    QualityViolation,
 )
 
 __all__ = [
     # Schema
     "ContextContract",
+    "EvaluationSpec",
     "FieldSpec",
     "PhaseContract",
     "PhaseEntryContract",
     "PhaseExitContract",
     "PropagationChainSpec",
     "ChainEndpoint",
+    "QualitySpec",
     # Loader
     "ContractLoader",
     # Validator
     "BoundaryValidator",
     "ContractValidationResult",
     "FieldValidationResult",
+    "QualityViolation",
     # Tracker
+    "EvaluationResult",
     "PropagationTracker",
     "PropagationChainResult",
     "FieldProvenance",

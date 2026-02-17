@@ -285,6 +285,22 @@ class EnforcementMode(str, Enum):
     """Everything is logged and emitted via OTel, but nothing blocks."""
 
 
+class EvaluationPolicy(str, Enum):
+    """Policy for evaluation-gated fields (REQ_CONCERN_13)."""
+
+    SCORE_THRESHOLD = "score_threshold"
+    """Field must receive a numeric score >= threshold to propagate."""
+
+    HUMAN_OR_MODEL = "human_or_model"
+    """Any evaluator (human or model) must stamp approval."""
+
+    HUMAN_REQUIRED = "human_required"
+    """Only human evaluation satisfies the gate."""
+
+    ANY_EVALUATOR = "any_evaluator"
+    """Any stamp of any kind satisfies the gate."""
+
+
 # Convenience lists for validation
 TASK_STATUS_VALUES = [s.value for s in TaskStatus]
 PRIORITY_VALUES = [p.value for p in Priority]
@@ -297,3 +313,4 @@ PROPAGATION_STATUS_VALUES = [s.value for s in PropagationStatus]
 CHAIN_STATUS_VALUES = [s.value for s in ChainStatus]
 COMPATIBILITY_LEVEL_VALUES = [c.value for c in CompatibilityLevel]
 ENFORCEMENT_MODE_VALUES = [e.value for e in EnforcementMode]
+EVALUATION_POLICY_VALUES = [e.value for e in EvaluationPolicy]

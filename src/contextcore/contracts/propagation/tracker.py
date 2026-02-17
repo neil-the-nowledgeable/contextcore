@@ -41,13 +41,33 @@ class FieldProvenance:
     origin_phase: str
     set_at: str  # ISO 8601 timestamp
     value_hash: str  # sha256[:8] of repr(value)
+    evaluated_by: Optional[str] = None  # evaluator ID
+    evaluation_score: Optional[float] = None  # numeric score
+    evaluation_timestamp: Optional[str] = None  # ISO 8601
 
-    def to_dict(self) -> dict[str, str]:
-        return {
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
             "origin_phase": self.origin_phase,
             "set_at": self.set_at,
             "value_hash": self.value_hash,
         }
+        if self.evaluated_by is not None:
+            d["evaluated_by"] = self.evaluated_by
+        if self.evaluation_score is not None:
+            d["evaluation_score"] = self.evaluation_score
+        if self.evaluation_timestamp is not None:
+            d["evaluation_timestamp"] = self.evaluation_timestamp
+        return d
+
+
+@dataclass
+class EvaluationResult:
+    """Result of an evaluation stamp on a field."""
+
+    field_path: str
+    evaluator: str
+    score: Optional[float] = None
+    timestamp: Optional[str] = None
 
 
 @dataclass
@@ -132,6 +152,49 @@ class PropagationTracker:
         """Retrieve provenance for a field, or None if not stamped."""
         provenance = context.get(PROVENANCE_KEY, {})
         return provenance.get(field_path)
+
+    def stamp_evaluation(
+        self,
+        context: dict[str, Any],
+        field_path: str,
+        evaluator: str,
+        score: float | None = None,
+    ) -> EvaluationResult:
+        """Record that a field has been evaluated.
+
+        Updates the existing provenance record with evaluation metadata.
+        If no provenance exists, creates a minimal one.
+        """
+        provenance = context.setdefault(PROVENANCE_KEY, {})
+        existing = provenance.get(field_path)
+        ts = datetime.now(timezone.utc).isoformat()
+
+        if existing is not None:
+            existing.evaluated_by = evaluator
+            existing.evaluation_score = score
+            existing.evaluation_timestamp = ts
+        else:
+            provenance[field_path] = FieldProvenance(
+                origin_phase="unknown",
+                set_at=ts,
+                value_hash="",
+                evaluated_by=evaluator,
+                evaluation_score=score,
+                evaluation_timestamp=ts,
+            )
+
+        logger.debug(
+            "Stamped evaluation: field=%s evaluator=%s score=%s",
+            field_path,
+            evaluator,
+            score,
+        )
+        return EvaluationResult(
+            field_path=field_path,
+            evaluator=evaluator,
+            score=score,
+            timestamp=ts,
+        )
 
     def check_chain(
         self,

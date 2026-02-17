@@ -25,7 +25,53 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from contextcore.contracts.types import ConstraintSeverity
+from contextcore.contracts.types import ConstraintSeverity, EvaluationPolicy
+
+
+# ---------------------------------------------------------------------------
+# Quality and evaluation specifications
+# ---------------------------------------------------------------------------
+
+
+class QualitySpec(BaseModel):
+    """Quality threshold for a context field (REQ_CONCERN_9)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    metric: str = Field(
+        ..., description="Quality metric name (e.g. 'line_count', 'char_count', 'section_count')"
+    )
+    threshold: float = Field(..., description="Minimum acceptable value")
+    on_below: ConstraintSeverity = Field(
+        ConstraintSeverity.WARNING,
+        description="Severity when metric falls below threshold",
+    )
+    description: Optional[str] = Field(None)
+
+
+class EvaluationSpec(BaseModel):
+    """Evaluation gate for a context field (REQ_CONCERN_13)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    required: bool = Field(True, description="Whether evaluation is required")
+    policy: EvaluationPolicy = Field(
+        ..., description="What kind of evaluation satisfies the gate",
+    )
+    threshold: Optional[float] = Field(
+        None, description="Score threshold (for SCORE_THRESHOLD policy)",
+    )
+    evaluator: Optional[str] = Field(
+        None, description="Expected evaluator ID/type (optional filter)",
+    )
+    on_unevaluated: ConstraintSeverity = Field(
+        ConstraintSeverity.WARNING,
+        description="Severity when field hasn't been evaluated",
+    )
+    on_below_threshold: ConstraintSeverity = Field(
+        ConstraintSeverity.WARNING,
+        description="Severity when evaluation score is below threshold",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -58,6 +104,12 @@ class FieldSpec(BaseModel):
     constraints: Optional[dict[str, Any]] = Field(
         None,
         description="Additional constraints (min_length, allowed_values, etc.)",
+    )
+    quality: Optional[QualitySpec] = Field(
+        None, description="Quality threshold check (REQ_CONCERN_9)",
+    )
+    evaluation: Optional[EvaluationSpec] = Field(
+        None, description="Evaluation gate (REQ_CONCERN_13)",
     )
 
 
