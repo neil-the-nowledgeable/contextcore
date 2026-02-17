@@ -50,14 +50,18 @@ execution, and artifact delivery via the artisan or prime contractor workflows).
 - Provenance accumulation across all stages (create -> polish -> fix -> init -> export)
 - A shell script (`run-cap-delivery.sh`) that orchestrates the ContextCore half of the
   pipeline (stages 0–4) for a plan + requirements pair
+- A shell script (`run-cap-delivery-stages5-7.sh`) in startd8-sdk that orchestrates
+  plan ingestion, contractor execution, and finalize (stages 5–7)
+- A shell script (`run-cap-delivery-e2e.sh`) that chains both halves into a single
+  end-to-end invocation (stages 0–7)
 - Forward compatibility: export must preserve pre-pipeline inventory entries
 - Clear documentation of the handoff contract between ContextCore and startd8-sdk
 
 ### Out of scope
 
-- Changes to startd8-sdk plan-ingestion or contractor workflows (artisan, prime contractor)
-- Changes to A2A governance gates (Gate 1, Gate 2, Gate 3)
-- Orchestration of the startd8-sdk stages (stages 5–7 are invoked separately)
+- Changes to startd8-sdk plan-ingestion or contractor workflow internals
+- Changes to A2A governance gate logic (Gate 1, Gate 2, Gate 3)
+- New CLI commands in either codebase (orchestration uses existing commands and scripts)
 
 ---
 
@@ -348,6 +352,106 @@ there are no pre-pipeline entries.
 
 ---
 
+### REQ-CDP-011: Delivery script orchestrates startd8-sdk stages (5–7)
+
+**Priority:** P1
+
+A shell script (`run-cap-delivery-stages5-7.sh`) in the **startd8-sdk** repository
+MUST orchestrate stages 5–7, consuming the handoff artifacts produced by
+`run-cap-delivery.sh` (stages 0–4).
+
+```
+Usage: run-cap-delivery-stages5-7.sh --export-dir DIR --project-root DIR \
+         [--force-route artisan|prime] [--cost-budget USD] \
+         [--task-filter TASK_IDS] [--dry-run] \
+         [--lead-agent SPEC] [--drafter-agent SPEC]
+```
+
+**Stage sequence:**
+
+1. **Preflight** — verify startd8-sdk installed, export-dir contains handoff
+   artifacts (`artifact-manifest.yaml` or `*-artifact-manifest.yaml`,
+   `onboarding-metadata.json`, `run-provenance.json`), project-root exists
+2. **Gate 1** — `contextcore contract a2a-check-pipeline EXPORT_DIR --fail-on-unhealthy`
+   (gating; halt on failure)
+3. **Stage 5: PLAN INGESTION** — invoke `PlanIngestionWorkflow` via runner script
+   with `plan_path` from export dir, `output_dir` for ingestion artifacts,
+   optional `force_route` override
+4. **Gate 2** — `contextcore contract a2a-diagnose EXPORT_DIR --ingestion-dir INGESTION_DIR --fail-on-issue`
+   (gating; halt on failure)
+5. **Stage 6: CONTRACTOR EXECUTION** — route based on plan ingestion's
+   complexity assessment:
+   - **Artisan route**: `python3 scripts/run_artisan_workflow.py --seed SEED --project-root DIR --output-dir DIR --cost-budget USD`
+   - **Prime route**: `python3 scripts/run_artisan_contractor.py --max-cost USD`
+   Pass through `--task-filter`, `--lead-agent`, `--drafter-agent`, `--dry-run`
+   if provided
+6. **Gate 3** — `contextcore contract a2a-diagnose EXPORT_DIR --ingestion-dir INGESTION_DIR --artisan-dir CONTRACTOR_DIR --fail-on-issue`
+   (gating; halt on failure)
+7. **Summary** — print route taken (artisan/prime), task count, cost summary,
+   gate outcomes, artifact listing
+
+**Key behaviors:**
+- `--export-dir` points to the output of `run-cap-delivery.sh` (stages 0–4)
+- `--project-root` is the target project where artifacts are generated
+- `--force-route` overrides complexity-based routing (default: auto)
+- `--cost-budget` sets USD limit for contractor execution (default: 25.00)
+- `--dry-run` passes through to plan ingestion and contractor (no LLM calls, no writes)
+- Reads the complexity route from plan ingestion output to determine contractor
+- Exit code 0 only when all gates pass and contractor succeeds
+
+**Acceptance criteria:**
+- Script exits non-zero if any gate fails
+- Script correctly routes to artisan or prime based on complexity score
+- Script accepts `--force-route` to override routing
+- Script prints gate outcomes and cost summary
+- Script works with output from `run-cap-delivery.sh` without modification
+
+---
+
+### REQ-CDP-012: End-to-end delivery script chains both halves
+
+**Priority:** P2
+
+A shell script (`run-cap-delivery-e2e.sh`) MUST chain the ContextCore half
+(stages 0–4) and the startd8-sdk half (stages 5–7) into a single invocation.
+
+```
+Usage: run-cap-delivery-e2e.sh --plan PATH --requirements PATH [--requirements PATH ...] \
+         --output-dir DIR --project ID --name NAME --project-root DIR \
+         [--skip-polish] [--skip-fix] [--skip-validate] [--no-strict-quality] \
+         [--force-route artisan|prime] [--cost-budget USD] \
+         [--task-filter TASK_IDS] [--dry-run] \
+         [--lead-agent SPEC] [--drafter-agent SPEC]
+```
+
+**Behavior:**
+
+1. Invoke `run-cap-delivery.sh` with stages 0–4 arguments
+2. On success, invoke `run-cap-delivery-stages5-7.sh` with `--export-dir`
+   pointing to the output directory from step 1
+3. Print a unified summary covering all stages (0–7)
+
+**Key behaviors:**
+- Flags for stages 0–4 (`--skip-polish`, `--skip-fix`, `--skip-validate`,
+  `--no-strict-quality`) pass through to `run-cap-delivery.sh`
+- Flags for stages 5–7 (`--force-route`, `--cost-budget`, `--task-filter`,
+  `--lead-agent`, `--drafter-agent`) pass through to `run-cap-delivery-stages5-7.sh`
+- `--dry-run` passes through to both halves
+- If stages 0–4 fail, stages 5–7 are not attempted
+- Exit code 0 only when both halves succeed
+
+**Location:** This script lives in the **ContextCore** repository (since it
+is the entry point for the full pipeline), but requires startd8-sdk to be
+installed for stages 5–7.
+
+**Acceptance criteria:**
+- Full pipeline runs from plan document to generated artifacts in one command
+- Failure in any stage halts the pipeline with a clear error
+- Unified summary shows all gate outcomes across both halves
+- Works when both ContextCore and startd8-sdk are installed
+
+---
+
 ## Non-Functional Requirements
 
 ### NFR-CDP-001: No LLM calls in pre-pipeline stages
@@ -384,6 +488,8 @@ usable standalone.
 | REQ-CDP-008 | Integration test: run `run-cap-delivery.sh` end-to-end |
 | REQ-CDP-009 | Integration test: pipeline stdout contains inventory summary |
 | REQ-CDP-010 | Existing export tests pass without modification |
+| REQ-CDP-011 | Integration test: run `run-cap-delivery-stages5-7.sh` with export dir from stages 0–4 |
+| REQ-CDP-012 | Integration test: run `run-cap-delivery-e2e.sh` end-to-end on a plan + requirements pair |
 | NFR-CDP-001 | Code review: no LLM imports in create/polish paths |
 | NFR-CDP-002 | Integration test: run pipeline twice, compare output |
 | NFR-CDP-003 | Unit tests: each command works standalone |
