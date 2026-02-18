@@ -150,15 +150,19 @@ def _validate_schema(manifest: Dict[str, Any], report: ValidationReport) -> None
         # and be excluded from MCP/A2A export
         is_internal = cap.get("internal", False)
         has_audiences = "audiences" in cap
+        if has_audiences:
+            audiences_msg = "audiences field present"
+        elif is_internal:
+            audiences_msg = "internal capability, audiences not required"
+        else:
+            audiences_msg = (
+                f"Capability '{cap_id}' has no audiences field; "
+                f"it will default to human-only and be excluded from MCP/A2A export"
+            )
         report.checks.append(CheckResult(
             name=f"cap_{cap_id}_audiences",
             passed=has_audiences or is_internal,
-            message=f"audiences field present"
-                    if has_audiences
-                    else (f"internal capability, audiences not required"
-                          if is_internal
-                          else f"Capability '{cap_id}' has no audiences field; "
-                               f"it will default to human-only and be excluded from MCP/A2A export"),
+            message=audiences_msg,
             severity="warning",
         ))
 

@@ -6,16 +6,42 @@ Generates Agent-to-Agent (A2A) protocol Agent Cards from capability manifests.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any, List, Optional
 
 import yaml
 
+logger = logging.getLogger(__name__)
+
 
 def load_yaml(path: Path) -> dict:
-    """Load a YAML file."""
-    with open(path) as f:
-        return yaml.safe_load(f)
+    """Load a YAML file.
+
+    Args:
+        path: Path to the YAML file.
+
+    Returns:
+        Parsed YAML as a dict (empty dict for empty files).
+
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        ValueError: If the file contains invalid YAML.
+    """
+    try:
+        content = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        logger.error("Manifest file not found: %s", path)
+        raise
+    except OSError as e:
+        logger.error("Failed to read %s: %s", path, e)
+        raise
+
+    try:
+        return yaml.safe_load(content) or {}
+    except yaml.YAMLError as e:
+        logger.error("Invalid YAML in %s: %s", path, e)
+        raise ValueError(f"Invalid YAML in {path}: {e}") from e
 
 
 def capability_to_a2a_skill(cap: dict) -> Optional[dict]:
@@ -102,15 +128,14 @@ def manifest_to_agent_card(manifest: dict) -> dict:
     if "contact" in manifest:
         agent_card["provider"]["contact"] = manifest["contact"]
 
-    # Add discovery metadata from a2a config
-    if "discovery_endpoint" in a2a_config or "extended_discovery_endpoint" in a2a_config:
-        agent_card["metadata"] = {}
-        if "discovery_endpoint" in a2a_config:
-            agent_card["metadata"]["discoveryEndpoint"] = a2a_config["discovery_endpoint"]
-        if "extended_discovery_endpoint" in a2a_config:
-            agent_card["metadata"]["extendedDiscoveryEndpoint"] = a2a_config[
-                "extended_discovery_endpoint"
-            ]
+    # Add discovery metadata from a2a config (REQ-CID-021)
+    metadata = {}
+    if "discovery_endpoint" in a2a_config:
+        metadata["discoveryEndpoint"] = a2a_config["discovery_endpoint"]
+    if "extended_discovery_endpoint" in a2a_config:
+        metadata["extendedDiscoveryEndpoint"] = a2a_config["extended_discovery_endpoint"]
+    if metadata:
+        agent_card["metadata"] = metadata
 
     return agent_card
 
@@ -124,9 +149,13 @@ def aggregate_agent_cards(index_dir: Path) -> List[dict]:
         manifests_dir = index_dir
 
     for manifest_path in manifests_dir.glob("*.yaml"):
-        manifest = load_yaml(manifest_path)
-        card = manifest_to_agent_card(manifest)
-        cards.append(card)
+        try:
+            manifest = load_yaml(manifest_path)
+            card = manifest_to_agent_card(manifest)
+            cards.append(card)
+        except (ValueError, FileNotFoundError, OSError) as e:
+            logger.warning("Skipping %s: %s", manifest_path.name, e)
+            continue
 
     return cards
 

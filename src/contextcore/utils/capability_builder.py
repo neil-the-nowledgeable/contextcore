@@ -39,10 +39,9 @@ def _load_yaml(path: Path) -> Optional[Dict[str, Any]]:
         return None
 
     try:
-        with open(path, encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
-    except Exception:
-        logger.warning("Failed to parse %s", path, exc_info=True)
+        return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (yaml.YAMLError, OSError) as e:
+        logger.warning("Failed to load %s: %s", path, e)
         return None
 
 
@@ -230,7 +229,8 @@ def build_capability_index(
         report.notes.append("No _discovery_paths.yaml found or empty")
 
     # 9. Default audiences for non-internal capabilities (REQ-CID-019)
-    # Ensures MCP/A2A generators don't silently skip capabilities that lack audiences
+    # Without audiences, MCP/A2A generators default to ["human"] and silently
+    # exclude the capability from agent-facing exports (the Phase 3 root cause).
     for cap in manifest.get("capabilities", []):
         if not isinstance(cap, dict):
             continue
@@ -249,18 +249,27 @@ def build_capability_index(
 
 
 def write_manifest(manifest: Dict[str, Any], output_path: Path) -> None:
-    """Write manifest dict to YAML file."""
+    """Write manifest dict to YAML file.
+
+    Raises:
+        OSError: If the file cannot be written (permissions, disk full).
+    """
     import yaml
 
-    with open(output_path, "w", encoding="utf-8") as f:
-        yaml.dump(
-            manifest,
-            f,
-            default_flow_style=False,
-            sort_keys=False,
-            allow_unicode=True,
-            width=120,
+    try:
+        output_path.write_text(
+            yaml.dump(
+                manifest,
+                default_flow_style=False,
+                sort_keys=False,
+                allow_unicode=True,
+                width=120,
+            ),
+            encoding="utf-8",
         )
+    except OSError as e:
+        logger.error("Failed to write manifest to %s: %s", output_path, e)
+        raise
 
 
 class BuildReport:

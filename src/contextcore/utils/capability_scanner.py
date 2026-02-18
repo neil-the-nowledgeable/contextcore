@@ -195,8 +195,8 @@ def _extract_docstring(py_file: Path) -> Optional[str]:
         source = py_file.read_text(encoding="utf-8")
         tree = ast.parse(source)
         return ast.get_docstring(tree)
-    except Exception:
-        logger.debug("Failed to extract docstring from %s", py_file, exc_info=True)
+    except (SyntaxError, OSError) as e:
+        logger.debug("Failed to extract docstring from %s: %s", py_file, e)
         return None
 
 
