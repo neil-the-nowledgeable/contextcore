@@ -4,13 +4,37 @@
     "name": "ContextCore Agent Capabilities",
     "description": "Agent-focused capabilities for ContextCore SDK.\nTasks as OTel spans, insights as knowledge, handoffs as coordination.\nA2A protocol interoperability for cross-framework agent communication.\n",
     "url": "${CONTEXTCORE_A2A_URL:-https://localhost:8080/contextcore.agent}",
-    "version": "1.15.0",
+    "version": "1.17.0",
     "capabilities": {
       "streaming": false,
       "pushNotifications": false,
       "stateTransitionHistory": false
     },
     "skills": [
+      {
+        "id": "contextcore.meta.artifact_type_registry",
+        "name": "Artifact Type Registry",
+        "description": "Complete registry of all 14 artifact types across 3 categories (observability, onboarding, integrity)",
+        "tags": [
+          "artifact types",
+          "what artifacts",
+          "artifact scope",
+          "artifact categories",
+          "pipeline produces",
+          "artifact taxonomy",
+          "beyond observability",
+          "pipeline-innate",
+          "how many artifact types",
+          "maturity:stable"
+        ],
+        "maturity": "stable",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
       {
         "id": "contextcore.insight.emit",
         "name": "Emit",
@@ -996,6 +1020,126 @@
           "programmatic discovery",
           "MCP discovery",
           "A2A discovery",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.capability_index.build",
+        "name": "Build",
+        "description": "Build/update the capability index from source code scanning and sidecar merging",
+        "tags": [
+          "build index",
+          "rebuild capabilities",
+          "update manifest",
+          "capability index build",
+          "merge sidecars",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.capability_index.validate",
+        "name": "Validate",
+        "description": "Validate capability index against schema and REQ-CID acceptance criteria",
+        "tags": [
+          "validate capabilities",
+          "check manifest",
+          "capability index validate",
+          "schema validation",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.capability_index.extract",
+        "name": "Extract",
+        "description": "Extract raw capabilities from a project via AST-based source code analysis",
+        "tags": [
+          "extract capabilities",
+          "scan source code",
+          "discover capabilities",
+          "capability extraction",
+          "AST scan",
+          "bootstrap index",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.capability_index.generate_mcp",
+        "name": "Generate Mcp",
+        "description": "Generate MCP tool definitions from a capability manifest",
+        "tags": [
+          "generate MCP",
+          "MCP tools",
+          "tool definitions",
+          "LLM tools",
+          "model context protocol",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.capability_index.generate_a2a",
+        "name": "Generate A2A",
+        "description": "Generate A2A Agent Card from a capability manifest for agent-to-agent discovery",
+        "tags": [
+          "generate A2A",
+          "agent card",
+          "agent discovery",
+          "A2A card",
+          "well-known agent",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.capability_index.query",
+        "name": "Query",
+        "description": "Query capabilities from a manifest with category, maturity, audience, and trigger filters",
+        "tags": [
+          "query capabilities",
+          "search capabilities",
+          "filter capabilities",
+          "find capability",
+          "capability lookup",
           "maturity:beta"
         ],
         "maturity": "beta",

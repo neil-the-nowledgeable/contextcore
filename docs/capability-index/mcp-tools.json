@@ -2,6 +2,20 @@
   "manifest_id": "contextcore.agent",
   "tools": [
     {
+      "name": "contextcore.meta.artifact_type_registry",
+      "description": "Complete registry of all 14 artifact types across 3 categories (observability, onboarding, integrity)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "reference",
+        "maturity": "stable",
+        "confidence": 0.5
+      }
+    },
+    {
       "name": "contextcore.insight.emit",
       "description": "Emit agent-generated insights as OTel spans for cross-agent collaboration\n\n\nAvoid:\n- Never emit insights without confidence scores\u2014they're required for prioritization\n- Don't use audience=agent for blockers humans need to see",
       "inputSchema": {
@@ -2529,7 +2543,91 @@
         "maturity": "beta",
         "confidence": 0.5
       }
+    },
+    {
+      "name": "contextcore.capability_index.build",
+      "description": "Build/update the capability index from source code scanning and sidecar merging",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "generate",
+        "maturity": "beta",
+        "confidence": 0.85
+      }
+    },
+    {
+      "name": "contextcore.capability_index.validate",
+      "description": "Validate capability index against schema and REQ-CID acceptance criteria",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "validate",
+        "maturity": "beta",
+        "confidence": 0.9
+      }
+    },
+    {
+      "name": "contextcore.capability_index.extract",
+      "description": "Extract raw capabilities from a project via AST-based source code analysis",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "query",
+        "maturity": "beta",
+        "confidence": 0.85
+      }
+    },
+    {
+      "name": "contextcore.capability_index.generate_mcp",
+      "description": "Generate MCP tool definitions from a capability manifest",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "generate",
+        "maturity": "beta",
+        "confidence": 0.85
+      }
+    },
+    {
+      "name": "contextcore.capability_index.generate_a2a",
+      "description": "Generate A2A Agent Card from a capability manifest for agent-to-agent discovery",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "generate",
+        "maturity": "beta",
+        "confidence": 0.85
+      }
+    },
+    {
+      "name": "contextcore.capability_index.query",
+      "description": "Query capabilities from a manifest with category, maturity, audience, and trigger filters",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "query",
+        "maturity": "beta",
+        "confidence": 0.85
+      }
     }
   ],
-  "tool_count": 50
+  "tool_count": 57
 }

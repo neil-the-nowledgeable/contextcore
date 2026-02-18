@@ -3710,6 +3710,46 @@ pivoted_work:
   lesson: Different backends excel at different queries; dual-emit to Tempo AND Loki
   evidence: CONTEXTCORE_EMIT_MODE env var
 changelog:
+- version: 1.16.0
+  date: '2026-02-18'
+  changes:
+  - 'Phase 2 defense-in-depth: scope_boundaries section (3 artifact categories, 7 pipeline stages, explicit non-scope)'
+  - 'contextcore.meta.artifact_type_registry capability with 9 triggers for artifact scope discovery'
+  - 'Fixed 3 false ceiling locations in benefits.yaml and user.yaml (observability-only language)'
+  - 'Cross-references added across 5+ docs linking to pipeline-requirements-onboarding.md'
+  - '37 regression tests (test_artifact_types.py, test_capability_discoverability.py)'
+  - 'ArtifactType enum expanded 9→14 members with OBSERVABILITY_TYPES, ONBOARDING_TYPES, INTEGRITY_TYPES category sets'
+  - 'REQ-CID-013 through REQ-CID-018 implemented'
+- version: 1.15.0
+  date: '2026-02-17'
+  changes:
+  - 'Phase 3 export coverage: REQ-CID-019/020/021 tooling hardened per python-code-refactor skill'
+  - 'Maturity enums aligned with OTel stability levels (experimental/alpha/beta/stable/deprecated)'
+  - 'Capability index tooling refactored for robustness and error handling'
+- version: 1.14.0
+  date: '2026-02-17'
+  changes:
+  - 'MCP/A2A artifacts persisted: agent-card.json (29K) and mcp-tools.json (70K) generated and committed'
+  - 'Draft capabilities included in manifest for completeness'
+- version: 1.13.0
+  date: '2026-02-17'
+  changes:
+  - 'Craft toolkit integrated into ContextCore capability index pipeline'
+- version: 1.12.0
+  date: '2026-02-16'
+  changes:
+  - 'P2/P3 enrichment and pipeline integration: typed_handoff, expected_output capabilities'
+  - 'CAPABILITY_INDEX added to ArtifactType enum + onboarding metadata enrichment'
+  - 'Stable IDs with Mottainai principle applied to capability naming'
+  - '84 unit tests across scanner (19), builder (17), validator (32), loader (16)'
+- version: 1.11.0
+  date: '2026-02-16'
+  changes:
+  - 'Programmatic capability index generation pipeline: capability_scanner.py, capability_builder.py, capability_validator.py'
+  - 'CLI: contextcore capability-index build|validate|diff'
+  - '7 contract domains + 6 A2A governance capabilities discovered from source'
+  - '47 capabilities (34 original + 13 scanned), 9 principles, 6 patterns'
+  - 'REQ-CID-001 through REQ-CID-012 implemented'
 - version: 1.10.1
   date: '2026-02-14'
   changes:

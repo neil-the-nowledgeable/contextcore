@@ -1,6 +1,6 @@
 # Requirements: Capability Index Discoverability Enhancements
 
-**Status:** Phase 1 implemented (REQ-CID-001–012), Phase 2 in progress (REQ-CID-013–018), Phase 3 defined (REQ-CID-019–021)
+**Status:** Phase 1 implemented (REQ-CID-001–012), Phase 2 implemented (REQ-CID-013–018), Phase 3 defined (REQ-CID-019–021)
 **Date:** 2026-02-16 (Phase 1 requirements), 2026-02-17 (Phase 1 implementation), 2026-02-18 (Phase 2 + Phase 3 requirements)
 **Author:** Force Multiplier Labs
 **Priority Tier:** Tier 1 (high value, low complexity)
@@ -12,6 +12,7 @@
 - `docs/capability-index/contextcore.benefits.yaml`
 - `docs/capability-index/contextcore.user.yaml`
 **Estimated implementation:** Phase 1: ~200 YAML lines (done) | Phase 2: ~300 lines + code changes | Phase 3: ~50 YAML lines + artifact regeneration
+**Last validated:** 2026-02-18 (rescan of capability-index directory — see Rescan Validation below)
 
 ---
 
@@ -36,7 +37,7 @@ All 12 Phase 1 requirements (P1 + P2 + P3) have been implemented via programmati
 | REQ-CID-011 | P1 | **Implemented** | 7 `contextcore.contract.*` capabilities scanned from `src/contextcore/contracts/` |
 | REQ-CID-012 | P1 | **Implemented** | 6 A2A governance capabilities (4 contracts + 2 gates) |
 
-### Phase 2 (2026-02-18): Scope Discovery — Requirements Defined
+### Phase 2 (2026-02-18): Scope Discovery — All Implemented
 
 Triggered by [Discoverability Failure Investigation](../DISCOVERABILITY_FAILURE_INVESTIGATION_2026-02-18.md): an AI agent exhaustively searched the capability index (12 independent sources) and concluded — incorrectly with HIGH confidence — that ContextCore's artifact scope is limited to observability artifacts. The correct answer (agent_card, mcp_tools, onboarding_metadata, provenance, ingestion-traceability) was found only after human intervention.
 
@@ -44,12 +45,12 @@ Triggered by [Discoverability Failure Investigation](../DISCOVERABILITY_FAILURE_
 
 | REQ ID | Priority | Status | Summary |
 |--------|----------|--------|---------|
-| REQ-CID-013 | P1 | **Pending** | Unified artifact type registry as first-class capability |
-| REQ-CID-014 | P1 | **Pending** | Scope boundary declaration in capability index |
-| REQ-CID-015 | P1 | **Pending** | Cross-reference enforcement between requirements and capability index |
-| REQ-CID-016 | P1 | **Pending** | Anti-false-ceiling validation (subset must not present as complete) |
-| REQ-CID-017 | P1 | **Pending** | Scope-question discoverability tests |
-| REQ-CID-018 | P1 | **Pending** | ArtifactType enum consolidation with all pipeline artifact types |
+| REQ-CID-013 | P1 | **Implemented** | Unified artifact type registry as first-class capability — `contextcore.meta.artifact_type_registry` in `contextcore.agent.yaml` |
+| REQ-CID-014 | P1 | **Implemented** | Scope boundary declaration — `scope_boundaries` section with 3 categories, 7 stages, explicit non-scope |
+| REQ-CID-015 | P1 | **Implemented** | Cross-reference enforcement — 10+ files reference `pipeline-requirements-onboarding.md`, "Referenced By" section added |
+| REQ-CID-016 | P1 | **Implemented** | Anti-false-ceiling — 3 false ceiling locations fixed in benefits.yaml + user.yaml; docstrings updated |
+| REQ-CID-017 | P1 | **Implemented** | Scope-question discoverability tests — 37 tests in `test_artifact_types.py` + `test_capability_discoverability.py` |
+| REQ-CID-018 | P1 | **Implemented** | ArtifactType enum expanded 9→14 with `OBSERVABILITY_TYPES`, `ONBOARDING_TYPES`, `INTEGRITY_TYPES` category sets |
 
 ### Phase 3 (2026-02-18): MCP/A2A Export Integrity — Requirements Defined
 
@@ -85,12 +86,53 @@ Triggered by [MCP and A2A Tools Documentation Audit](../capability-index/MCP_A2A
 
 ### Manifest state
 
-- Version: **1.12.0** (from 1.10.1)
+- Version: **1.15.0** (from 1.10.1; bumped through multiple capability index generation cycles)
 - Capabilities: **47** (34 original + 13 added by scanner)
 - Design principles: **9**
 - Communication patterns: **6**
 - Trigger enrichments: **10** new triggers across 4 capabilities
 - Validation: 220/230 checks pass (10 warnings from pre-existing categories/maturities)
+- Generated artifacts: `agent-card.json` (29K, v1.15.0) and `mcp-tools.json` (70K) present in `docs/capability-index/`
+- **Changelog gap:** Versions 1.11.0–1.15.0 have no entries in the `changelog` section of `contextcore.agent.yaml` (last recorded entry is 1.10.1). This gap coincides with Phase 1 implementation and multiple regeneration cycles.
+
+### Rescan validation (2026-02-18)
+
+A full rescan of all files in `docs/capability-index/` was performed to validate the Phase 2
+investigation findings against the current state of the generated artifacts. Key results:
+
+**Confirmed correct (no action needed):**
+- A2A capability descriptions in `contextcore.agent.yaml` are NOT false ceiling sources.
+  `contextcore.a2a.contract.artifact_intent` correctly says "Typed declaration of expected
+  artifacts with semantic roles" — no "observability" qualifier. This reduces the scope of
+  Phase 2 Layer 2 (schema) fixes.
+- `agent-card.json` and `mcp-tools.json` exist as well-formed generated files. These ARE
+  the pipeline-innate artifacts defined by REQ-CDP-ONB-002 and REQ-CDP-ONB-003. This proves
+  the pipeline CAN produce non-observability artifacts; the failure is in description, not
+  production.
+- `contextcore.discovery.well_known` capability exists in the YAML with correct triggers
+  ("agent card endpoint", "MCP discovery"). Phase 3 REQ-CID-021 requirement is already
+  partially satisfied — the capability entry exists, but needs `audiences: ["agent", "human"]`
+  to be exported.
+
+**Confirmed false ceiling (Phase 2 action required):**
+- `contextcore.benefits.yaml:717` — "Users can declare what **observability artifacts** are needed..." (CONFIRMED)
+- `contextcore.user.yaml:655` — "derives what **observability artifacts** you need" (CONFIRMED)
+- `contextcore.user.yaml:662` — "complete **observability artifact** plan" (CONFIRMED)
+- These are the ONLY 3 remaining false ceiling locations across all capability-index files.
+  All A2A governance descriptions are scope-accurate.
+
+**Newly discovered issues:**
+- **Changelog gap:** YAML at v1.15.0 but changelog only covers 1.0.0–1.10.1. Five version
+  bumps are unrecorded. This doesn't affect discoverability but breaks the
+  `contextcore.meta.structured_authority` promise of "versioned, queryable capability manifests."
+- **Generated artifact irony:** `agent-card.json` and `mcp-tools.json` exist as FILES in the
+  capability-index directory, but no capability describes them as pipeline artifact TYPES.
+  They are produced by the pipeline but invisible to scope discovery — the exact pattern
+  REQ-CID-013 (artifact type registry) is designed to fix.
+- **Phase 3 scope refinement:** The rescan confirms that the 15 capabilities missing from
+  MCP/A2A exports (Phase 3 problem) is due to the `audiences` field default, not malformed
+  generation. The generation infrastructure works; it just silently excludes capabilities
+  without the `audiences` tag.
 
 ---
 
@@ -751,9 +793,13 @@ explicitly noting that additional types exist in other categories. This is the
 
 **Acceptance criteria:**
 - `ArtifactType` enum docstring (`artifact_manifest.py:28`) changes from:
-  "Types of observability artifacts that can be generated" to:
-  "Types of artifacts that can be generated. Observability types are listed here.
-  See pipeline-requirements-onboarding.md for onboarding and integrity types."
+  "Types of observability artifacts that can be generated" to the docstring
+  specified in REQ-CID-018 (which lists all categories, since the enum now
+  contains all 14 types). The enum docstring must NOT contain "observability"
+  without qualification (i.e., without also mentioning onboarding and integrity).
+- Module docstring (`artifact_manifest.py:1-2`) changes from:
+  "Artifact Manifest Model - Defines required observability artifacts" to:
+  "Artifact Manifest Model - Defines required artifacts for the ContextCore pipeline"
 - `ArtifactManifest` class docstring (`artifact_manifest.py:489`) changes from:
   "contract for observability artifact generation" to:
   "contract for artifact generation"
@@ -763,7 +809,8 @@ explicitly noting that additional types exist in other categories. This is the
 - `contextcore.benefits.yaml:717` `pipeline.contract_first_planning` value_statement
   changes "observability artifacts" to "pipeline artifacts" or "artifacts".
 - `artifact-intent.schema.json:5` description changes from "observability artifact
-  need" to "artifact need".
+  need" to "artifact need" (with category enumeration and cross-reference to
+  pipeline-requirements-onboarding.md).
 - `onboarding.py:1-13` module docstring adds: "In addition to observability artifacts,
   the pipeline produces onboarding and integrity artifacts defined in
   pipeline-requirements-onboarding.md."
@@ -772,7 +819,7 @@ explicitly noting that additional types exist in other categories. This is the
   the existence of other categories.
 
 **Affected files:**
-- `src/contextcore/models/artifact_manifest.py` (lines 28, 489)
+- `src/contextcore/models/artifact_manifest.py` (lines 1-2, 28, 489)
 - `docs/design/MANIFEST_EXPORT_REQUIREMENTS.md` (line 99)
 - `docs/capability-index/contextcore.benefits.yaml` (line 717)
 - `schemas/contracts/artifact-intent.schema.json` (line 5)
@@ -873,17 +920,29 @@ source of truth that REQ-CID-013 (the capability entry) describes programmatical
   INTEGRITY_TYPES = {PROVENANCE, INGESTION_TRACEABILITY}
   ```
 - `ARTIFACT_OUTPUT_CONVENTIONS` in `artifact_conventions.py` updated with entries
-  for all new types.
-- `ARTIFACT_PARAMETER_SOURCES` in `onboarding.py` updated with entries for all new types.
+  for all new types (CAPABILITY_INDEX was missing since Phase 1; all 5 new types
+  also need entries).
+- All four onboarding dicts in `onboarding.py` updated with entries for new types:
+  - `ARTIFACT_PARAMETER_SOURCES` — add entries for AGENT_CARD, MCP_TOOLS,
+    ONBOARDING_METADATA, PROVENANCE, INGESTION_TRACEABILITY (CAPABILITY_INDEX
+    already exists)
+  - `ARTIFACT_EXAMPLE_OUTPUTS` — add entries for AGENT_CARD, MCP_TOOLS,
+    ONBOARDING_METADATA, PROVENANCE, INGESTION_TRACEABILITY (CAPABILITY_INDEX
+    already exists)
+  - `EXPECTED_OUTPUT_CONTRACTS` — add entries for ALL 6 new types including
+    CAPABILITY_INDEX (which was missing since Phase 1)
+  - `ARTIFACT_PARAMETER_SCHEMA` — add entries for AGENT_CARD, MCP_TOOLS,
+    ONBOARDING_METADATA, PROVENANCE, INGESTION_TRACEABILITY (CAPABILITY_INDEX
+    already exists)
 - `pipeline_requirements.py` `satisfied_by_artifact` values validated against
   `ArtifactType` enum (no free-form strings that aren't in the enum).
 - Backward compatibility: existing code using `ArtifactType.DASHBOARD` etc. is unaffected.
 - Tests verify enum completeness against `pipeline-requirements-onboarding.md` definitions.
 
 **Affected files:**
-- `src/contextcore/models/artifact_manifest.py` (enum expansion + docstring)
+- `src/contextcore/models/artifact_manifest.py` (enum expansion + docstrings)
 - `src/contextcore/utils/artifact_conventions.py` (add missing types)
-- `src/contextcore/utils/onboarding.py` (add missing parameter sources)
+- `src/contextcore/utils/onboarding.py` (add missing entries across 4 dicts)
 - `src/contextcore/utils/pipeline_requirements.py` (validate against enum)
 - `tests/test_artifact_types.py` (new — enum completeness tests)
 
