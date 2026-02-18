@@ -1,0 +1,2311 @@
+{
+  "manifest_id": "contextcore.agent",
+  "tools": [
+    {
+      "name": "contextcore.insight.emit",
+      "description": "Emit agent-generated insights as OTel spans for cross-agent collaboration\n\n\nAvoid:\n- Never emit insights without confidence scores\u2014they're required for prioritization\n- Don't use audience=agent for blockers humans need to see",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "insight_type",
+          "summary",
+          "confidence"
+        ],
+        "properties": {
+          "insight_type": {
+            "type": "string",
+            "enum": [
+              "analysis",
+              "recommendation",
+              "decision",
+              "question",
+              "blocker",
+              "discovery",
+              "risk",
+              "progress",
+              "lesson"
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "description": "Brief description of the insight"
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0
+          },
+          "audience": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "human",
+              "both"
+            ],
+            "default": "both"
+          },
+          "rationale": {
+            "type": "string",
+            "description": "Explanation supporting the insight"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string"
+                },
+                "ref": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "applies_to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "File paths or patterns this insight applies to"
+          },
+          "category": {
+            "type": "string",
+            "description": "Categorization for lessons (e.g., testing, architecture)"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "trace_id": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "action",
+        "maturity": "stable",
+        "confidence": 0.95
+      }
+    },
+    {
+      "name": "contextcore.insight.query",
+      "description": "Query prior insights from Tempo by project, type, confidence, or file path",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "project_id"
+        ],
+        "properties": {
+          "project_id": {
+            "type": "string"
+          },
+          "insight_type": {
+            "type": "string",
+            "enum": [
+              "analysis",
+              "recommendation",
+              "decision",
+              "question",
+              "blocker",
+              "discovery",
+              "risk",
+              "progress",
+              "lesson"
+            ]
+          },
+          "min_confidence": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0
+          },
+          "time_range": {
+            "type": "string",
+            "description": "Duration string (e.g., \"24h\", \"7d\")"
+          },
+          "applies_to": {
+            "type": "string",
+            "description": "Filter by file path or pattern"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 50
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "summary": {
+              "type": "string"
+            },
+            "confidence": {
+              "type": "number"
+            },
+            "timestamp": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "array"
+            }
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "query",
+        "maturity": "stable",
+        "confidence": 0.9
+      }
+    },
+    {
+      "name": "contextcore.handoff.initiate",
+      "description": "Start agent-to-agent task delegation with size constraints and expected output\n\n\nAvoid:\n- Don't set max_lines > 150 for LLM-generated code\u2014truncation risk\n- Always specify completeness_markers for code generation",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "to_agent",
+          "capability_id",
+          "task",
+          "inputs",
+          "expected_output"
+        ],
+        "properties": {
+          "to_agent": {
+            "type": "string",
+            "description": "Target agent identifier"
+          },
+          "capability_id": {
+            "type": "string",
+            "description": "Capability being requested (e.g., \"investigate_error\")"
+          },
+          "task": {
+            "type": "string",
+            "description": "Task description"
+          },
+          "inputs": {
+            "type": "object",
+            "description": "Input data for the task"
+          },
+          "expected_output": {
+            "type": "object",
+            "required": [
+              "type",
+              "fields"
+            ],
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "max_lines": {
+                "type": "integer"
+              },
+              "max_tokens": {
+                "type": "integer"
+              },
+              "completeness_markers": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "normal",
+              "low"
+            ],
+            "default": "normal"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "default": 300000
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "handoff_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "accepted",
+              "in_progress",
+              "input_required",
+              "completed",
+              "failed",
+              "timeout",
+              "cancelled",
+              "rejected"
+            ],
+            "description": "Full A2A-aligned state machine with is_terminal(), is_active(), can_transition_to() helpers"
+          },
+          "result_trace_id": {
+            "type": "string"
+          },
+          "error_message": {
+            "type": "string"
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "action",
+        "maturity": "beta",
+        "confidence": 0.85
+      }
+    },
+    {
+      "name": "contextcore.handoff.receive",
+      "description": "Poll for and process incoming handoffs as receiving agent",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "project_id"
+        ],
+        "properties": {
+          "project_id": {
+            "type": "string"
+          },
+          "poll_interval_s": {
+            "type": "number",
+            "default": 1.0
+          },
+          "timeout_s": {
+            "type": "number",
+            "description": "Max time to poll before returning"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "description": "Handoff object when available",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "from_agent": {
+            "type": "string"
+          },
+          "to_agent": {
+            "type": "string"
+          },
+          "capability_id": {
+            "type": "string"
+          },
+          "task": {
+            "type": "string"
+          },
+          "inputs": {
+            "type": "object"
+          },
+          "expected_output": {
+            "type": "object"
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "action",
+        "maturity": "beta",
+        "confidence": 0.8
+      }
+    },
+    {
+      "name": "contextcore.guidance.read_constraints",
+      "description": "Read human-defined constraints from ProjectContext CRD\n\n\nAvoid:\n- Never ignore BLOCKING constraints\u2014they are mandatory",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "project_id"
+        ],
+        "properties": {
+          "project_id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "Optional file path to filter constraints"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "rule": {
+              "type": "string"
+            },
+            "scope": {
+              "type": "string"
+            },
+            "severity": {
+              "type": "string",
+              "enum": [
+                "blocking",
+                "warning",
+                "advisory"
+              ]
+            },
+            "reason": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "query",
+        "maturity": "beta",
+        "confidence": 0.85
+      }
+    },
+    {
+      "name": "contextcore.guidance.answer_question",
+      "description": "Answer open questions from humans with confidence and evidence",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "question_id",
+          "answer",
+          "confidence"
+        ],
+        "properties": {
+          "question_id": {
+            "type": "string"
+          },
+          "answer": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string"
+                },
+                "ref": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "insight_id": {
+            "type": "string"
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "action",
+        "maturity": "beta",
+        "confidence": 0.85
+      }
+    },
+    {
+      "name": "contextcore.code_generation.contract",
+      "description": "Define code generation contracts with size limits and completeness markers\n\n\nAvoid:\n- Never skip size estimation\u2014truncated code is worse than no code\n- Always specify required_exports for verification",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "to_agent",
+          "spec"
+        ],
+        "properties": {
+          "to_agent": {
+            "type": "string"
+          },
+          "spec": {
+            "type": "object",
+            "required": [
+              "target_file",
+              "description"
+            ],
+            "properties": {
+              "target_file": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "max_lines": {
+                "type": "integer",
+                "default": 150
+              },
+              "max_tokens": {
+                "type": "integer"
+              },
+              "required_exports": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "context_files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "allows_decomposition": {
+                "type": "boolean",
+                "default": true
+              }
+            }
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "generated",
+              "decomposed",
+              "rejected"
+            ]
+          },
+          "trace_id": {
+            "type": "string"
+          },
+          "chunks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "action",
+        "maturity": "beta",
+        "confidence": 0.8
+      }
+    },
+    {
+      "name": "contextcore.size_estimation.estimate",
+      "description": "Estimate code output size before generation using heuristics",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "task"
+        ],
+        "properties": {
+          "task": {
+            "type": "string",
+            "description": "Task description to analyze"
+          },
+          "inputs": {
+            "type": "object",
+            "properties": {
+              "required_exports": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "context_files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "integer"
+          },
+          "tokens": {
+            "type": "integer"
+          },
+          "complexity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "query",
+        "maturity": "beta",
+        "confidence": 0.75
+      }
+    },
+    {
+      "name": "contextcore.a2a.server",
+      "description": "Expose ContextCore agent as A2A-compatible server with JSON-RPC and discovery\n\n\nAvoid:\n- Don't expose A2A server without authentication in production",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "agent_id",
+          "agent_name",
+          "base_url",
+          "project_id"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "description": "Unique identifier for the agent"
+          },
+          "agent_name": {
+            "type": "string",
+            "description": "Human-readable agent name"
+          },
+          "base_url": {
+            "type": "string",
+            "description": "Base URL for the server"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Project identifier for handoff routing"
+          },
+          "host": {
+            "type": "string",
+            "default": "0.0.0.0"
+          },
+          "port": {
+            "type": "integer",
+            "default": 8080
+          },
+          "framework": {
+            "type": "string",
+            "enum": [
+              "flask",
+              "fastapi"
+            ],
+            "default": "flask"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "server": {
+            "type": "object",
+            "description": "A2AServer instance"
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "integration",
+        "maturity": "beta",
+        "confidence": 0.8
+      }
+    },
+    {
+      "name": "contextcore.a2a.client",
+      "description": "Communicate with remote A2A-compatible agents via JSON-RPC client",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "base_url"
+        ],
+        "properties": {
+          "base_url": {
+            "type": "string",
+            "description": "Remote agent base URL"
+          },
+          "auth": {
+            "type": "object",
+            "description": "AuthConfig for authentication headers"
+          },
+          "timeout_seconds": {
+            "type": "number",
+            "default": 30.0
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "integration",
+        "maturity": "beta",
+        "confidence": 0.8
+      }
+    },
+    {
+      "name": "contextcore.a2a.task_adapter",
+      "description": "Bidirectional translation between A2A Task JSON and ContextCore Handoff",
+      "inputSchema": {
+        "type": "object",
+        "description": "Either a Handoff object or A2A Task dict",
+        "properties": {
+          "handoff": {
+            "type": "object",
+            "description": "ContextCore Handoff (for handoff_to_task)"
+          },
+          "task": {
+            "type": "object",
+            "description": "A2A Task JSON (for task_to_handoff)"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "description": "Converted object (A2A Task dict or ContextCore Handoff)"
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "transform",
+        "maturity": "beta",
+        "confidence": 0.85
+      }
+    },
+    {
+      "name": "contextcore.a2a.content_model",
+      "description": "Unified Part/Message/Artifact content model compatible with A2A message format",
+      "inputSchema": {
+        "type": "object",
+        "description": "Constructor parameters vary by type",
+        "properties": {
+          "part_type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "file",
+              "data",
+              "json",
+              "form",
+              "trace",
+              "log_query",
+              "metric_query",
+              "trace_query",
+              "reference"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "agent",
+              "system"
+            ]
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "description": "Part, Message, or Artifact instance with to_a2a_dict()"
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "transform",
+        "maturity": "beta",
+        "confidence": 0.85
+      }
+    },
+    {
+      "name": "contextcore.handoff.input_request",
+      "description": "Request additional input from delegating agent during handoff execution",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "handoff_id",
+          "question",
+          "input_type"
+        ],
+        "properties": {
+          "handoff_id": {
+            "type": "string"
+          },
+          "question": {
+            "type": "string",
+            "description": "Question to ask the delegating agent"
+          },
+          "input_type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "choice",
+              "multi_choice",
+              "confirmation",
+              "file"
+            ]
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default_value": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean",
+            "default": true
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "default": 300000
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string"
+          },
+          "handoff_id": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "responded_at": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "action",
+        "maturity": "beta",
+        "confidence": 0.8
+      }
+    },
+    {
+      "name": "contextcore.api.unified",
+      "description": "Unified API facade with resource.action naming for insights, handoffs, and skills",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "project_id",
+          "agent_id"
+        ],
+        "properties": {
+          "project_id": {
+            "type": "string"
+          },
+          "agent_id": {
+            "type": "string"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "description": "ContextCoreAPI instance with .insights, .handoffs, .skills"
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "integration",
+        "maturity": "beta",
+        "confidence": 0.8
+      }
+    },
+    {
+      "name": "contextcore.manifest.load",
+      "description": "Load and parse Context Manifest (v1.1 or v2) with automatic version detection\n\n\nAvoid:\n- Don't load manifest in hot paths\u2014cache the parsed result\n- Don't embed sensitive data in manifest\u2014it's checked into Git\n- Don't assume field names\u2014grep model definition before instantiating",
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path to .contextcore.yaml file"
+          },
+          "data": {
+            "type": "object",
+            "description": "Dict representation of manifest (for programmatic use)"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "spec": {
+            "type": "object",
+            "description": "ProjectContextSpec for K8s CRD"
+          },
+          "objectives": {
+            "type": "array",
+            "description": "Business objectives with metrics"
+          },
+          "strategies": {
+            "type": "array",
+            "description": "Strategies with tactics and horizons"
+          },
+          "insights": {
+            "type": "array",
+            "description": "Derived insights with confidence"
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "query",
+        "maturity": "stable",
+        "confidence": 0.95
+      }
+    },
+    {
+      "name": "contextcore.manifest.distill_crd",
+      "description": "Distill lightweight K8s ProjectContext CRD from full Context Manifest",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "manifest"
+        ],
+        "properties": {
+          "manifest": {
+            "type": "object",
+            "description": "Full ContextManifest object"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "description": "ProjectContextSpec for K8s CRD",
+        "properties": {
+          "project": {
+            "type": "object"
+          },
+          "business": {
+            "type": "object"
+          },
+          "requirements": {
+            "type": "object"
+          },
+          "targets": {
+            "type": "array"
+          },
+          "observability": {
+            "type": "object"
+          },
+          "risks": {
+            "type": "array"
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "transform",
+        "maturity": "beta",
+        "confidence": 0.85
+      }
+    },
+    {
+      "name": "contextcore.manifest.validate",
+      "description": "Validate Context Manifest against schema with detailed error reporting",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path to .contextcore.yaml file"
+          },
+          "strict": {
+            "type": "boolean",
+            "default": false,
+            "description": "Fail on warnings (not just errors)"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "text",
+              "json"
+            ],
+            "default": "text"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "valid": {
+            "type": "boolean"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "any"
+                }
+              }
+            }
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "validate",
+        "maturity": "stable",
+        "confidence": 0.9
+      }
+    },
+    {
+      "name": "contextcore.manifest.migrate",
+      "description": "Migrate Context Manifest from v1.1 to v2 format non-destructively\n\n\nAvoid:\n- Don't modify v1 input in place without --in-place flag\u2014migration returns new dict\n- Don't skip validation\u2014always parse output as ContextManifestV2",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path to v1.1 manifest"
+          },
+          "output": {
+            "type": "string",
+            "description": "Output path (default: stdout)"
+          },
+          "in_place": {
+            "type": "boolean",
+            "default": false,
+            "description": "Overwrite source with .bak backup"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "description": "v2 manifest dict suitable for ContextManifestV2",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "const": "contextcore.io/v1alpha2"
+          },
+          "strategy": {
+            "type": "object",
+            "description": "Flattened objectives and tactics"
+          },
+          "guidance": {
+            "type": "object",
+            "description": "Empty governance section"
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "transform",
+        "maturity": "stable",
+        "confidence": 0.9
+      }
+    },
+    {
+      "name": "contextcore.manifest.guidance.read",
+      "description": "Read agent guidance (constraints, focus, questions) from v2 manifest\n\n\nAvoid:\n- Never ignore BLOCKING constraints\u2014they are mandatory\n- Don't assume v1 manifests have guidance\u2014check apiVersion first",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "manifest"
+        ],
+        "properties": {
+          "manifest": {
+            "type": "object",
+            "description": "ContextManifestV2 instance"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "focus": {
+            "type": "object",
+            "properties": {
+              "areas": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "reason": {
+                "type": "string"
+              },
+              "until": {
+                "type": "string"
+              }
+            }
+          },
+          "constraints": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "rule": {
+                  "type": "string"
+                },
+                "severity": {
+                  "type": "string",
+                  "enum": [
+                    "blocking",
+                    "warning",
+                    "advisory"
+                  ]
+                },
+                "appliesTo": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "question": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "open",
+                    "answered",
+                    "deferred"
+                  ]
+                },
+                "priority": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "query",
+        "maturity": "stable",
+        "confidence": 0.9
+      }
+    },
+    {
+      "name": "contextcore.manifest.sync_strategy",
+      "description": "[DRAFT - not yet implemented] Sync strategy/tactic status bidirectionally with project management tools",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "manifest",
+          "pm_source"
+        ],
+        "properties": {
+          "manifest": {
+            "type": "object"
+          },
+          "pm_source": {
+            "type": "string",
+            "enum": [
+              "jira",
+              "github",
+              "linear"
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "read",
+              "write",
+              "bidirectional"
+            ],
+            "default": "bidirectional"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "updated_tactics": {
+            "type": "array"
+          },
+          "sync_conflicts": {
+            "type": "array"
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "action",
+        "maturity": "draft",
+        "confidence": 0.5
+      }
+    },
+    {
+      "name": "contextcore.manifest.export_provenance",
+      "description": "Export artifact manifest with comprehensive provenance audit trail\n\n\nAvoid:\n- Don't skip provenance for production exports\u2014it's essential for debugging\n- Don't rely on embedded provenance alone if auditors need separate files",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path to Context Manifest (.contextcore.yaml)"
+          },
+          "output_dir": {
+            "type": "string",
+            "description": "Directory for generated files"
+          },
+          "emit_provenance": {
+            "type": "boolean",
+            "description": "Write separate provenance.json file",
+            "default": false
+          },
+          "embed_provenance": {
+            "type": "boolean",
+            "description": "Embed provenance in artifact manifest",
+            "default": false
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "artifact_manifest": {
+            "type": "string",
+            "description": "Path to generated artifact manifest"
+          },
+          "projectcontext": {
+            "type": "string",
+            "description": "Path to generated CRD"
+          },
+          "provenance": {
+            "type": "object",
+            "description": "Provenance metadata (if captured)",
+            "properties": {
+              "generatedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "durationMs": {
+                "type": "integer"
+              },
+              "sourcePath": {
+                "type": "string"
+              },
+              "sourceChecksum": {
+                "type": "string",
+                "description": "SHA-256 of source file"
+              },
+              "git": {
+                "type": "object",
+                "properties": {
+                  "commitSha": {
+                    "type": "string"
+                  },
+                  "branch": {
+                    "type": "string"
+                  },
+                  "isDirty": {
+                    "type": "boolean"
+                  },
+                  "remoteUrl": {
+                    "type": "string"
+                  }
+                }
+              },
+              "hostname": {
+                "type": "string"
+              },
+              "username": {
+                "type": "string"
+              },
+              "cliArgs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "action",
+        "maturity": "stable",
+        "confidence": 0.9
+      }
+    },
+    {
+      "name": "contextcore.manifest.init_bootstrap",
+      "description": "Scaffold a new v2 context manifest with validated template and pipeline next steps\n\n\nAvoid:\n- Don't skip post-write validation\u2014invalid templates indicate a bug",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Project/manifest name (auto-normalized to lowercase-hyphen)"
+          },
+          "path": {
+            "type": "string",
+            "default": ".contextcore.yaml"
+          },
+          "version": {
+            "type": "string",
+            "enum": [
+              "v1.1",
+              "v2"
+            ],
+            "default": "v2"
+          },
+          "force": {
+            "type": "boolean",
+            "default": false
+          },
+          "validate": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path to created manifest file"
+          },
+          "version": {
+            "type": "string"
+          },
+          "validation_passed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "action",
+        "maturity": "stable",
+        "confidence": 0.9
+      }
+    },
+    {
+      "name": "contextcore.pipeline.check_pipeline",
+      "description": "Run 7 integrity checks on export output before plan ingestion (Gate 1)\n\n\nAvoid:\n- Don't skip Gate 1 before plan ingestion\u2014defects cascade silently\n- Don't treat skipped gates as failures\u2014they mean input data was optional",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "output_dir"
+        ],
+        "properties": {
+          "output_dir": {
+            "type": "string",
+            "description": "Export output directory containing onboarding-metadata.json"
+          },
+          "task_id": {
+            "type": "string",
+            "description": "Task span ID for gate context"
+          },
+          "trace_id": {
+            "type": "string",
+            "description": "Trace ID for gate context"
+          },
+          "report_path": {
+            "type": "string",
+            "description": "Path to write JSON report"
+          },
+          "fail_on_unhealthy": {
+            "type": "boolean",
+            "default": false
+          },
+          "min_coverage": {
+            "type": "number",
+            "description": "Minimum coverage threshold (0.0-1.0). Fails if below."
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "health": {
+            "type": "string",
+            "enum": [
+              "healthy",
+              "degraded",
+              "unhealthy"
+            ]
+          },
+          "gates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "outcome": {
+                  "type": "string",
+                  "enum": [
+                    "pass",
+                    "fail",
+                    "skip"
+                  ]
+                },
+                "evidence": {
+                  "type": "array"
+                }
+              }
+            }
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "validate",
+        "maturity": "stable",
+        "confidence": 0.9
+      }
+    },
+    {
+      "name": "contextcore.pipeline.diagnose",
+      "description": "Run Three Questions diagnostic across export, ingestion, and execution layers (Gate 2)\n\n\nAvoid:\n- Don't fix Q2/Q3 issues while Q1 is failing\u2014always start from the source\n- Don't confuse 'skipped' (missing input data) with 'not_reached' (prior question failed)",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "export_dir"
+        ],
+        "properties": {
+          "export_dir": {
+            "type": "string",
+            "description": "Export output directory"
+          },
+          "ingestion_dir": {
+            "type": "string",
+            "description": "Plan ingestion output directory (enables Q2)"
+          },
+          "artisan_dir": {
+            "type": "string",
+            "description": "Artisan workflow output directory (enables Q3)"
+          },
+          "trace_id": {
+            "type": "string"
+          },
+          "report_path": {
+            "type": "string"
+          },
+          "fail_on_issue": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "questions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "number": {
+                  "type": "integer"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "layer": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pass",
+                    "fail",
+                    "skipped",
+                    "not_reached"
+                  ]
+                },
+                "recommendation": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "validate",
+        "maturity": "stable",
+        "confidence": 0.9
+      }
+    },
+    {
+      "name": "contextcore.docs.index",
+      "description": "Generate programmatic documentation index from capability evidence and directory scan\n\n\nAvoid:\n- Don't hand-edit contextcore.docs.yaml\u2014it is overwritten on every regeneration\n- Don't treat orphaned docs as 'bad'\u2014they may be valid docs not yet linked to capabilities",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "output": {
+            "type": "string",
+            "description": "Output file path (default: docs/capability-index/contextcore.docs.yaml)"
+          },
+          "no_git": {
+            "type": "boolean",
+            "default": false,
+            "description": "Skip git freshness lookup for faster generation"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "default": false,
+            "description": "Print to stdout without writing file"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "yaml",
+              "json"
+            ],
+            "default": "yaml"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "manifest_id": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "total_documents": {
+                "type": "integer"
+              },
+              "referenced_by_capabilities": {
+                "type": "integer"
+              },
+              "orphaned": {
+                "type": "integer"
+              },
+              "cross_references": {
+                "type": "integer"
+              },
+              "by_type": {
+                "type": "object"
+              }
+            }
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "doc_id": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "maturity": {
+                  "type": "string"
+                },
+                "referenced": {
+                  "type": "boolean"
+                },
+                "governs_capabilities": {
+                  "type": "array"
+                },
+                "references": {
+                  "type": "array"
+                }
+              }
+            }
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "action",
+        "maturity": "stable",
+        "confidence": 0.9
+      }
+    },
+    {
+      "name": "contextcore.docs.show",
+      "description": "Query the documentation index with type, capability, freshness, and cross-reference filters",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "index_path": {
+            "type": "string",
+            "description": "Path to docs index (default: docs/capability-index/contextcore.docs.yaml)"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "requirements",
+              "design",
+              "operational",
+              "adr",
+              "analysis",
+              "plan",
+              "reference",
+              "session",
+              "governance"
+            ]
+          },
+          "orphaned": {
+            "type": "boolean"
+          },
+          "referenced": {
+            "type": "boolean"
+          },
+          "capability": {
+            "type": "string",
+            "description": "Filter docs governing a specific capability ID"
+          },
+          "refs_for": {
+            "type": "string",
+            "description": "Show cross-reference graph for a document path"
+          },
+          "stale_days": {
+            "type": "integer",
+            "description": "Show documents not modified in N days"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "description": "Filtered document entries or summary statistics"
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "query",
+        "maturity": "stable",
+        "confidence": 0.9
+      }
+    },
+    {
+      "name": "contextcore.docs.audit",
+      "description": "Audit documentation gaps by scoring capability importance and detecting missing doc types\n\n\nAvoid:\n- Don't treat all gaps as equal\u2014importance scoring exists for a reason\n- Don't create docs for low-importance draft capabilities\u2014wait until maturity increases",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "index_path": {
+            "type": "string",
+            "description": "Path to docs index (default: docs/capability-index/contextcore.docs.yaml)"
+          },
+          "min_importance": {
+            "type": "number",
+            "default": 0.3,
+            "description": "Only report gaps above this importance threshold (0.0-1.0)"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "requirements",
+              "design",
+              "operational",
+              "adr",
+              "reference"
+            ],
+            "description": "Filter to show only gaps of a specific doc type"
+          },
+          "verbose": {
+            "type": "boolean",
+            "default": false,
+            "description": "Show per-capability detail within cluster summaries"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "text",
+              "json",
+              "yaml"
+            ],
+            "default": "text"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "object",
+            "properties": {
+              "capabilities_analyzed": {
+                "type": "integer"
+              },
+              "with_documentation_gaps": {
+                "type": "integer"
+              },
+              "cluster_gaps_identified": {
+                "type": "integer"
+              },
+              "priority_breakdown": {
+                "type": "object"
+              },
+              "missing_doc_types": {
+                "type": "object"
+              }
+            }
+          },
+          "clusters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "cluster": {
+                  "type": "string"
+                },
+                "missing_type": {
+                  "type": "string"
+                },
+                "avg_importance": {
+                  "type": "number"
+                },
+                "suggested_file": {
+                  "type": "string"
+                },
+                "priority": {
+                  "type": "string",
+                  "enum": [
+                    "high",
+                    "medium",
+                    "low"
+                  ]
+                }
+              }
+            }
+          },
+          "per_capability_gaps": {
+            "type": "array"
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "validate",
+        "maturity": "stable",
+        "confidence": 0.9
+      }
+    },
+    {
+      "name": "contextcore.docs.curate",
+      "description": "Curate persona-specific documentation catalogs with onboarding/operations classification and gap detection\n\n\nAvoid:\n- Don't assume all docs are equally relevant to all personas\u2014use the relevance score\n- Don't create persona-specific docs that merely duplicate existing general docs\u2014add persona-specific context",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "index_path": {
+            "type": "string",
+            "description": "Path to docs index (default: docs/capability-index/contextcore.docs.yaml)"
+          },
+          "persona": {
+            "type": "string",
+            "description": "Filter to a single persona (e.g., operator, developer)"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "onboarding",
+              "operations"
+            ],
+            "description": "Show only onboarding or operations documents"
+          },
+          "gaps_only": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only show documentation gaps, not full catalog"
+          },
+          "min_relevance": {
+            "type": "number",
+            "default": 0.4,
+            "description": "Minimum document-persona relevance threshold (0.0-1.0)"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "text",
+              "json",
+              "yaml"
+            ],
+            "default": "text"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "object",
+            "properties": {
+              "personas_analyzed": {
+                "type": "integer"
+              },
+              "total_documentation_gaps": {
+                "type": "integer"
+              },
+              "high_priority_gaps": {
+                "type": "integer"
+              },
+              "avg_docs_per_persona": {
+                "type": "number"
+              }
+            }
+          },
+          "personas": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "persona_id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "capability_count": {
+                  "type": "integer"
+                },
+                "benefit_count": {
+                  "type": "integer"
+                },
+                "onboarding": {
+                  "type": "array",
+                  "description": "Docs classified as onboarding material"
+                },
+                "operations": {
+                  "type": "array",
+                  "description": "Docs classified as operations material"
+                },
+                "gaps": {
+                  "type": "array",
+                  "description": "Missing persona-specific documentation"
+                }
+              }
+            }
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "query",
+        "maturity": "stable",
+        "confidence": 0.9
+      }
+    },
+    {
+      "name": "contextcore.manifest.export_onboarding",
+      "description": "Emit programmatic onboarding metadata for plan ingestion and artisan seed enrichment\n\n\nAvoid:\n- Don't hand-edit onboarding-metadata.json\u2014re-export instead, as checksums will break\n- Don't skip onboarding metadata for plan ingestion\u2014ASSESS phase needs parameter schemas and coverage gaps",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "artifact_manifest",
+          "artifact_manifest_path",
+          "project_context_path"
+        ],
+        "properties": {
+          "artifact_manifest": {
+            "type": "object",
+            "description": "The generated ArtifactManifest instance"
+          },
+          "artifact_manifest_path": {
+            "type": "string",
+            "description": "Relative path to artifact manifest file"
+          },
+          "project_context_path": {
+            "type": "string",
+            "description": "Relative path to project context CRD file"
+          },
+          "provenance": {
+            "type": "object",
+            "description": "Optional ExportProvenance for audit chain"
+          },
+          "artifact_task_mapping": {
+            "type": "object",
+            "description": "Optional artifact_id \u2192 plan task ID mapping"
+          },
+          "source_path": {
+            "type": "string",
+            "description": "Path to source .contextcore.yaml for checksum"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "Schema version"
+          },
+          "schema": {
+            "type": "string",
+            "description": "contextcore.io/onboarding-metadata/v1"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "artifact_types": {
+            "type": "object",
+            "description": "Per-type schemas with parameter_keys, parameter_sources, output conventions, example snippets"
+          },
+          "coverage": {
+            "type": "object",
+            "description": "Overall coverage percentage, gaps list, by-type breakdown"
+          },
+          "semantic_conventions": {
+            "type": "object",
+            "description": "Metric names, label conventions for dashboard/rule generation"
+          },
+          "artifact_manifest_checksum": {
+            "type": "string",
+            "description": "SHA-256 of artifact manifest content"
+          },
+          "project_context_checksum": {
+            "type": "string",
+            "description": "SHA-256 of CRD content"
+          },
+          "source_checksum": {
+            "type": "string",
+            "description": "SHA-256 of .contextcore.yaml for provenance chain"
+          },
+          "artifact_task_mapping": {
+            "type": "object",
+            "description": "artifact_id \u2192 plan task ID mapping for traceability"
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "action",
+        "maturity": "stable",
+        "confidence": 0.9
+      }
+    },
+    {
+      "name": "contextcore.aos.message_emit",
+      "description": "[DRAFT - not yet implemented] Emit AOS-compliant steps/message events for agent communication",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "role",
+          "content"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "agent",
+              "system"
+            ],
+            "description": "Message sender role"
+          },
+          "content": {
+            "type": "string",
+            "description": "Message content"
+          },
+          "reasoning": {
+            "type": "string",
+            "description": "Agent reasoning behind the message"
+          },
+          "citations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string"
+          },
+          "trace_id": {
+            "type": "string"
+          },
+          "aos_compliant": {
+            "type": "boolean",
+            "const": true
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "action",
+        "maturity": "draft",
+        "confidence": 0.5
+      }
+    },
+    {
+      "name": "contextcore.aos.decision_emit",
+      "description": "[DRAFT - not yet implemented] Emit AOS-compliant guardian decisions with Allow/Deny/Modify outcomes",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "outcome",
+          "reason_code",
+          "reasoning"
+        ],
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "allow",
+              "deny",
+              "modify"
+            ],
+            "description": "Decision outcome"
+          },
+          "reason_code": {
+            "type": "string",
+            "description": "Structured reason code (e.g., rate_limit_exceeded, policy_violation)"
+          },
+          "reasoning": {
+            "type": "string",
+            "description": "Human-readable explanation"
+          },
+          "modified_request": {
+            "type": "object",
+            "description": "Required when outcome=modify; the altered request"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "decision_id": {
+            "type": "string"
+          },
+          "trace_id": {
+            "type": "string"
+          },
+          "insight_id": {
+            "type": "string"
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "action",
+        "maturity": "draft",
+        "confidence": 0.5
+      }
+    },
+    {
+      "name": "contextcore.aos.trigger_emit",
+      "description": "[DRAFT - not yet implemented] Emit AOS-compliant steps/agentTrigger events for autonomous activations",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "trigger_type"
+        ],
+        "properties": {
+          "trigger_type": {
+            "type": "string",
+            "enum": [
+              "user",
+              "autonomous",
+              "webhook",
+              "scheduled"
+            ],
+            "description": "How the agent was activated"
+          },
+          "source": {
+            "type": "string",
+            "description": "Source identifier (webhook URL, cron expression, etc.)"
+          },
+          "payload": {
+            "type": "object",
+            "description": "Trigger payload data"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string"
+          },
+          "trace_id": {
+            "type": "string"
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "action",
+        "maturity": "draft",
+        "confidence": 0.5
+      }
+    },
+    {
+      "name": "contextcore.aos.mcp_emit",
+      "description": "[DRAFT - not yet implemented] Emit AOS-compliant protocols/MCP events for Model Context Protocol interactions",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "event_type"
+        ],
+        "properties": {
+          "event_type": {
+            "type": "string",
+            "enum": [
+              "tools_list",
+              "tool_call",
+              "resource_read",
+              "prompt_get"
+            ]
+          },
+          "tool_name": {
+            "type": "string",
+            "description": "Tool name for tool_call events"
+          },
+          "arguments": {
+            "type": "object",
+            "description": "Tool arguments for tool_call events"
+          },
+          "resource_uri": {
+            "type": "string",
+            "description": "Resource URI for resource_read events"
+          },
+          "result": {
+            "type": "object",
+            "description": "Operation result"
+          },
+          "error": {
+            "type": "object",
+            "description": "Error details if operation failed"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string"
+          },
+          "trace_id": {
+            "type": "string"
+          },
+          "mapped_capability_id": {
+            "type": "string"
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "action",
+        "maturity": "draft",
+        "confidence": 0.5
+      }
+    },
+    {
+      "name": "contextcore.aos.validate",
+      "description": "[DRAFT - not yet implemented] Validate trace data against AOS schema and report compliance gaps",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "trace_id": {
+            "type": "string",
+            "description": "Specific trace to validate"
+          },
+          "time_range": {
+            "type": "string",
+            "description": "Time range to scan (e.g., \"24h\", \"7d\")"
+          },
+          "event_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Filter to specific event types"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "compliant": {
+            "type": "boolean"
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "missing_attributes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "event_type": {
+                  "type": "string"
+                },
+                "attribute": {
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "invalid_events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "event_id": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "recommendations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "query",
+        "maturity": "draft",
+        "confidence": 0.5
+      }
+    }
+  ],
+  "tool_count": 34
+}

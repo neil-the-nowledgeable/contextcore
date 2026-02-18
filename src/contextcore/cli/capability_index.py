@@ -29,6 +29,18 @@ def _find_project_root() -> Path:
     return cwd
 
 
+def _find_default_manifest() -> Path:
+    """Find the default capability manifest (contextcore.agent.yaml)."""
+    project_root = _find_project_root()
+    manifest = project_root / "docs" / "capability-index" / "contextcore.agent.yaml"
+    if not manifest.is_file():
+        raise click.ClickException(
+            f"No capability manifest found at {manifest}\n"
+            "Provide an explicit path or run from a ContextCore project."
+        )
+    return manifest
+
+
 @click.group("capability-index")
 def capability_index():
     """Manage the capability index (build, validate, diff)."""
@@ -212,46 +224,65 @@ def extract(project_path: str, output: str | None, project_name: str | None) -> 
 
 
 @capability_index.command("generate-mcp")
-@click.argument("manifest_path", type=click.Path(exists=True))
+@click.argument("manifest_path", type=click.Path(exists=True), default=None, required=False)
 @click.option("--output", "-o", type=click.Path(), default=None,
-              help="Output file (default: stdout)")
+              help="Output file (default: <manifest-dir>/mcp-tools.json)")
 @click.option("--server-config", is_flag=True,
               help="Generate full MCP server config (not just tools)")
-def generate_mcp(manifest_path: str, output: str | None, server_config: bool) -> None:
-    """Generate MCP tool definitions from a capability manifest."""
+@click.option("--stdout", is_flag=True, help="Print to stdout instead of writing file")
+def generate_mcp(manifest_path: str | None, output: str | None,
+                 server_config: bool, stdout: bool) -> None:
+    """Generate MCP tool definitions from a capability manifest.
+
+    Defaults to the project's contextcore.agent.yaml and writes output
+    alongside it. Use --stdout to print instead of persisting.
+    """
     import json
     from contextcore.utils.capability_mcp_generator import generate_mcp_from_file
 
-    result = generate_mcp_from_file(Path(manifest_path), server_config=server_config)
+    manifest = Path(manifest_path) if manifest_path else _find_default_manifest()
+    result = generate_mcp_from_file(manifest, server_config=server_config)
     json_output = json.dumps(result, indent=2)
 
-    if output:
-        Path(output).write_text(json_output)
-        tool_count = result.get("tool_count", len(result.get("tools", [])))
-        click.echo(f"Wrote {tool_count} tools to {output}")
-    else:
+    if stdout:
         click.echo(json_output)
+        return
+
+    out_path = Path(output) if output else manifest.parent / "mcp-tools.json"
+    out_path.write_text(json_output + "\n")
+    tool_count = result.get("tool_count", len(result.get("tools", [])))
+    click.echo(f"Wrote {tool_count} MCP tools to {out_path}")
 
 
 @capability_index.command("generate-a2a")
-@click.argument("manifest_path", type=click.Path(exists=True))
+@click.argument("manifest_path", type=click.Path(exists=True), default=None, required=False)
 @click.option("--output", "-o", type=click.Path(), default=None,
-              help="Output file (default: stdout)")
+              help="Output file (default: <manifest-dir>/agent-card.json)")
 @click.option("--well-known", is_flag=True,
               help="Output in /.well-known/agent.json format")
-def generate_a2a(manifest_path: str, output: str | None, well_known: bool) -> None:
-    """Generate A2A Agent Card from a capability manifest."""
+@click.option("--stdout", is_flag=True, help="Print to stdout instead of writing file")
+def generate_a2a(manifest_path: str | None, output: str | None,
+                 well_known: bool, stdout: bool) -> None:
+    """Generate A2A Agent Card from a capability manifest.
+
+    Defaults to the project's contextcore.agent.yaml and writes output
+    alongside it. Use --stdout to print instead of persisting.
+    """
     import json
     from contextcore.utils.capability_a2a_generator import generate_a2a_from_file
 
-    result = generate_a2a_from_file(Path(manifest_path), well_known=well_known)
+    manifest = Path(manifest_path) if manifest_path else _find_default_manifest()
+    result = generate_a2a_from_file(manifest, well_known=well_known)
     json_output = json.dumps(result, indent=2)
 
-    if output:
-        Path(output).write_text(json_output)
-        click.echo(f"Wrote Agent Card to {output}")
-    else:
+    if stdout:
         click.echo(json_output)
+        return
+
+    out_path = Path(output) if output else manifest.parent / "agent-card.json"
+    out_path.write_text(json_output + "\n")
+    skill_count = len(result.get("agent_card", result).get("skills", []))
+    click.echo(f"Wrote A2A Agent Card ({skill_count} skills) to {out_path}")
 
 
 @capability_index.command()

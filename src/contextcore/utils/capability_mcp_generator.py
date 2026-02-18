@@ -27,14 +27,12 @@ def capability_to_mcp_tool(
     Convert a capability to an MCP tool definition.
 
     Only capabilities with audience=agent are converted.
+    Draft capabilities are included with a [DRAFT] prefix in description
+    so agents can discover planned capabilities without depending on them.
     """
     # Skip if not agent-facing
     audiences = cap.get("audiences", ["human"])
     if "agent" not in audiences:
-        return None
-
-    # Skip draft capabilities
-    if cap.get("maturity") == "draft":
         return None
 
     # Skip internal capabilities (unless explicitly opted in)
@@ -42,9 +40,14 @@ def capability_to_mcp_tool(
         return None
 
     capability_id = cap.get("capability_id", "")
+    maturity = cap.get("maturity", "draft")
 
     # Build description from summary + anti-patterns
-    description_parts = [cap.get("summary", "")]
+    summary = cap.get("summary", "")
+    if maturity == "draft":
+        summary = f"[DRAFT - not yet implemented] {summary}"
+
+    description_parts = [summary]
     anti_patterns = cap.get("anti_patterns", [])
     if anti_patterns:
         description_parts.append("\n\nAvoid:")

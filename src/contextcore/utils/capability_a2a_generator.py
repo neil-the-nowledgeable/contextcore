@@ -23,22 +23,30 @@ def capability_to_a2a_skill(cap: dict) -> Optional[dict]:
     Convert a capability to an A2A skill descriptor.
 
     Only agent-facing capabilities are included.
+    Draft capabilities are included with maturity metadata so agents
+    can discover planned capabilities without depending on them.
     """
     audiences = cap.get("audiences", ["human"])
     if "agent" not in audiences:
         return None
 
-    if cap.get("maturity") == "draft":
-        return None
-
     if cap.get("internal", False):
         return None
+
+    maturity = cap.get("maturity", "draft")
+    summary = cap.get("summary", "")
+    if maturity == "draft":
+        summary = f"[DRAFT - not yet implemented] {summary}"
+
+    tags = list(cap.get("triggers", []))
+    tags.append(f"maturity:{maturity}")
 
     return {
         "id": cap.get("capability_id"),
         "name": cap.get("capability_id", "").split(".")[-1].replace("_", " ").title(),
-        "description": cap.get("summary", ""),
-        "tags": cap.get("triggers", []),
+        "description": summary,
+        "tags": tags,
+        "maturity": maturity,
         "inputModes": ["application/json"],
         "outputModes": ["application/json"]
     }
