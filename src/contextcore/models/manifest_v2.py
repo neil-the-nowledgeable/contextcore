@@ -1006,6 +1006,28 @@ class ContextManifestV2(BaseModel):
                 )
             )
 
+        # ── Capability index (project-level, not per-target) ──────────
+        cap_index_id = f"{self.spec.project.id.replace('-', '_')}-capability-index"
+        artifacts.append(
+            ArtifactSpec(
+                id=cap_index_id,
+                type=ArtifactType.CAPABILITY_INDEX,
+                name=f"{self.spec.project.id} Capability Index",
+                target=self.spec.project.id,
+                priority=ArtifactPriority.RECOMMENDED,
+                status=(
+                    ArtifactStatus.EXISTS
+                    if cap_index_id in existing_artifacts
+                    else ArtifactStatus.NEEDED
+                ),
+                existing_path=existing_artifacts.get(cap_index_id),
+                parameters={
+                    "project_root": ".",
+                    "index_dir": "docs/capability-index/",
+                },
+            )
+        )
+
         # Create the manifest
         manifest = ArtifactManifest(
             metadata=ArtifactManifestMetadata(

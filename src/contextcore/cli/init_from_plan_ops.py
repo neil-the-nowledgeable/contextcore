@@ -224,7 +224,7 @@ def enrich_template_from_capability_index(
         constraints = guidance.get("constraints", []) or []
         for idx, prin in enumerate(matching_principles, start=1):
             constraints.append({
-                "id": f"C-PRINCIPLE-{idx}",
+                "id": f"C-PRINCIPLE-{prin.id}",
                 "rule": prin.principle,
                 "severity": "advisory",
                 "source": f"contextcore.agent.yaml#{prin.id}",
@@ -238,7 +238,7 @@ def enrich_template_from_capability_index(
         preferences = guidance.get("preferences", []) or []
         for idx, pat in enumerate(matching_patterns, start=1):
             preferences.append({
-                "id": f"P-PATTERN-{idx}",
+                "id": f"P-PATTERN-{pat.pattern_id}",
                 "description": pat.summary,
                 "source": f"contextcore.agent.yaml#{pat.pattern_id}",
             })
@@ -756,7 +756,7 @@ def infer_init_from_plan(
                     constraints = guidance.get("constraints", []) or []
                     existing_ids = {c.get("id") for c in constraints}
                     for idx, prin in enumerate(matched_prins, start=1):
-                        cid = f"C-CAP-{idx}"
+                        cid = f"C-CAP-{prin.id}"
                         if cid not in existing_ids:
                             constraints.append({
                                 "id": cid,
@@ -771,7 +771,7 @@ def infer_init_from_plan(
                     preferences = guidance.get("preferences", []) or []
                     existing_ids = {p.get("id") for p in preferences}
                     for idx, pat in enumerate(matched_pats, start=1):
-                        pid = f"P-CAP-{idx}"
+                        pid = f"P-CAP-{pat.pattern_id}"
                         if pid not in existing_ids:
                             preferences.append({
                                 "id": pid,
