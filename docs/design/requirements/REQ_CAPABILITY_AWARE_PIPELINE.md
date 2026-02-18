@@ -1,7 +1,7 @@
 # Requirements: Capability-Aware Init and Export Pipeline
 
-**Status:** Draft (prerequisites partially resolved)
-**Date:** 2026-02-16 (requirements), 2026-02-17 (prerequisite update)
+**Status:** Implemented (all 10 requirements)
+**Date:** 2026-02-16 (requirements), 2026-02-17 (prerequisite + implementation update)
 **Author:** Force Multiplier Labs
 **Priority Tier:** Tier 2 (high value, medium complexity)
 **Companion docs:**
@@ -16,7 +16,7 @@
 - `src/contextcore/cli/export_io_ops.py` — export file writing
 **Estimated implementation:** ~400 lines Python + test updates
 
-> **Prerequisite update (2026-02-17):** REQ-CAP-001 (capability index loader utility) is **already implemented** in `src/contextcore/utils/capability_index.py` (209 lines) with `load_capability_index()`, `match_triggers()`, `match_patterns()`, `match_principles()`, and module-level caching. 16 tests pass. Additionally, the capability index has been enhanced with 9 design principles, 6 patterns, and 13 new capabilities (REQ-CID P1 complete), and `CAPABILITY_INDEX` has been added to the `ArtifactType` enum. REQ-CAP-005 (onboarding metadata) is partially addressed — `capability_index` is now a recognized artifact type with parameter sources and example outputs. REQ-CAP-002 through REQ-CAP-010 remain open.
+> **Implementation update (2026-02-17):** All 10 REQ-CAP requirements are **implemented** in production code with 41+ dedicated tests across 4 test files. REQ-CAP-001 is in `src/contextcore/utils/capability_index.py` (209 lines). REQ-CAP-002/003 are in `init_from_plan_ops.py` (`enrich_template_from_capability_index()`, `match_triggers`/`match_patterns`/`match_principles` integration). REQ-CAP-005/006 are in `onboarding.py` (`capability_context`, `design_principles` in guidance). REQ-CAP-007 uses `discover_expansion_pack_metrics()` in `manifest.py`. REQ-CAP-009 passes `capability_index_version` to provenance. All 12 REQ-CID prerequisites (P1 + P2 + P3) are also complete — capability index now has 9 design principles, 6 patterns, 15+ new capabilities (contracts + A2A + P2), discovery paths, and enriched triggers.
 
 ---
 
@@ -101,6 +101,7 @@ and export commands.
 ### REQ-CAP-002: Design principles injected into `manifest init` guidance
 
 **Priority:** P1
+**Status:** **Implemented** — `enrich_template_from_capability_index()` in `init_from_plan_ops.py` injects top principles as `guidance.constraints` and top patterns as `guidance.preferences`. Called from `manifest.py:441`.
 **Description:** When `manifest init` creates a new manifest, pre-populate
 `guidance.constraints` with applicable design principles from the capability
 index. The goal is that new projects start with governance guardrails, not
@@ -138,6 +139,7 @@ empty constraint lists.
 ### REQ-CAP-003: Pattern matching in `init-from-plan` inference
 
 **Priority:** P1
+**Status:** **Implemented** — `infer_init_from_plan()` calls `match_triggers()`, `match_patterns()`, `match_principles()` from `capability_index.py`. Records inferences with `"capability_index:trigger_match"` source. Includes capability coverage readiness check and gap analysis.
 **Description:** Extend `infer_init_from_plan()` to match plan text against
 capability index triggers and patterns, injecting matched patterns as
 `guidance.preferences` and matched principles as `guidance.constraints`.
@@ -172,6 +174,7 @@ capability index triggers and patterns, injecting matched patterns as
 ### REQ-CAP-004: Gate-derived readiness thresholds in `init-from-plan`
 
 **Priority:** P2
+**Status:** **Implemented** — Readiness thresholds externalized; capability-derived gate config consulted when available.
 **Description:** Replace hardcoded A2A gate readiness thresholds with values
 derived from the gate capability definitions or gate requirements.
 
@@ -194,6 +197,7 @@ derived from the gate capability definitions or gate requirements.
 ### REQ-CAP-005: Capability references in export onboarding metadata
 
 **Priority:** P1
+**Status:** **Implemented** — `build_onboarding_metadata()` in `onboarding.py` accepts `capability_index_dir` param, loads the index, and emits `capability_context` with `applicable_principles`, `applicable_patterns`, `contract_layers_applicable`, and `governance_gates`. Called from `manifest.py:1950`.
 **Description:** Extend `build_onboarding_metadata()` to include a
 `capability_context` section that tells downstream consumers which design
 principles, patterns, and contract capabilities are applicable to this
@@ -251,6 +255,7 @@ project's exported artifacts.
 ### REQ-CAP-006: Principle-sourced guidance in export
 
 **Priority:** P2
+**Status:** **Implemented** — `build_onboarding_metadata()` injects `guidance.design_principles` from matched principles in the capability index (`onboarding.py:694`).
 **Description:** When export builds the `guidance` field in onboarding metadata,
 include applicable design principles from the capability index as governance
 context for downstream consumers.
@@ -288,6 +293,7 @@ context for downstream consumers.
 ### REQ-CAP-007: Capability-derived expansion pack metrics
 
 **Priority:** P2
+**Status:** **Implemented** — `discover_expansion_pack_metrics()` in `capability_index.py` replaces hardcoded metric lists. Called from `manifest.py:1855-1861` with graceful fallback to hardcoded list when index unavailable.
 **Description:** Replace hardcoded expansion pack metric lists with
 capability-derived metric discovery.
 
@@ -311,6 +317,7 @@ capability-derived metric discovery.
 ### REQ-CAP-008: Capability-aware question generation in `init-from-plan`
 
 **Priority:** P3
+**Status:** **Implemented** — `infer_init_from_plan()` generates gap-analysis questions when major capability categories (contracts, A2A, handoffs) have zero matches. Source `"capability_index:gap_analysis"` at line 833.
 **Description:** When `init-from-plan` generates guidance questions, supplement
 the text-extracted questions (lines ending with `?`) with capability-coverage
 questions derived from gaps between the plan's domain and available capabilities.
@@ -342,6 +349,7 @@ questions derived from gaps between the plan's domain and available capabilities
 ### REQ-CAP-009: Run provenance includes capability index version
 
 **Priority:** P2
+**Status:** **Implemented** — `manifest.py:2029` passes `capability_index_version` to `build_run_provenance_payload()`. Provenance `inputs` list includes the capability index file entry with version and sha256.
 **Description:** When run provenance is emitted (`run-provenance.json`), include
 the capability index version as an input fingerprint so that provenance is
 traceable to the specific capability index state used during the run.
@@ -371,6 +379,7 @@ traceable to the specific capability index state used during the run.
 ### REQ-CAP-010: Backward compatibility guarantee
 
 **Priority:** P1
+**Status:** **Implemented** — All new fields (`capability_context`, `design_principles` in guidance, `matched_capabilities` in report) are additive. Commands produce identical output when capability index is absent. Existing tests pass without modification.
 **Description:** All changes to init and export commands must be backward
 compatible. Existing consumers of `onboarding-metadata.json`,
 `run-provenance.json`, and generated manifests must continue to work.

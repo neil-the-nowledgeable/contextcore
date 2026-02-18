@@ -1,6 +1,6 @@
 manifest_id: contextcore.agent
 name: ContextCore Agent Capabilities
-version: 1.12.0
+version: 1.13.0
 description: 'Agent-focused capabilities for ContextCore SDK.
 
   Tasks as OTel spans, insights as knowledge, handoffs as coordination.
@@ -131,6 +131,9 @@ capabilities:
     description: Find high-confidence decisions
   - query: '{ span.insight.type = "blocker" && resource.project.id = "myproject" }'
     description: Find blockers for a specific project
+  discovery_paths:
+  - If you need to persist knowledge that survives across sessions, emit insights as spans.
+  - If you want other agents to benefit from your discoveries, emit decisions and lessons.
 - capability_id: contextcore.insight.query
   category: query
   maturity: stable
@@ -347,6 +350,9 @@ capabilities:
   anti_patterns:
   - Don't set max_lines > 150 for LLM-generated code—truncation risk
   - Always specify completeness_markers for code generation
+  discovery_paths:
+  - If you need to define what a pipeline stage should produce, use ExpectedOutput via this capability.
+  - If you need typed agent-to-agent delegation with provenance tracking, start here.
 - capability_id: contextcore.handoff.receive
   category: action
   maturity: beta
@@ -967,6 +973,9 @@ capabilities:
     ref: docs/agent-communication-protocol.md
     description: A2A content model — Part/Message/Artifact types, serialization, PartType taxonomy
   confidence: 0.85
+  discovery_paths:
+  - If you need typed data structures for passing between pipeline stages, use Part and Message.
+  - If you need structured output from LLM agents, use Part.json_data() instead of string parsing.
 - capability_id: contextcore.handoff.input_request
   category: action
   maturity: beta
@@ -2910,6 +2919,9 @@ capabilities:
     layer: L1
   description:
     agent: Pydantic v2 models for context propagation contract YAML format.
+  discovery_paths:
+  - If you need to ensure context fields survive through multiple pipeline stages.
+  - If you need boundary validation at phase transitions.
 - capability_id: contextcore.contract.schema_compat
   category: transform
   maturity: beta
@@ -3146,6 +3158,9 @@ capabilities:
     - gates.py
     - queries.py
     - pipeline_checker.py
+  discovery_paths:
+  - If you need to validate exported pipeline artifacts before downstream consumption.
+  - If you need checksum chain verification and provenance consistency checks.
 - capability_id: contextcore.a2a.gate.diagnostic
   category: action
   maturity: beta
@@ -3168,6 +3183,73 @@ capabilities:
     - gates.py
     - queries.py
     - pipeline_checker.py
+- capability_id: contextcore.pipeline.typed_handoff
+  category: integration
+  maturity: beta
+  summary: Use A2A typed primitives (Part, ExpectedOutput) for intra-pipeline stage communication
+  description:
+    agent: 'Apply A2A communication patterns within a sequential pipeline. Stages declare
+
+      ExpectedOutput contracts. Stage outputs use Part objects (Part.json_data for
+
+      structured fields, Part.text for prose). Gates validate at boundaries using
+
+      ExpectedOutput.fields and completeness_markers.
+
+      '
+    human: 'Enables the same typed communication primitives used for agent-to-agent
+
+      handoffs to work within a multi-stage pipeline. Stages declare what they
+
+      will produce (via ExpectedOutput), produce typed output (via Part objects),
+
+      and gates validate at stage boundaries.
+
+      '
+  triggers:
+  - pipeline communication
+  - stage contract
+  - intra-pipeline handoff
+  - typed stage output
+  - stage-to-stage
+  delivers_benefit: quality.typed_over_prose
+  discovery_paths:
+  - If you are building a multi-stage pipeline and need typed contracts between stages, start here.
+  - If you need the same typed handoff pattern used in A2A but within a single pipeline.
+- capability_id: contextcore.contract.expected_output
+  category: transform
+  maturity: beta
+  summary: Define typed output contracts with required fields, size limits, and completeness markers
+  description:
+    agent: 'ExpectedOutput defines what a pipeline stage or agent must produce. Fields:
+
+      required_fields (list[str]), max_lines (int), max_tokens (int),
+
+      completeness_markers (list[str]). Used by handoff contracts and pipeline
+
+      gates. Validates output before downstream consumption.
+
+      '
+    human: 'A typed contract that specifies what output a stage or agent should produce.
+
+      Instead of hoping output is correct, you declare required fields, size limits,
+
+      and completeness markers upfront. The receiving stage validates the contract
+
+      before consuming the output.
+
+      '
+  triggers:
+  - output contract
+  - expected output
+  - required fields
+  - completeness markers
+  - output schema
+  - typed output
+  delivers_benefit: quality.prescriptive_over_descriptive
+  discovery_paths:
+  - If you need to define what output a stage or agent must produce before it runs.
+  - If you need size limits, required fields, or completeness markers on generated output.
 evidence:
 - type: doc
   ref: docs/semantic-conventions.md

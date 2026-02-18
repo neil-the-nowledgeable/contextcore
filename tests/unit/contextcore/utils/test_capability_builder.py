@@ -117,6 +117,34 @@ def _write_enrichments(index_dir: Path) -> None:
     """), encoding="utf-8")
 
 
+def _write_p2_capabilities(index_dir: Path) -> None:
+    (index_dir / "_p2_capabilities.yaml").write_text(textwrap.dedent("""\
+        capabilities:
+          - capability_id: contextcore.pipeline.typed_handoff
+            category: integration
+            maturity: beta
+            summary: Typed pipeline communication
+            triggers:
+              - "pipeline communication"
+              - "stage contract"
+          - capability_id: contextcore.contract.expected_output
+            category: transform
+            maturity: beta
+            summary: Output contracts
+            triggers:
+              - "output contract"
+              - "expected output"
+    """), encoding="utf-8")
+
+
+def _write_discovery_paths(index_dir: Path) -> None:
+    (index_dir / "_discovery_paths.yaml").write_text(textwrap.dedent("""\
+        discovery_paths:
+          contextcore.insight.emit:
+            - "If you need to persist knowledge that survives across sessions, emit insights as spans."
+    """), encoding="utf-8")
+
+
 # ── build_capability_index ────────────────────────────────────────────────
 
 
@@ -253,6 +281,76 @@ class TestBuildCapabilityIndex:
 
         assert report2.principles_added == 0
         assert len(manifest2["design_principles"]) == 2
+
+    def test_merges_p2_capabilities(self, tmp_path: Path):
+        """P2 sidecar capabilities are merged into manifest."""
+        project = _make_project(tmp_path)
+        index_dir = project / "docs" / "capability-index"
+        _write_p2_capabilities(index_dir)
+
+        manifest, report = build_capability_index(project)
+        cap_ids = {c["capability_id"] for c in manifest["capabilities"]}
+        assert "contextcore.pipeline.typed_handoff" in cap_ids
+        assert "contextcore.contract.expected_output" in cap_ids
+        assert "contextcore.pipeline.typed_handoff" in report.added_capabilities
+
+    def test_p2_capabilities_not_duplicated(self, tmp_path: Path):
+        """P2 capabilities already in manifest are not re-added."""
+        project = _make_project(tmp_path)
+        index_dir = project / "docs" / "capability-index"
+        _write_p2_capabilities(index_dir)
+
+        manifest1, _ = build_capability_index(project)
+        write_manifest(manifest1, index_dir / "contextcore.agent.yaml")
+        manifest2, report2 = build_capability_index(project)
+
+        # typed_handoff should be skipped (already exists)
+        assert "contextcore.pipeline.typed_handoff" in report2.skipped_capabilities
+
+    def test_merges_discovery_paths(self, tmp_path: Path):
+        """Discovery paths from sidecar are merged into capability entries."""
+        project = _make_project(tmp_path)
+        index_dir = project / "docs" / "capability-index"
+        _write_discovery_paths(index_dir)
+
+        manifest, report = build_capability_index(project)
+        emit = next(
+            c for c in manifest["capabilities"]
+            if c["capability_id"] == "contextcore.insight.emit"
+        )
+        assert "discovery_paths" in emit
+        assert len(emit["discovery_paths"]) == 1
+        assert "persist knowledge" in emit["discovery_paths"][0]
+        assert "contextcore.insight.emit" in report.discovery_paths_added
+
+    def test_discovery_paths_not_duplicated(self, tmp_path: Path):
+        """Discovery paths already present are not re-added."""
+        project = _make_project(tmp_path)
+        index_dir = project / "docs" / "capability-index"
+        _write_discovery_paths(index_dir)
+
+        manifest1, _ = build_capability_index(project)
+        write_manifest(manifest1, index_dir / "contextcore.agent.yaml")
+        manifest2, report2 = build_capability_index(project)
+
+        emit = next(
+            c for c in manifest2["capabilities"]
+            if c["capability_id"] == "contextcore.insight.emit"
+        )
+        # Should still have exactly 1 path (no duplicates)
+        assert len(emit["discovery_paths"]) == 1
+
+    def test_no_p2_sidecar(self, tmp_path: Path):
+        """Builder succeeds when P2 sidecar is absent."""
+        project = _make_project(tmp_path)
+        manifest, report = build_capability_index(project)
+        assert any("_p2_capabilities.yaml" in n for n in report.notes)
+
+    def test_no_discovery_paths_sidecar(self, tmp_path: Path):
+        """Builder succeeds when discovery paths sidecar is absent."""
+        project = _make_project(tmp_path)
+        manifest, report = build_capability_index(project)
+        assert any("_discovery_paths.yaml" in n for n in report.notes)
 
 
 # ── write_manifest ────────────────────────────────────────────────────────

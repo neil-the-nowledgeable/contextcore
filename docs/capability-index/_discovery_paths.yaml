@@ -1,0 +1,33 @@
+# Discovery paths for capability entries
+# Source: REQ-CID-008 (REQ_CAPABILITY_INDEX_DISCOVERABILITY.md)
+# These are merged into capability entries by capability_builder.py
+# Discovery paths answer: "if you are looking for X, this capability is what you need"
+
+discovery_paths:
+  contextcore.handoff.initiate:
+    - "If you need to define what a pipeline stage should produce, use ExpectedOutput via this capability."
+    - "If you need typed agent-to-agent delegation with provenance tracking, start here."
+
+  contextcore.a2a.content_model:
+    - "If you need typed data structures for passing between pipeline stages, use Part and Message."
+    - "If you need structured output from LLM agents, use Part.json_data() instead of string parsing."
+
+  contextcore.insight.emit:
+    - "If you need to persist knowledge that survives across sessions, emit insights as spans."
+    - "If you want other agents to benefit from your discoveries, emit decisions and lessons."
+
+  contextcore.pipeline.typed_handoff:
+    - "If you are building a multi-stage pipeline and need typed contracts between stages, start here."
+    - "If you need the same typed handoff pattern used in A2A but within a single pipeline."
+
+  contextcore.contract.expected_output:
+    - "If you need to define what output a stage or agent must produce before it runs."
+    - "If you need size limits, required fields, or completeness markers on generated output."
+
+  contextcore.contract.propagation:
+    - "If you need to ensure context fields survive through multiple pipeline stages."
+    - "If you need boundary validation at phase transitions."
+
+  contextcore.a2a.gate.pipeline_integrity:
+    - "If you need to validate exported pipeline artifacts before downstream consumption."
+    - "If you need checksum chain verification and provenance consistency checks."

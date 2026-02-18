@@ -9,7 +9,9 @@ Workflow:
     4. Inject design principles from _principles.yaml
     5. Inject patterns from _patterns.yaml
     6. Enrich triggers from _trigger_enrichments.yaml
-    7. Return updated manifest dict
+    7. Merge P2 capabilities from _p2_capabilities.yaml (REQ-CID-004/005)
+    8. Merge discovery paths from _discovery_paths.yaml (REQ-CID-008)
+    9. Bump version and return updated manifest dict
 
 Used by: contextcore capability-index build
 """
@@ -189,7 +191,45 @@ def build_capability_index(
     else:
         report.notes.append("No _trigger_enrichments.yaml found or empty")
 
-    # 7. Bump version
+    # 7. Merge P2 capabilities (REQ-CID-004, REQ-CID-005)
+    p2_path = index_dir / "_p2_capabilities.yaml"
+    p2_data = _load_yaml(p2_path)
+    if p2_data and "capabilities" in p2_data:
+        for cap in p2_data["capabilities"]:
+            if not isinstance(cap, dict):
+                continue
+            cap_id = cap.get("capability_id", "")
+            if cap_id and cap_id not in existing_ids:
+                manifest["capabilities"].append(cap)
+                existing_ids.add(cap_id)
+                report.added_capabilities.append(cap_id)
+            elif cap_id:
+                report.skipped_capabilities.append(cap_id)
+    else:
+        report.notes.append("No _p2_capabilities.yaml found or empty")
+
+    # 8. Merge discovery paths (REQ-CID-008)
+    discovery_path = index_dir / "_discovery_paths.yaml"
+    discovery_data = _load_yaml(discovery_path)
+    if discovery_data and "discovery_paths" in discovery_data:
+        paths_map = discovery_data["discovery_paths"]
+        for cap in manifest.get("capabilities", []):
+            if not isinstance(cap, dict):
+                continue
+            cap_id = cap.get("capability_id", "")
+            if cap_id in paths_map:
+                existing_paths = set(cap.get("discovery_paths") or [])
+                new_paths = [
+                    p for p in paths_map[cap_id]
+                    if p not in existing_paths
+                ]
+                if new_paths:
+                    cap.setdefault("discovery_paths", []).extend(new_paths)
+                    report.discovery_paths_added[cap_id] = new_paths
+    else:
+        report.notes.append("No _discovery_paths.yaml found or empty")
+
+    # 9. Bump version
     old_version = manifest.get("version", "1.0.0")
     new_version = _bump_version(old_version)
     manifest["version"] = new_version
@@ -225,6 +265,7 @@ class BuildReport:
         self.principles_added: int = 0
         self.patterns_added: int = 0
         self.triggers_enriched: Dict[str, List[str]] = {}
+        self.discovery_paths_added: Dict[str, List[str]] = {}
         self.notes: List[str] = []
 
     @property
@@ -247,6 +288,9 @@ class BuildReport:
         if self.triggers_enriched:
             enriched_count = sum(len(v) for v in self.triggers_enriched.values())
             lines.append(f"Triggers: {enriched_count} new triggers across {len(self.triggers_enriched)} capabilities")
+        if self.discovery_paths_added:
+            paths_count = sum(len(v) for v in self.discovery_paths_added.values())
+            lines.append(f"Discovery paths: {paths_count} paths across {len(self.discovery_paths_added)} capabilities")
         if self.notes:
             lines.append(f"Notes: {'; '.join(self.notes)}")
         return "\n".join(lines)

@@ -258,6 +258,67 @@ class TestReqCidValidation:
         assert not check.passed
         assert check.severity == "warning"
 
+    def test_typed_handoff_exists_pass(self):
+        m = _full_manifest()
+        m["capabilities"].append({
+            "capability_id": "contextcore.pipeline.typed_handoff",
+            "category": "integration", "maturity": "beta",
+            "summary": "Pipeline handoff", "triggers": ["pipeline communication"],
+        })
+        report = validate_manifest(m)
+        check = next(c for c in report.checks if c.name == "typed_handoff_exists")
+        assert check.passed
+
+    def test_typed_handoff_exists_warning(self):
+        report = validate_manifest(_minimal_manifest())
+        check = next(c for c in report.checks if c.name == "typed_handoff_exists")
+        assert not check.passed
+        assert check.severity == "warning"
+
+    def test_expected_output_discoverable_via_cap(self):
+        m = _minimal_manifest()
+        m["capabilities"].append({
+            "capability_id": "contextcore.contract.expected_output",
+            "category": "transform", "maturity": "beta",
+            "summary": "Output contracts", "triggers": ["output contract"],
+        })
+        report = validate_manifest(m)
+        check = next(c for c in report.checks if c.name == "expected_output_discoverable")
+        assert check.passed
+
+    def test_expected_output_discoverable_via_trigger(self):
+        m = _minimal_manifest()
+        m["capabilities"][0]["triggers"].append("output contract")
+        report = validate_manifest(m)
+        check = next(c for c in report.checks if c.name == "expected_output_discoverable")
+        assert check.passed
+
+    def test_expected_output_not_discoverable(self):
+        report = validate_manifest(_minimal_manifest())
+        check = next(c for c in report.checks if c.name == "expected_output_discoverable")
+        assert not check.passed
+        assert check.severity == "warning"
+
+    def test_discovery_paths_valid(self):
+        m = _minimal_manifest()
+        m["capabilities"][0]["discovery_paths"] = ["Path 1", "Path 2"]
+        report = validate_manifest(m)
+        dp_checks = [c for c in report.checks if "discovery_paths" in c.name]
+        assert all(c.passed for c in dp_checks)
+
+    def test_discovery_paths_invalid_type(self):
+        m = _minimal_manifest()
+        m["capabilities"][0]["discovery_paths"] = "not a list"
+        report = validate_manifest(m)
+        dp_checks = [c for c in report.checks if "discovery_paths" in c.name]
+        assert any(not c.passed for c in dp_checks)
+
+    def test_discovery_paths_absent_is_fine(self):
+        """Capabilities without discovery_paths should not fail validation."""
+        report = validate_manifest(_minimal_manifest())
+        dp_checks = [c for c in report.checks if "discovery_paths" in c.name]
+        assert len(dp_checks) == 0  # No checks emitted when field absent
+
 
 # ── ValidationReport ─────────────────────────────────────────────────────
 

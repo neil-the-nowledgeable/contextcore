@@ -841,13 +841,67 @@ benefits:
       - "Decomposition triggered for over-limit requests"
       - "Truncation events emitted as telemetry"
 
+  - benefit_id: contextcore.meta.structured_authority
+    name: "Structured Capability Authority"
+    value_statement: "Users get a single, versioned, queryable source of truth for what a system can do, replacing ambiguous documents with structured manifests"
+
+    personas:
+      - persona_id: ai_agent
+        pain_point: "Documents are ambiguous, stale, and require full-text reading to discover capabilities"
+        value_received: "Structured YAML manifests with typed fields, trigger-based discovery, and pattern-level composition"
+        importance: high
+      - persona_id: developer
+        pain_point: "Capability discovery requires reading multiple docs, asking colleagues, or code-diving"
+        value_received: "Single CLI command (capability-index build/validate/diff) and queryable manifest"
+        importance: high
+      - persona_id: engineering_leader
+        pain_point: "No way to audit what capabilities exist, their maturity, or coverage gaps"
+        value_received: "Validation reports with acceptance criteria, backward compatibility checks, and version tracking"
+        importance: medium
+
+    measurable_outcome: "Zero undiscovered capabilities; all system capabilities indexed with triggers and evidence"
+    measurement_method: "Capability index validation pass rate and trigger coverage metrics"
+    baseline: "Capabilities discovered only through manual code exploration or document reading"
+
+    origin:
+      type: gap_analysis
+      ref: "docs/capability-index/CAPABILITY_INDEX_GAP_ANALYSIS.md"
+      date: 2026-02-16
+
+    delivered_by:
+      - contextcore.utils.capability_scanner
+      - contextcore.utils.capability_builder
+      - contextcore.utils.capability_validator
+      - contextcore.cli.capability_index
+    delivery_status: delivered
+
+    priority: high
+    effort_estimate: medium
+
+    functional_requirements:
+      - id: FR-CID-001
+        description: "Programmatic capability index generation from source code"
+        type: automation
+      - id: FR-CID-002
+        description: "Design principles and communication patterns discoverable in manifest"
+        type: discovery
+      - id: FR-CID-003
+        description: "Backward-compatible schema evolution with validation"
+        type: governance
+
+    acceptance_criteria:
+      - "Capability index builds from source code + sidecar YAML files"
+      - "9+ design principles and 6+ communication patterns in manifest"
+      - "All pre-existing capabilities preserved across version bumps"
+      - "CLI provides build, validate, and diff commands"
+
 # ==============================================================================
 # GAP SUMMARY
 # ==============================================================================
 
 gap_summary:
-  total_benefits: 18
-  delivered: 13
+  total_benefits: 19
+  delivered: 14
   partial: 2
   gaps: 3
 

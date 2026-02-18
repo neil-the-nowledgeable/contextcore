@@ -48,6 +48,7 @@ class Capability:
     maturity: str = ""
     summary: str = ""
     triggers: List[str] = field(default_factory=list)
+    discovery_paths: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -117,6 +118,7 @@ def load_capability_index(index_dir: Path) -> CapabilityIndex:
                     maturity=cap_data.get("maturity", ""),
                     summary=cap_data.get("summary", ""),
                     triggers=cap_data.get("triggers") or [],
+                    discovery_paths=cap_data.get("discovery_paths") or [],
                 ))
 
             # Parse design_principles (may not exist in pre-enhancement YAML)

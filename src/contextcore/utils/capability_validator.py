@@ -284,6 +284,46 @@ def _validate_req_cid(
         message=f"'governance' trigger matches {governance_matches} capabilities (need >= 2)",
     ))
 
+    # REQ-CID-004: Pipeline typed handoff exists
+    has_typed_handoff = "contextcore.pipeline.typed_handoff" in cap_ids
+    report.checks.append(CheckResult(
+        name="typed_handoff_exists",
+        passed=has_typed_handoff,
+        message="contextcore.pipeline.typed_handoff capability present"
+                if has_typed_handoff
+                else "contextcore.pipeline.typed_handoff capability missing (REQ-CID-004)",
+        severity="warning",
+    ))
+
+    # REQ-CID-005: ExpectedOutput discoverable
+    has_expected_output = "contextcore.contract.expected_output" in cap_ids
+    output_trigger_match = _count_trigger_matches(caps, "output contract")
+    report.checks.append(CheckResult(
+        name="expected_output_discoverable",
+        passed=has_expected_output or output_trigger_match >= 1,
+        message="Expected output discoverable"
+                if has_expected_output or output_trigger_match >= 1
+                else "No capability for 'output contract' trigger (REQ-CID-005)",
+        severity="warning",
+    ))
+
+    # REQ-CID-008: Discovery paths schema (if present, must be list[str])
+    for cap in caps:
+        if not isinstance(cap, dict):
+            continue
+        dp = cap.get("discovery_paths")
+        if dp is not None:
+            valid_dp = isinstance(dp, list) and all(isinstance(p, str) for p in dp)
+            cap_id = cap.get("capability_id", "unknown")
+            report.checks.append(CheckResult(
+                name=f"discovery_paths_{cap_id}_schema",
+                passed=valid_dp,
+                message=f"discovery_paths on '{cap_id}' is valid list[str]"
+                        if valid_dp
+                        else f"discovery_paths on '{cap_id}' must be list[str]",
+                severity="warning",
+            ))
+
     # YAML parseable (if we got this far, it is)
     report.checks.append(CheckResult(
         name="yaml_parseable",

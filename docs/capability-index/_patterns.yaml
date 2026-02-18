@@ -32,6 +32,8 @@ patterns:
     name: "Pipeline Communication"
     summary: "Stages declare typed contracts, produce Part-based output, gates validate at boundaries"
     capabilities:
+      - contextcore.pipeline.typed_handoff
+      - contextcore.contract.expected_output
       - contextcore.handoff.initiate
       - contextcore.a2a.content_model
     anti_pattern: "Passing untyped strings between pipeline stages and parsing with regex"

@@ -5,6 +5,7 @@ Commands:
     contextcore capability-index build     Build/update the capability index
     contextcore capability-index validate  Validate the current index
     contextcore capability-index diff      Show what would change
+    contextcore capability-index extract   Extract capabilities from a project
 """
 
 from __future__ import annotations
@@ -169,3 +170,63 @@ def diff() -> None:
 
     if not (added_caps or removed_caps or added_principles or added_patterns or report.triggers_enriched):
         click.echo("No changes detected.")
+
+
+# Default craft toolkit location
+_CRAFT_TOOLS = Path.home() / "Documents" / "craft" / "capability-index" / "tools"
+
+
+@capability_index.command()
+@click.argument("project_path", type=click.Path(exists=True), default=".")
+@click.option("--output", "-o", type=click.Path(), default=None,
+              help="Output directory (default: ./capability-index-output)")
+@click.option("--project-name", default=None,
+              help="Project name for the extraction (default: directory name)")
+@click.option("--toolkit-path", type=click.Path(exists=True), default=None,
+              help="Path to craft capability-index tools directory")
+def extract(project_path: str, output: str | None, project_name: str | None,
+            toolkit_path: str | None) -> None:
+    """Extract capabilities from a project using the craft toolkit.
+
+    Wraps the craft toolkit's extract_capabilities.py for general-purpose
+    AST-based capability extraction from Python codebases.
+    """
+    import subprocess
+    import sys
+
+    project = Path(project_path).resolve()
+    tools_dir = Path(toolkit_path) if toolkit_path else _CRAFT_TOOLS
+    extract_script = tools_dir / "extract_capabilities.py"
+
+    if not extract_script.is_file():
+        click.echo(f"Extract tool not found at {extract_script}")
+        click.echo("Install the craft capability-index toolkit or use --toolkit-path")
+        raise SystemExit(1)
+
+    out_dir = Path(output) if output else Path.cwd() / "capability-index-output"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    cmd = [
+        sys.executable,
+        str(extract_script),
+        str(project),
+        "--output", str(out_dir),
+    ]
+    if project_name:
+        cmd.extend(["--project-name", project_name])
+
+    click.echo(f"Extracting capabilities from {project}...")
+    click.echo(f"Output: {out_dir}")
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+
+    if result.stdout:
+        click.echo(result.stdout)
+    if result.stderr:
+        click.echo(result.stderr, err=True)
+
+    if result.returncode != 0:
+        click.echo(f"Extraction failed (exit code {result.returncode})")
+        raise SystemExit(result.returncode)
+
+    click.echo(f"Extraction complete. Output in {out_dir}")

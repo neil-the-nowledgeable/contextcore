@@ -174,6 +174,30 @@ class TestLoadCapabilityIndex:
         assert len(index.benefits) == 1
         assert index.benefits[0].benefit_id == "BEN-001"
 
+    def test_loads_discovery_paths(self, tmp_path: Path):
+        extra = textwrap.dedent("""\
+            version: "1.12.0"
+            capabilities:
+              - capability_id: contextcore.insight.emit
+                category: action
+                maturity: stable
+                summary: Emit insights
+                triggers: ["emit insight"]
+                discovery_paths:
+                  - "If you need persistent knowledge, emit insights."
+        """)
+        index_dir = tmp_path / "capability-index"
+        index_dir.mkdir()
+        (index_dir / "contextcore.agent.yaml").write_text(extra, encoding="utf-8")
+        index = load_capability_index(index_dir)
+        assert len(index.capabilities) == 1
+        assert index.capabilities[0].discovery_paths == ["If you need persistent knowledge, emit insights."]
+
+    def test_missing_discovery_paths_defaults_empty(self, tmp_path: Path):
+        index_dir = _write_agent_yaml(tmp_path)
+        index = load_capability_index(index_dir)
+        assert index.capabilities[0].discovery_paths == []
+
 
 # ── match_triggers ────────────────────────────────────────────────
 

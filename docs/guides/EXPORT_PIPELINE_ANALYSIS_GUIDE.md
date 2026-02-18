@@ -22,6 +22,17 @@ How `contextcore install init` and `contextcore manifest export` feed the Plan I
 - `docs/capability-index/contextcore.user.yaml` — user capabilities including `pipeline.manifest_to_artifacts`, `pipeline.quality_gates`
 - `docs/capability-index/contextcore.benefits.yaml` — benefits including `pipeline.governance_gates`, `pipeline.contract_first_planning`
 
+**Pipeline communication primitives** (REQ-CID-007):
+
+The A2A typed communication primitives apply to both inter-agent and intra-pipeline communication. When building or modifying pipeline stages, use these capabilities:
+
+- **`contextcore.pipeline.typed_handoff`** — Stages declare `ExpectedOutput` contracts, produce `Part`-based typed output, and gates validate at boundaries. This is the pipeline-internal variant of A2A handoffs.
+- **`contextcore.contract.expected_output`** — Define what a stage must produce: required fields, size limits, completeness markers. The prescriptive contract that prevents silent output failures.
+- **`contextcore.handoff.initiate`** — The underlying handoff mechanism with `ExpectedOutput` and provenance tracking. Supports both agent-to-agent and stage-to-stage communication.
+- **`contextcore.a2a.content_model`** — `Part` and `Message` objects for typed data interchange between pipeline stages. Use `Part.json_data()` for structured fields, `Part.text` for prose.
+
+See the **`pipeline_communication` pattern** in `contextcore.agent.yaml` for the composition of these capabilities.
+
 **Formal requirements documents** (governing the pipeline steps described here):
 
 - [`docs/design/MANIFEST_BOOTSTRAP_REQUIREMENTS.md`](../design/MANIFEST_BOOTSTRAP_REQUIREMENTS.md) — FR/NFR for `manifest init` and `manifest migrate` (pre-pipeline)
@@ -212,7 +223,39 @@ Runs N rounds of `ArchitecturalReviewLogWorkflow` against the transformed plan. 
 
 ### Phase 5 — EMIT
 
-Writes the review config and, optionally, ContextCore task tracking artifacts (epic/story/task state files, NDJSON event logs, tracking manifest) via `emit_task_tracking_artifacts()`. This closes the loop — artifacts that originated as ContextCore metadata are now tracked as ContextCore tasks.
+Writes the review config and, for the artisan route, the **artisan-context-seed.json**. For the prime route, writes **prime-context-seed.json** — a symmetric seed with the same schema (`ArtisanContextSeed`) but without `design_calibration` or `architectural_context` (the prime workflow does not run a multi-phase design review).
+
+Optionally writes ContextCore task tracking artifacts (epic/story/task state files, NDJSON event logs, tracking manifest) via `emit_task_tracking_artifacts()`. This closes the loop — artifacts that originated as ContextCore metadata are now tracked as ContextCore tasks.
+
+> **WIP: Symmetric Prime Pipeline (2026-02-17)**
+>
+> Plan-ingestion now emits both seed files based on the complexity-score routing
+> decision. The prime seed is consumed by `run_prime_workflow.py` (SDK runner) via
+> `FeatureQueue.add_features_from_seed()`, giving the prime route the same
+> provenance-driven pipeline that artisan has:
+>
+> ```text
+> plan-ingestion
+>   ├─ artisan route → artisan-context-seed.json → run_artisan_workflow.py → ArtisanContractorWorkflow
+>   └─ prime route   → prime-context-seed.json   → run_prime_workflow.py   → PrimeContractorWorkflow
+> ```
+>
+> **Status:** Functional. Seed emission, runner script, and shell scripts are wired.
+> See "What is not yet implemented" below for known gaps.
+>
+> **What works today:**
+> - Plan-ingestion emits `prime-context-seed.json` with tasks, complexity, artifacts, ingestion metrics
+> - `run_prime_workflow.py` loads seed via `FeatureQueue.add_features_from_seed()`
+> - Auto-enrichment via `DomainPreflightWorkflow` (same pattern as artisan)
+> - `run-prime-contractor.sh` discovers seed, supports `--list`/`--task`/`--all`/`--dry-run`
+> - Mottainai inventory extension for prime seed artifact
+>
+> **What is not yet implemented:**
+> - Seed `_enrichment` data (domain constraints) not forwarded through `FeatureQueue` to `PrimeContractorWorkflow` context — enrichment is re-computed at runtime by `DomainChecklist`
+> - `onboarding` metadata (derivation_rules, resolved_artifact_parameters) not injected into `LeadContractorCodeGenerator` prompts
+> - No `design_calibration` for prime tasks — the prime workflow uses flat LOC-based size estimation via `SizeEstimator` rather than artifact-type-aware tiers
+> - REFINE suggestions from plan-ingestion are not forwarded to code generation context
+> - No prior generation result caching (artisan has `--resume` via checkpoints; prime re-generates from scratch)
 
 ---
 
@@ -257,6 +300,49 @@ Produces the final report with sha256 checksums per artifact, per-task status ro
 **Implemented:** Per-artifact sha256 checksums and status rollup are generated.
 
 **Planned:** Provenance chain verification (`source_checksum` comparison from export → onboarding → seed → finalize) is not yet implemented in FINALIZE phase.
+
+---
+
+## 4b. How the Prime Workflow Consumes the Export (WIP)
+
+> **Status:** Work in progress (2026-02-17). The prime pipeline is functional but
+> has known Mottainai violations documented in
+> [`MOTTAINAI_DESIGN_PRINCIPLE.md`](../design-principles/MOTTAINAI_DESIGN_PRINCIPLE.md).
+
+When plan ingestion routes to the prime path (complexity score ≤ 40), the `PrimeContractorWorkflow` (`startd8.contractors.prime_contractor`) receives tasks from the **prime-context-seed.json** via `FeatureQueue.add_features_from_seed()`. Unlike the artisan 7-phase pipeline, the prime workflow processes features **sequentially** with immediate integration:
+
+### Feature Loop (per feature)
+
+1. **Pre-flight validation** — Size estimation via `SizeEstimator`. Rejects features that exceed safe line/token limits.
+2. **Code generation** — `LeadContractorCodeGenerator` runs the lead/drafter pattern (Sonnet architect + Haiku drafter) with iterative review.
+3. **Domain validation** — If `DomainChecklist` enrichment is available, validates generated code against domain constraints.
+4. **Integration** — Merges generated code into the project via `MergeStrategy`.
+5. **Checkpoint** — Runs integration checkpoints (syntax, imports, tests) to validate the merged result.
+6. **Commit** — Optionally commits the feature atomically.
+
+### What export data reaches code generation today
+
+| Export field | Forwarded? | Notes |
+|-------------|-----------|-------|
+| Task description, target files, dependencies | Yes | Via `FeatureQueue.add_features_from_seed()` → `FeatureSpec` |
+| `_enrichment` (domain constraints) | **Partial** | Re-computed at runtime via `DomainChecklist`, not forwarded from seed |
+| `onboarding.derivation_rules` | **No** | Available in seed but not injected into generation context |
+| `onboarding.resolved_artifact_parameters` | **No** | Available in seed but not injected into generation context |
+| `onboarding.expected_output_contracts` | **No** | Available in seed but not injected into generation context |
+| `plan.goals` / `architectural_context` | **No** | Prime seed sets `architectural_context=None` |
+| `design_calibration` | **No** | Prime seed sets `design_calibration=None` |
+| REFINE suggestions (Appendix C) | **No** | Not extracted from plan document |
+
+### Key differences from artisan
+
+| Aspect | Artisan | Prime |
+|--------|---------|-------|
+| Phases | 7 (PLAN→SCAFFOLD→DESIGN→IMPLEMENT→TEST→REVIEW→FINALIZE) | 1 loop (generate→integrate→checkpoint) |
+| Design review | Full LLM-powered design document per task | None — goes straight to code generation |
+| Architectural context | Forwarded via seed `architectural_context` | Not forwarded (set to `None` in seed) |
+| Design calibration | Per-task depth tiers (brief/standard/comprehensive) | Flat LOC-based estimation |
+| Resume/checkpoint | Per-phase checkpoints, `--resume` flag | Queue state file only |
+| Result files | `workflow-result-{tid}.json` per task | `prime-result-{tid}.json` per task |
 
 ---
 
@@ -467,9 +553,14 @@ contextcore contract a2a-diagnose ./output --ingestion-dir ./out
 contextcore contract a2a-diagnose ./output --ingestion-dir ./out --fail-on-issue  # CI mode
 
 # Step 6: contractor execution (these scripts live in startd8-sdk, not ContextCore)
+# Artisan route (7-phase orchestrated workflow):
 python3 scripts/run_artisan_workflow.py --seed seed.json --output-dir out/ --cost-budget 10
 python3 scripts/run_artisan_design_only.py --seed seed.json --output-dir out/  # design review
 python3 scripts/run_artisan_implement_only.py --handoff out/design-handoff.json  # from handoff
+# Prime route (sequential feature-by-feature with immediate integration):
+python3 scripts/run_prime_workflow.py --seed prime-seed.json --project-root /path --cost-budget 5
+python3 scripts/run_prime_workflow.py --seed prime-seed.json --task-filter PI-014 --dry-run
+python3 scripts/run_prime_workflow.py --seed prime-seed.json --retry-incomplete
 
 # Step 7: finalize verification (built into artisan FINALIZE phase)
 # Per-artifact checksums, provenance chain, status rollup

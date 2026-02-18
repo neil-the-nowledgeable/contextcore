@@ -1,0 +1,57 @@
+# P2 Capability entries for ContextCore Agent Capability Index
+# Source: REQ-CID-004, REQ-CID-005 (REQ_CAPABILITY_INDEX_DISCOVERABILITY.md)
+# These are injected into contextcore.agent.yaml by capability_builder.py
+
+capabilities:
+  - capability_id: contextcore.pipeline.typed_handoff
+    category: integration
+    maturity: beta
+    summary: Use A2A typed primitives (Part, ExpectedOutput) for intra-pipeline stage communication
+
+    description:
+      agent: |
+        Apply A2A communication patterns within a sequential pipeline. Stages declare
+        ExpectedOutput contracts. Stage outputs use Part objects (Part.json_data for
+        structured fields, Part.text for prose). Gates validate at boundaries using
+        ExpectedOutput.fields and completeness_markers.
+      human: |
+        Enables the same typed communication primitives used for agent-to-agent
+        handoffs to work within a multi-stage pipeline. Stages declare what they
+        will produce (via ExpectedOutput), produce typed output (via Part objects),
+        and gates validate at stage boundaries.
+
+    triggers:
+      - "pipeline communication"
+      - "stage contract"
+      - "intra-pipeline handoff"
+      - "typed stage output"
+      - "stage-to-stage"
+
+    delivers_benefit: quality.typed_over_prose
+
+  - capability_id: contextcore.contract.expected_output
+    category: transform
+    maturity: beta
+    summary: Define typed output contracts with required fields, size limits, and completeness markers
+
+    description:
+      agent: |
+        ExpectedOutput defines what a pipeline stage or agent must produce. Fields:
+        required_fields (list[str]), max_lines (int), max_tokens (int),
+        completeness_markers (list[str]). Used by handoff contracts and pipeline
+        gates. Validates output before downstream consumption.
+      human: |
+        A typed contract that specifies what output a stage or agent should produce.
+        Instead of hoping output is correct, you declare required fields, size limits,
+        and completeness markers upfront. The receiving stage validates the contract
+        before consuming the output.
+
+    triggers:
+      - "output contract"
+      - "expected output"
+      - "required fields"
+      - "completeness markers"
+      - "output schema"
+      - "typed output"
+
+    delivers_benefit: quality.prescriptive_over_descriptive
