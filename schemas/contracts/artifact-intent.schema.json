@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contextcore.io/schemas/contracts/artifact-intent.schema.json",
   "title": "ArtifactIntent",
-  "description": "Typed declaration of an observability artifact need before generation.",
+  "description": "Typed declaration of an artifact need before generation. Supports observability, onboarding, and integrity artifact categories. See docs/reference/pipeline-requirements-onboarding.md.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -25,6 +25,11 @@
     "artifact_type": {
       "type": "string",
       "minLength": 1
+    },
+    "artifact_category": {
+      "type": "string",
+      "enum": ["observability", "onboarding", "integrity"],
+      "description": "The category of artifact. Observability artifacts are generated from business metadata. Onboarding and integrity artifacts are pipeline-innate."
     },
     "intent": {
       "type": "string",

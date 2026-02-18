@@ -60,4 +60,40 @@ ARTIFACT_OUTPUT_CONVENTIONS: Dict[str, Dict[str, str]] = {
         "description": "Alert message template",
         "schema_url": "https://prometheus.io/docs/alerting/latest/configuration/",
     },
+    ArtifactType.CAPABILITY_INDEX.value: {
+        "output_ext": ".yaml",
+        "output_path": "docs/capability-index/contextcore.agent.yaml",
+        "description": "Capability index manifest",
+        "schema_url": "https://contextcore.io/schemas/capability-index/v1",
+    },
+    ArtifactType.AGENT_CARD.value: {
+        "output_ext": ".json",
+        "output_path": "docs/capability-index/agent-card.json",
+        "description": "A2A agent card for capability discovery",
+        "schema_url": "https://google.github.io/A2A/specification/",
+    },
+    ArtifactType.MCP_TOOLS.value: {
+        "output_ext": ".json",
+        "output_path": "docs/capability-index/mcp-tools.json",
+        "description": "MCP tool definitions for LLM integration",
+        "schema_url": "https://modelcontextprotocol.io/specification/",
+    },
+    ArtifactType.ONBOARDING_METADATA.value: {
+        "output_ext": ".json",
+        "output_path": "{output_dir}/onboarding-metadata.json",
+        "description": "Programmatic onboarding metadata for plan ingestion",
+        "schema_url": "https://contextcore.io/schemas/onboarding-metadata/v1",
+    },
+    ArtifactType.PROVENANCE.value: {
+        "output_ext": ".json",
+        "output_path": "{output_dir}/run-provenance.json",
+        "description": "Export provenance chain linking inputs to outputs",
+        "schema_url": "https://contextcore.io/schemas/provenance/v1",
+    },
+    ArtifactType.INGESTION_TRACEABILITY.value: {
+        "output_ext": ".json",
+        "output_path": "{output_dir}/ingestion-traceability.json",
+        "description": "Requirements coverage and translation quality gate",
+        "schema_url": "https://contextcore.io/schemas/ingestion-traceability/v1",
+    },
 }

@@ -76,6 +76,27 @@ ARTIFACT_PARAMETER_SOURCES: Dict[str, Dict[str, str]] = {
         "project_root": "manifest (auto-detected)",
         "index_dir": "docs/capability-index/",
     },
+    ArtifactType.AGENT_CARD.value: {
+        "capability_index_path": "docs/capability-index/contextcore.agent.yaml",
+        "manifest_version": "manifest.metadata.schemaVersion",
+    },
+    ArtifactType.MCP_TOOLS.value: {
+        "capability_index_path": "docs/capability-index/contextcore.agent.yaml",
+        "manifest_version": "manifest.metadata.schemaVersion",
+    },
+    ArtifactType.ONBOARDING_METADATA.value: {
+        "manifest_path": "manifest (export output path)",
+        "project_context_path": "crd (export output path)",
+        "export_dir": "manifest (--output flag)",
+    },
+    ArtifactType.PROVENANCE.value: {
+        "source_checksum": "manifest (SHA-256 of source file)",
+        "artifact_checksums": "manifest (SHA-256 of each exported artifact)",
+    },
+    ArtifactType.INGESTION_TRACEABILITY.value: {
+        "requirements_mapping": "manifest (derivation rules → requirements)",
+        "coverage_metrics": "manifest (coverage summary percentages)",
+    },
 }
 
 # Example output paths/snippets per artifact type (per R3-F3)
@@ -115,6 +136,26 @@ ARTIFACT_EXAMPLE_OUTPUTS: Dict[str, Dict[str, str]] = {
     ArtifactType.CAPABILITY_INDEX.value: {
         "example_output_path": "docs/capability-index/project-name.agent.yaml",
         "example_snippet": "manifest_id: project.agent\nname: Project Capabilities\nversion: '1.0.0'\ncapabilities:\n  - capability_id: project.feature.x\n    category: action\n    maturity: beta\n    summary: Feature X",
+    },
+    ArtifactType.AGENT_CARD.value: {
+        "example_output_path": "docs/capability-index/agent-card.json",
+        "example_snippet": '{"name":"contextcore","version":"1.0.0","skills":[{"id":"export","name":"Manifest Export"}],"provider":{"organization":"ContextCore"}}',
+    },
+    ArtifactType.MCP_TOOLS.value: {
+        "example_output_path": "docs/capability-index/mcp-tools.json",
+        "example_snippet": '{"tools":[{"name":"manifest_export","description":"Export artifact manifest","inputSchema":{"type":"object","properties":{"path":{"type":"string"}}}}]}',
+    },
+    ArtifactType.ONBOARDING_METADATA.value: {
+        "example_output_path": "out/export/onboarding-metadata.json",
+        "example_snippet": '{"schema":"contextcore.io/onboarding-metadata/v1","artifact_types":{"dashboard":{}},"parameter_sources":{"dashboard":{}}}',
+    },
+    ArtifactType.PROVENANCE.value: {
+        "example_output_path": "out/export/run-provenance.json",
+        "example_snippet": '{"source_checksum":"sha256:abc123","artifacts":["artifact-manifest.yaml","onboarding-metadata.json"]}',
+    },
+    ArtifactType.INGESTION_TRACEABILITY.value: {
+        "example_output_path": "out/export/ingestion-traceability.json",
+        "example_snippet": '{"requirements_coverage_percent":85.0,"satisfied":12,"total":14}',
     },
 }
 
@@ -186,6 +227,48 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "completeness_markers": ["define", "template"],
         "red_flag": "Calibrated as 'comprehensive' — over-engineering a template",
     },
+    ArtifactType.CAPABILITY_INDEX.value: {
+        "expected_depth": "comprehensive",
+        "max_lines": 500,
+        "max_tokens": 2500,
+        "completeness_markers": ["capabilities", "version", "manifest_id"],
+        "red_flag": "Calibrated as 'brief' — will produce an incomplete capability index",
+    },
+    ArtifactType.AGENT_CARD.value: {
+        "expected_depth": "standard",
+        "max_lines": 200,
+        "max_tokens": 1000,
+        "completeness_markers": ["skills", "name", "version"],
+        "red_flag": "Calibrated as 'brief' — agent card will lack skill definitions",
+    },
+    ArtifactType.MCP_TOOLS.value: {
+        "expected_depth": "comprehensive",
+        "max_lines": 500,
+        "max_tokens": 2500,
+        "completeness_markers": ["tools", "inputSchema"],
+        "red_flag": "Calibrated as 'brief' — MCP tools will lack input schemas",
+    },
+    ArtifactType.ONBOARDING_METADATA.value: {
+        "expected_depth": "standard",
+        "max_lines": 150,
+        "max_tokens": 750,
+        "completeness_markers": ["artifact_types", "parameter_sources"],
+        "red_flag": "Calibrated as 'brief' — onboarding metadata will be incomplete",
+    },
+    ArtifactType.PROVENANCE.value: {
+        "expected_depth": "brief",
+        "max_lines": 50,
+        "max_tokens": 250,
+        "completeness_markers": ["source_checksum", "artifacts"],
+        "red_flag": "Calibrated as 'comprehensive' — over-engineering a provenance record",
+    },
+    ArtifactType.INGESTION_TRACEABILITY.value: {
+        "expected_depth": "brief",
+        "max_lines": 50,
+        "max_tokens": 250,
+        "completeness_markers": ["requirements_coverage_percent"],
+        "red_flag": "Calibrated as 'comprehensive' — over-engineering a traceability record",
+    },
 }
 
 # Parameter keys per artifact type (for generator validation)
@@ -236,6 +319,27 @@ ARTIFACT_PARAMETER_SCHEMA: Dict[str, List[str]] = {
     ArtifactType.CAPABILITY_INDEX.value: [
         "project_root",
         "index_dir",
+    ],
+    ArtifactType.AGENT_CARD.value: [
+        "capability_index_path",
+        "manifest_version",
+    ],
+    ArtifactType.MCP_TOOLS.value: [
+        "capability_index_path",
+        "manifest_version",
+    ],
+    ArtifactType.ONBOARDING_METADATA.value: [
+        "manifest_path",
+        "project_context_path",
+        "export_dir",
+    ],
+    ArtifactType.PROVENANCE.value: [
+        "source_checksum",
+        "artifact_checksums",
+    ],
+    ArtifactType.INGESTION_TRACEABILITY.value: [
+        "requirements_mapping",
+        "coverage_metrics",
     ],
 }
 

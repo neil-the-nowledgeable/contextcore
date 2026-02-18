@@ -1,5 +1,5 @@
 """
-Artifact Manifest Model - Defines required observability artifacts.
+Artifact Manifest Model - Defines required artifacts for the ContextCore pipeline.
 
 This model serves as the contract between ContextCore (which knows WHAT is needed)
 and Wayfinder implementations (which CREATE the artifacts).
@@ -25,8 +25,17 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ArtifactType(str, Enum):
-    """Types of observability artifacts that can be generated."""
+    """Types of artifacts produced by the ContextCore pipeline.
 
+    Organized by category:
+    - Observability (8): generated from business metadata
+    - Onboarding (4): pipeline-innate, produced automatically
+    - Integrity (2): pipeline-innate provenance and traceability
+
+    See docs/reference/pipeline-requirements-onboarding.md for requirements.
+    """
+
+    # Observability
     DASHBOARD = "dashboard"
     PROMETHEUS_RULE = "prometheus_rule"
     LOKI_RULE = "loki_rule"
@@ -35,7 +44,31 @@ class ArtifactType(str, Enum):
     NOTIFICATION_POLICY = "notification_policy"
     RUNBOOK = "runbook"
     ALERT_TEMPLATE = "alert_template"
+
+    # Onboarding (pipeline-innate)
     CAPABILITY_INDEX = "capability_index"
+    AGENT_CARD = "agent_card"
+    MCP_TOOLS = "mcp_tools"
+    ONBOARDING_METADATA = "onboarding_metadata"
+
+    # Integrity (pipeline-innate)
+    PROVENANCE = "provenance"
+    INGESTION_TRACEABILITY = "ingestion-traceability"
+
+
+OBSERVABILITY_TYPES = frozenset({
+    ArtifactType.DASHBOARD, ArtifactType.PROMETHEUS_RULE,
+    ArtifactType.LOKI_RULE, ArtifactType.SLO_DEFINITION,
+    ArtifactType.SERVICE_MONITOR, ArtifactType.NOTIFICATION_POLICY,
+    ArtifactType.RUNBOOK, ArtifactType.ALERT_TEMPLATE,
+})
+ONBOARDING_TYPES = frozenset({
+    ArtifactType.CAPABILITY_INDEX, ArtifactType.AGENT_CARD,
+    ArtifactType.MCP_TOOLS, ArtifactType.ONBOARDING_METADATA,
+})
+INTEGRITY_TYPES = frozenset({
+    ArtifactType.PROVENANCE, ArtifactType.INGESTION_TRACEABILITY,
+})
 
 
 class ArtifactPriority(str, Enum):
@@ -486,7 +519,7 @@ class ArtifactManifestMetadata(BaseModel):
 
 class ArtifactManifest(BaseModel):
     """
-    The Artifact Manifest - contract for observability artifact generation.
+    The Artifact Manifest - contract for artifact generation.
 
     This file tells Wayfinder (or any ContextCore-compliant implementation):
     1. What artifacts are needed for this project
