@@ -1195,7 +1195,7 @@
     },
     {
       "name": "contextcore.manifest.sync_strategy",
-      "description": "[DRAFT - not yet implemented] Sync strategy/tactic status bidirectionally with project management tools",
+      "description": "[DEVELOPMENT - not yet implemented] Sync strategy/tactic status bidirectionally with project management tools",
       "inputSchema": {
         "type": "object",
         "required": [
@@ -1239,7 +1239,7 @@
       "annotations": {
         "manifest_id": "contextcore.agent",
         "category": "action",
-        "maturity": "draft",
+        "maturity": "development",
         "confidence": 0.5
       }
     },
@@ -1997,7 +1997,7 @@
     },
     {
       "name": "contextcore.aos.message_emit",
-      "description": "[DRAFT - not yet implemented] Emit AOS-compliant steps/message events for agent communication",
+      "description": "[DEVELOPMENT - not yet implemented] Emit AOS-compliant steps/message events for agent communication",
       "inputSchema": {
         "type": "object",
         "required": [
@@ -2059,13 +2059,13 @@
       "annotations": {
         "manifest_id": "contextcore.agent",
         "category": "action",
-        "maturity": "draft",
+        "maturity": "development",
         "confidence": 0.5
       }
     },
     {
       "name": "contextcore.aos.decision_emit",
-      "description": "[DRAFT - not yet implemented] Emit AOS-compliant guardian decisions with Allow/Deny/Modify outcomes",
+      "description": "[DEVELOPMENT - not yet implemented] Emit AOS-compliant guardian decisions with Allow/Deny/Modify outcomes",
       "inputSchema": {
         "type": "object",
         "required": [
@@ -2114,13 +2114,13 @@
       "annotations": {
         "manifest_id": "contextcore.agent",
         "category": "action",
-        "maturity": "draft",
+        "maturity": "development",
         "confidence": 0.5
       }
     },
     {
       "name": "contextcore.aos.trigger_emit",
-      "description": "[DRAFT - not yet implemented] Emit AOS-compliant steps/agentTrigger events for autonomous activations",
+      "description": "[DEVELOPMENT - not yet implemented] Emit AOS-compliant steps/agentTrigger events for autonomous activations",
       "inputSchema": {
         "type": "object",
         "required": [
@@ -2161,13 +2161,13 @@
       "annotations": {
         "manifest_id": "contextcore.agent",
         "category": "action",
-        "maturity": "draft",
+        "maturity": "development",
         "confidence": 0.5
       }
     },
     {
       "name": "contextcore.aos.mcp_emit",
-      "description": "[DRAFT - not yet implemented] Emit AOS-compliant protocols/MCP events for Model Context Protocol interactions",
+      "description": "[DEVELOPMENT - not yet implemented] Emit AOS-compliant protocols/MCP events for Model Context Protocol interactions",
       "inputSchema": {
         "type": "object",
         "required": [
@@ -2222,13 +2222,13 @@
       "annotations": {
         "manifest_id": "contextcore.agent",
         "category": "action",
-        "maturity": "draft",
+        "maturity": "development",
         "confidence": 0.5
       }
     },
     {
       "name": "contextcore.aos.validate",
-      "description": "[DRAFT - not yet implemented] Validate trace data against AOS schema and report compliance gaps",
+      "description": "[DEVELOPMENT - not yet implemented] Validate trace data against AOS schema and report compliance gaps",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2302,7 +2302,7 @@
       "annotations": {
         "manifest_id": "contextcore.agent",
         "category": "query",
-        "maturity": "draft",
+        "maturity": "development",
         "confidence": 0.5
       }
     }

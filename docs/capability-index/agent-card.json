@@ -4,7 +4,7 @@
     "name": "ContextCore Agent Capabilities",
     "description": "Agent-focused capabilities for ContextCore SDK.\nTasks as OTel spans, insights as knowledge, handoffs as coordination.\nA2A protocol interoperability for cross-framework agent communication.\n",
     "url": "https://api.example.com/contextcore.agent",
-    "version": "1.13.0",
+    "version": "1.14.0",
     "capabilities": {
       "streaming": false,
       "pushNotifications": false,
@@ -391,15 +391,15 @@
       {
         "id": "contextcore.manifest.sync_strategy",
         "name": "Sync Strategy",
-        "description": "[DRAFT - not yet implemented] Sync strategy/tactic status bidirectionally with project management tools",
+        "description": "[DEVELOPMENT - not yet implemented] Sync strategy/tactic status bidirectionally with project management tools",
         "tags": [
           "sync strategy status",
           "update tactics from jira",
           "bidirectional pm sync",
           "strategy pm integration",
-          "maturity:draft"
+          "maturity:development"
         ],
-        "maturity": "draft",
+        "maturity": "development",
         "inputModes": [
           "application/json"
         ],
@@ -596,15 +596,15 @@
       {
         "id": "contextcore.aos.message_emit",
         "name": "Message Emit",
-        "description": "[DRAFT - not yet implemented] Emit AOS-compliant steps/message events for agent communication",
+        "description": "[DEVELOPMENT - not yet implemented] Emit AOS-compliant steps/message events for agent communication",
         "tags": [
           "aos message",
           "emit message event",
           "aos compliant",
           "steps/message",
-          "maturity:draft"
+          "maturity:development"
         ],
-        "maturity": "draft",
+        "maturity": "development",
         "inputModes": [
           "application/json"
         ],
@@ -615,15 +615,15 @@
       {
         "id": "contextcore.aos.decision_emit",
         "name": "Decision Emit",
-        "description": "[DRAFT - not yet implemented] Emit AOS-compliant guardian decisions with Allow/Deny/Modify outcomes",
+        "description": "[DEVELOPMENT - not yet implemented] Emit AOS-compliant guardian decisions with Allow/Deny/Modify outcomes",
         "tags": [
           "aos decision",
           "guardian decision",
           "allow deny modify",
           "emit decision",
-          "maturity:draft"
+          "maturity:development"
         ],
-        "maturity": "draft",
+        "maturity": "development",
         "inputModes": [
           "application/json"
         ],
@@ -634,15 +634,15 @@
       {
         "id": "contextcore.aos.trigger_emit",
         "name": "Trigger Emit",
-        "description": "[DRAFT - not yet implemented] Emit AOS-compliant steps/agentTrigger events for autonomous activations",
+        "description": "[DEVELOPMENT - not yet implemented] Emit AOS-compliant steps/agentTrigger events for autonomous activations",
         "tags": [
           "aos trigger",
           "agent activation",
           "autonomous trigger",
           "steps/agentTrigger",
-          "maturity:draft"
+          "maturity:development"
         ],
-        "maturity": "draft",
+        "maturity": "development",
         "inputModes": [
           "application/json"
         ],
@@ -653,15 +653,15 @@
       {
         "id": "contextcore.aos.mcp_emit",
         "name": "Mcp Emit",
-        "description": "[DRAFT - not yet implemented] Emit AOS-compliant protocols/MCP events for Model Context Protocol interactions",
+        "description": "[DEVELOPMENT - not yet implemented] Emit AOS-compliant protocols/MCP events for Model Context Protocol interactions",
         "tags": [
           "mcp event",
           "protocols/MCP",
           "mcp tool call",
           "mcp telemetry",
-          "maturity:draft"
+          "maturity:development"
         ],
-        "maturity": "draft",
+        "maturity": "development",
         "inputModes": [
           "application/json"
         ],
@@ -672,15 +672,15 @@
       {
         "id": "contextcore.aos.validate",
         "name": "Validate",
-        "description": "[DRAFT - not yet implemented] Validate trace data against AOS schema and report compliance gaps",
+        "description": "[DEVELOPMENT - not yet implemented] Validate trace data against AOS schema and report compliance gaps",
         "tags": [
           "validate aos",
           "aos compliance check",
           "check aos schema",
           "aos audit",
-          "maturity:draft"
+          "maturity:development"
         ],
-        "maturity": "draft",
+        "maturity": "development",
         "inputModes": [
           "application/json"
         ],

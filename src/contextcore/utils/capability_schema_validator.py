@@ -90,13 +90,15 @@ def validate_capability(cap: dict, index: int) -> List[str]:
     # Validate category enum
     valid_categories = [
         "transform", "generate", "validate", "query",
-        "action", "security", "integration", "observe"
+        "action", "security", "integration", "observe", "governance",
     ]
     if "category" in cap and cap["category"] not in valid_categories:
         errors.append(f"{prefix}: Invalid category: {cap['category']}")
 
-    # Validate maturity enum
-    valid_maturity = ["draft", "beta", "stable", "deprecated"]
+    # Validate maturity enum (aligned with OTel semantic convention stability levels)
+    valid_maturity = [
+        "development", "alpha", "beta", "release_candidate", "stable", "deprecated",
+    ]
     if "maturity" in cap and cap["maturity"] not in valid_maturity:
         errors.append(f"{prefix}: Invalid maturity: {cap['maturity']}")
 

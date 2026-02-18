@@ -22,8 +22,16 @@ from typing import Any, Dict, List, Optional, Set
 
 logger = logging.getLogger(__name__)
 
-VALID_CATEGORIES = {"action", "query", "transform", "integration", "governance"}
-VALID_MATURITIES = {"experimental", "alpha", "beta", "stable", "deprecated"}
+# Categories: OTel doesn't define these; union of ContextCore + craft schema values
+VALID_CATEGORIES = {
+    "action", "query", "transform", "integration", "governance",
+    "generate", "validate", "security", "observe",
+}
+# Maturity: aligned with OTel semantic convention stability levels
+# https://opentelemetry.io/docs/specs/semconv/general/group-stability/
+VALID_MATURITIES = {
+    "development", "alpha", "beta", "release_candidate", "stable", "deprecated",
+}
 
 
 @dataclass

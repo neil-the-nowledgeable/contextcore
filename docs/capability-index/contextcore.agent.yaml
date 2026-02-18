@@ -1,6 +1,6 @@
 manifest_id: contextcore.agent
 name: ContextCore Agent Capabilities
-version: 1.13.0
+version: 1.14.0
 description: 'Agent-focused capabilities for ContextCore SDK.
 
   Tasks as OTel spans, insights as knowledge, handoffs as coordination.
@@ -1519,7 +1519,7 @@ capabilities:
   - Don't assume v1 manifests have guidance—check apiVersion first
 - capability_id: contextcore.manifest.sync_strategy
   category: action
-  maturity: draft
+  maturity: development
   summary: Sync strategy/tactic status bidirectionally with project management tools
   audiences:
   - agent
@@ -2519,7 +2519,7 @@ capabilities:
   - Don't skip onboarding metadata for plan ingestion—ASSESS phase needs parameter schemas and coverage gaps
 - capability_id: contextcore.aos.message_emit
   category: action
-  maturity: draft
+  maturity: development
   summary: Emit AOS-compliant steps/message events for agent communication
   audiences:
   - agent
@@ -2598,7 +2598,7 @@ capabilities:
     - FR-100
 - capability_id: contextcore.aos.decision_emit
   category: action
-  maturity: draft
+  maturity: development
   summary: Emit AOS-compliant guardian decisions with Allow/Deny/Modify outcomes
   audiences:
   - agent
@@ -2671,7 +2671,7 @@ capabilities:
     - FR-103
 - capability_id: contextcore.aos.trigger_emit
   category: action
-  maturity: draft
+  maturity: development
   summary: Emit AOS-compliant steps/agentTrigger events for autonomous activations
   audiences:
   - agent
@@ -2735,7 +2735,7 @@ capabilities:
     - FR-101
 - capability_id: contextcore.aos.mcp_emit
   category: action
-  maturity: draft
+  maturity: development
   summary: Emit AOS-compliant protocols/MCP events for Model Context Protocol interactions
   audiences:
   - agent
@@ -2812,7 +2812,7 @@ capabilities:
     - FR-201
 - capability_id: contextcore.aos.validate
   category: query
-  maturity: draft
+  maturity: development
   summary: Validate trace data against AOS schema and report compliance gaps
   audiences:
   - agent

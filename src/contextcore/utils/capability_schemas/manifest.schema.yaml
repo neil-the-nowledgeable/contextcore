@@ -242,7 +242,7 @@ $defs:
 
       maturity:
         type: string
-        enum: [draft, beta, stable, deprecated]
+        enum: [development, alpha, beta, release_candidate, stable, deprecated]
 
       summary:
         type: string

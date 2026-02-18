@@ -51,11 +51,15 @@ properties:
   maturity:
     type: string
     enum:
-      - draft       # Proposed, not implemented
-      - beta        # Implemented, not production-ready
-      - stable      # Production-ready, documented
-      - deprecated  # Scheduled for removal
-    description: Lifecycle stage
+      - development        # Not all pieces in place yet (OTel: development)
+      - alpha              # Limited non-critical use (OTel: alpha)
+      - beta               # Interfaces mostly stable (OTel: beta)
+      - release_candidate  # Feature-complete, ready for broad use (OTel: RC)
+      - stable             # Production-ready, documented (OTel: stable)
+      - deprecated         # Scheduled for removal (OTel: deprecated)
+    description: |
+      Lifecycle stage, aligned with OTel semantic convention stability levels.
+      See: https://opentelemetry.io/docs/specs/semconv/general/group-stability/
 
   summary:
     type: string

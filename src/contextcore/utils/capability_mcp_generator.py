@@ -44,8 +44,8 @@ def capability_to_mcp_tool(
 
     # Build description from summary + anti-patterns
     summary = cap.get("summary", "")
-    if maturity == "draft":
-        summary = f"[DRAFT - not yet implemented] {summary}"
+    if maturity == "development":
+        summary = f"[DEVELOPMENT - not yet implemented] {summary}"
 
     description_parts = [summary]
     anti_patterns = cap.get("anti_patterns", [])

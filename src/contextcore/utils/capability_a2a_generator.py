@@ -33,10 +33,10 @@ def capability_to_a2a_skill(cap: dict) -> Optional[dict]:
     if cap.get("internal", False):
         return None
 
-    maturity = cap.get("maturity", "draft")
+    maturity = cap.get("maturity", "development")
     summary = cap.get("summary", "")
-    if maturity == "draft":
-        summary = f"[DRAFT - not yet implemented] {summary}"
+    if maturity == "development":
+        summary = f"[DEVELOPMENT - not yet implemented] {summary}"
 
     tags = list(cap.get("triggers", []))
     tags.append(f"maturity:{maturity}")
