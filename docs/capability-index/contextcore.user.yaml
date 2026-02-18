@@ -652,15 +652,17 @@ capabilities:
     description:
       human: |
         Define your project's business context in `.contextcore.yaml` and ContextCore
-        derives what observability artifacts you need—dashboards, alerts, recording rules.
+        derives what artifacts you need—observability (dashboards, alerts, recording rules),
+        onboarding (capability index, agent card, MCP tools), and integrity (provenance, traceability).
         The pipeline: manifest init → validate → export → Gate 1 check → plan ingestion
         → Gate 2 diagnostic → contractor execution → final verification. Each step validates
         the previous one's output. You never manually specify which dashboard panels to create;
         the business metadata (criticality, SLOs, team ownership) drives the derivation.
       gtm: |
-        Zero-config observability setup. Describe your service in one YAML file and
-        ContextCore generates the complete observability artifact plan—dashboards,
-        alerts, and recording rules derived from your business requirements.
+        Zero-config artifact generation. Describe your service in one YAML file and
+        ContextCore generates the complete artifact plan—observability (dashboards,
+        alerts, recording rules), onboarding (capability index, agent card, MCP tools),
+        and integrity (provenance, traceability), all derived from your business requirements.
         Governance gates catch defects before they cascade.
 
     user_benefit: |

@@ -1,6 +1,6 @@
 manifest_id: contextcore.agent
 name: ContextCore Agent Capabilities
-version: 1.15.0
+version: 1.17.0
 description: 'Agent-focused capabilities for ContextCore SDK.
 
   Tasks as OTel spans, insights as knowledge, handoffs as coordination.
@@ -17,15 +17,122 @@ labels:
 manifest_tokens: 400
 index_tokens: 2500
 a2a:
-  url: "${CONTEXTCORE_A2A_URL:-https://localhost:8080/contextcore.agent}"
-  discovery_endpoint: "/.well-known/agent.json"
-  extended_discovery_endpoint: "/.well-known/contextcore.json"
+  url: ${CONTEXTCORE_A2A_URL:-https://localhost:8080/contextcore.agent}
+  discovery_endpoint: /.well-known/agent.json
+  extended_discovery_endpoint: /.well-known/contextcore.json
   authentication:
-    schemes: [bearer, none]
+    schemes:
+    - bearer
+    - none
   provider:
-    organization: "force-multiplier-labs"
-    url: "https://github.com/Force-Multiplier-Labs/contextcore"
+    organization: force-multiplier-labs
+    url: https://github.com/Force-Multiplier-Labs/contextcore
+scope_boundaries:
+  artifact_categories:
+  - category: observability
+    count: 8
+    description: Generated from business metadata in .contextcore.yaml
+    types:
+    - dashboard
+    - prometheus_rule
+    - slo_definition
+    - service_monitor
+    - loki_rule
+    - notification_policy
+    - runbook
+    - alert_template
+    source: ArtifactType enum in src/contextcore/models/artifact_manifest.py
+  - category: onboarding
+    count: 4
+    description: Pipeline-innate artifacts produced automatically for every project
+    types:
+    - capability_index
+    - agent_card
+    - mcp_tools
+    - onboarding_metadata
+    source: docs/reference/pipeline-requirements-onboarding.md REQ-CDP-ONB-*
+  - category: integrity
+    count: 2
+    description: Pipeline-innate provenance and traceability artifacts
+    types:
+    - provenance
+    - ingestion-traceability
+    source: docs/reference/pipeline-requirements-onboarding.md REQ-CDP-INT-*
+  pipeline_stages:
+  - stage: init
+    produces:
+    - .contextcore.yaml
+  - stage: validate
+    produces:
+    - validation report
+  - stage: export
+    produces:
+    - artifact_manifest
+    - onboarding_metadata
+    - capability_index
+    - provenance
+  - stage: gate_1
+    produces:
+    - gate_result
+  - stage: plan_ingestion
+    produces:
+    - context_seed
+    - ingestion_traceability
+  - stage: gate_2
+    produces:
+    - diagnostic_result
+  - stage: contractor
+    consumes:
+    - context_seed
+    produces:
+    - plan deliverables
+  explicit_non_scope:
+  - category: Plan deliverables
+    description: Application code, Dockerfiles, CI/CD configs, requirements.txt — these are deliverables defined in .contextcore.yaml
+      strategy.tactics, NOT pipeline artifacts
+    note: Plan deliverables are produced by the CONTRACTOR stage from context seeds, not by the pipeline export stage
 capabilities:
+- capability_id: contextcore.meta.artifact_type_registry
+  category: reference
+  maturity: stable
+  summary: Complete registry of all 14 artifact types across 3 categories (observability, onboarding, integrity)
+  audiences:
+  - agent
+  - human
+  description:
+    agent: |
+      The ContextCore pipeline produces 14 artifact types in 3 categories:
+      OBSERVABILITY (8): dashboard, prometheus_rule, loki_rule, slo_definition,
+      service_monitor, notification_policy, runbook, alert_template — generated
+      from business metadata in .contextcore.yaml.
+      ONBOARDING (4): capability_index, agent_card, mcp_tools,
+      onboarding_metadata — pipeline-innate, produced automatically.
+      INTEGRITY (2): provenance, ingestion-traceability — pipeline-innate
+      provenance and traceability artifacts.
+      Canonical source: ArtifactType enum in src/contextcore/models/artifact_manifest.py.
+      Category sets: OBSERVABILITY_TYPES, ONBOARDING_TYPES, INTEGRITY_TYPES.
+      See docs/reference/pipeline-requirements-onboarding.md for requirements.
+    human: |
+      ContextCore doesn't just produce observability dashboards and alerts.
+      The pipeline automatically generates 14 artifact types across three
+      categories: observability (dashboards, alerts, SLOs), onboarding
+      (capability index, agent card, MCP tools), and integrity (provenance,
+      traceability). Onboarding and integrity artifacts are produced for
+      every project without manual configuration.
+  triggers:
+  - artifact types
+  - what artifacts
+  - artifact scope
+  - artifact categories
+  - pipeline produces
+  - artifact taxonomy
+  - beyond observability
+  - pipeline-innate
+  - how many artifact types
+  cross_references:
+  - docs/reference/pipeline-requirements-onboarding.md
+  - src/contextcore/models/artifact_manifest.py
+  - schemas/contracts/artifact-intent.schema.json
 - capability_id: contextcore.insight.emit
   category: action
   maturity: stable
@@ -3314,16 +3421,24 @@ capabilities:
   - human
   summary: Serve A2A Agent Card and ContextCore extended discovery at standard well-known endpoints
   description:
-    agent: |
-      ContextCore exposes two standard discovery endpoints: GET /.well-known/agent.json
+    agent: 'ContextCore exposes two standard discovery endpoints: GET /.well-known/agent.json
+
       returns an A2A-compatible Agent Card with skills, authentication, and provider
+
       metadata. GET /.well-known/contextcore.json returns extended discovery with
+
       capability index, design principles, and communication patterns. Both endpoints
+
       serve JSON and support CORS for browser-based agent discovery.
-    human: |
-      The system exposes standard discovery URLs that other agents and tools can use
-      to find ContextCore's capabilities automatically, following the A2A and MCP
+
+      '
+    human: 'The system exposes standard discovery URLs that other agents and tools can use
+
+      to find ContextCore''s capabilities automatically, following the A2A and MCP
+
       discovery conventions.
+
+      '
   triggers:
   - discovery endpoint
   - well-known
@@ -3336,6 +3451,235 @@ capabilities:
   cross_references:
   - contextcore.a2a.server
   - contextcore.a2a.client
+- capability_id: contextcore.capability_index.build
+  category: generate
+  maturity: beta
+  summary: Build/update the capability index from source code scanning and sidecar merging
+  audiences:
+  - agent
+  - human
+  description:
+    agent: 'Runs 10-step pipeline: load base manifest, scan contract domains (L1-L7),
+
+      scan A2A governance, merge sidecars (_principles, _patterns, _triggers,
+
+      _p2_capabilities, _discovery_paths, _cli_capabilities), default audiences,
+
+      bump version. Never overwrites existing capabilities.
+
+      CLI: contextcore capability-index build [--dry-run] [--validate-only]
+
+      '
+    human: 'Programmatic capability index builder that merges multiple sources:
+
+      auto-scanned contract domains, hand-authored sidecar YAML files, and
+
+      enrichment data. Produces a single contextcore.agent.yaml manifest.
+
+      Use --dry-run to preview changes without writing.
+
+      '
+  triggers:
+  - build index
+  - rebuild capabilities
+  - update manifest
+  - capability index build
+  - merge sidecars
+  evidence:
+  - type: code
+    ref: src/contextcore/utils/capability_builder.py
+    description: Build pipeline implementation
+  - type: code
+    ref: src/contextcore/cli/capability_index.py
+    description: CLI entry point
+  - type: test
+    ref: tests/test_capability_builder.py
+    description: Builder unit tests
+  confidence: 0.85
+- capability_id: contextcore.capability_index.validate
+  category: validate
+  maturity: beta
+  summary: Validate capability index against schema and REQ-CID acceptance criteria
+  audiences:
+  - agent
+  - human
+  description:
+    agent: 'Two-layer validation: (1) structural schema checks (required fields, enum
+
+      values, format patterns), (2) REQ-CID acceptance criteria (247 checks).
+
+      CLI: contextcore capability-index validate [--strict]
+
+      '
+    human: 'Validates the capability manifest against both JSON Schema (capability IDs,
+
+      categories, maturity levels, summary length) and project-specific REQ-CID
+
+      requirements. Strict mode treats warnings as errors.
+
+      '
+  triggers:
+  - validate capabilities
+  - check manifest
+  - capability index validate
+  - schema validation
+  evidence:
+  - type: code
+    ref: src/contextcore/utils/capability_validator.py
+    description: REQ-CID validation engine
+  - type: code
+    ref: src/contextcore/utils/capability_schema_validator.py
+    description: JSON Schema structural validator
+  confidence: 0.9
+- capability_id: contextcore.capability_index.extract
+  category: query
+  maturity: beta
+  summary: Extract raw capabilities from a project via AST-based source code analysis
+  audiences:
+  - agent
+  - human
+  description:
+    agent: 'AST-based scanner discovers 6 capability types from Python source and Markdown:
+
+      CLI commands (Click/Typer decorators), classes, public functions, API endpoints
+
+      (FastAPI/Flask), tests, documentation sections. Outputs raw_capabilities.yaml
+
+      and synthesis_prompt.md for LLM refinement.
+
+      CLI: contextcore capability-index extract <project_path> [-o output_dir]
+
+      '
+    human: 'Analyzes a project''s source code using Python AST parsing and Markdown parsing
+
+      to discover capabilities. Useful for bootstrapping a capability index for any
+
+      Python project. Outputs raw extraction data and an LLM synthesis prompt for
+
+      converting raw data into structured capability entries.
+
+      '
+  triggers:
+  - extract capabilities
+  - scan source code
+  - discover capabilities
+  - capability extraction
+  - AST scan
+  - bootstrap index
+  evidence:
+  - type: code
+    ref: src/contextcore/utils/capability_extractor.py
+    description: AST-based extraction engine
+  confidence: 0.85
+- capability_id: contextcore.capability_index.generate_mcp
+  category: generate
+  maturity: beta
+  summary: Generate MCP tool definitions from a capability manifest
+  audiences:
+  - agent
+  - human
+  description:
+    agent: 'Transforms capability manifest into MCP-compatible tool definitions. Filters
+
+      to agent-audience capabilities, maps inputs/outputs to JSON Schema, includes
+
+      development-stage capabilities with [DEVELOPMENT] prefix. Persists to
+
+      mcp-tools.json alongside manifest by default.
+
+      CLI: contextcore capability-index generate-mcp [manifest] [--stdout]
+
+      '
+    human: 'Generates Model Context Protocol tool definitions from capability manifests,
+
+      enabling LLMs to discover and invoke capabilities. Development-stage capabilities
+
+      are included with clear status markers. Output defaults to mcp-tools.json
+
+      alongside the source manifest.
+
+      '
+  triggers:
+  - generate MCP
+  - MCP tools
+  - tool definitions
+  - LLM tools
+  - model context protocol
+  evidence:
+  - type: code
+    ref: src/contextcore/utils/capability_mcp_generator.py
+    description: MCP tool generator
+  confidence: 0.85
+- capability_id: contextcore.capability_index.generate_a2a
+  category: generate
+  maturity: beta
+  summary: Generate A2A Agent Card from a capability manifest for agent-to-agent discovery
+  audiences:
+  - agent
+  - human
+  description:
+    agent: 'Transforms capability manifest into an A2A Agent Card with skills array.
+
+      Each capability becomes a skill with id, name, description, tags (including
+
+      maturity:{level}). Development-stage skills included with markers. Persists
+
+      to agent-card.json alongside manifest by default.
+
+      CLI: contextcore capability-index generate-a2a [manifest] [--well-known] [--stdout]
+
+      '
+    human: 'Generates Agent-to-Agent protocol Agent Cards from capability manifests,
+
+      enabling cross-agent discovery. Each capability maps to an A2A skill entry.
+
+      The --well-known flag outputs in /.well-known/agent.json format for
+
+      standardized agent discovery endpoints.
+
+      '
+  triggers:
+  - generate A2A
+  - agent card
+  - agent discovery
+  - A2A card
+  - well-known agent
+  evidence:
+  - type: code
+    ref: src/contextcore/utils/capability_a2a_generator.py
+    description: A2A Agent Card generator
+  confidence: 0.85
+- capability_id: contextcore.capability_index.query
+  category: query
+  maturity: beta
+  summary: Query capabilities from a manifest with category, maturity, audience, and trigger filters
+  audiences:
+  - agent
+  - human
+  description:
+    agent: "Filter capabilities by: capability_id (exact or prefix), category, maturity,\naudience, trigger keyword, min_confidence.\
+      \ Supports JSON output for programmatic\nuse. --include-internal shows internal capabilities.\nCLI: contextcore capability-index\
+      \ query <index> [--category C] [--maturity M]\n     [--audience A] [--trigger T] [--min-confidence F] [--json]\n"
+    human: 'Queries a capability manifest with multiple filter dimensions. Useful for
+
+      finding capabilities by category, checking what''s stable vs development,
+
+      filtering by audience, or searching by trigger keywords. JSON output mode
+
+      enables integration with other tools.
+
+      '
+  triggers:
+  - query capabilities
+  - search capabilities
+  - filter capabilities
+  - find capability
+  - capability lookup
+  evidence:
+  - type: code
+    ref: src/contextcore/utils/capability_query.py
+    description: Query engine with multi-dimensional filtering
+  confidence: 0.85
 evidence:
 - type: doc
   ref: docs/semantic-conventions.md

@@ -714,7 +714,7 @@ benefits:
 
   - benefit_id: pipeline.contract_first_planning
     name: "Contract-First Artifact Planning"
-    value_statement: "Users can declare what observability artifacts are needed from business metadata so they get correct artifacts without manually specifying dashboard panels and alert rules"
+    value_statement: "Users can declare what artifacts are needed from business metadata. The pipeline produces artifacts in three categories: observability (dashboards, alerts, SLOs), onboarding (capability index, agent card, MCP tools), and integrity (provenance, traceability)"
 
     personas:
       - persona_id: developer
