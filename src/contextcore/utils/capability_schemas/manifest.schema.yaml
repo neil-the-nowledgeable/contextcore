@@ -1,0 +1,395 @@
+# Manifest Schema v0.1.0
+# JSON Schema for capability manifests (collections of capabilities)
+#
+# Standards Alignment:
+# - JSON Schema 2020-12
+# - Backstage catalog-info.yaml patterns (metadata, labels, annotations)
+# - A2A Agent Card alignment (for agent discovery interop)
+# - OTel resource conventions (service.*, deployment.*)
+#
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://capability-index.local/schema/manifest.schema.yaml"
+title: Manifest
+description: A collection of capabilities for a product, service, or domain
+
+type: object
+required:
+  - manifest_id
+  - name
+  - version
+  - capabilities
+
+properties:
+  # ===========================================
+  # Identity (Required)
+  # ===========================================
+  manifest_id:
+    type: string
+    pattern: "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*$"
+    description: |
+      Semantic identifier for this manifest.
+      Format: org.product or org.product.module
+      Examples: acme.auth, acme.billing.subscriptions
+    examples:
+      - "acme.auth"
+      - "acme.billing"
+      - "mycompany.api.v2"
+
+  name:
+    type: string
+    maxLength: 100
+    description: Human-readable name for this manifest
+
+  version:
+    type: string
+    pattern: "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.]+)?$"
+    description: Semantic version of this manifest
+    examples:
+      - "1.0.0"
+      - "2.1.0-beta.1"
+
+  description:
+    type: string
+    maxLength: 500
+    description: Brief description of what this manifest covers
+
+  # ===========================================
+  # Ownership & Contact
+  # ===========================================
+  owner:
+    type: string
+    description: |
+      Team or individual responsible for this manifest.
+      Aligns with Backstage spec.owner pattern.
+    examples:
+      - "platform-team"
+      - "user:jane.doe"
+      - "group:security"
+
+  contact:
+    type: string
+    format: email
+    description: Contact email for questions about these capabilities
+
+  # ===========================================
+  # Source & Documentation
+  # ===========================================
+  repository:
+    type: string
+    format: uri
+    description: Source code repository URL
+
+  documentation:
+    type: string
+    format: uri
+    description: Documentation site URL
+
+  # ===========================================
+  # Backstage-Inspired Metadata
+  # ===========================================
+  labels:
+    type: object
+    additionalProperties:
+      type: string
+    description: |
+      Key-value pairs for filtering and organization.
+      Aligns with Backstage/Kubernetes label conventions.
+    examples:
+      - domain: "identity"
+        tier: "platform"
+        compliance: "soc2"
+
+  annotations:
+    type: object
+    additionalProperties:
+      type: string
+    description: |
+      Non-identifying metadata for tooling integration.
+      Aligns with Backstage/Kubernetes annotation conventions.
+    examples:
+      - backstage.io/techdocs-ref: "dir:."
+        pagerduty.com/service-id: "P123ABC"
+        openapi.ref: "/api/openapi.yaml"
+
+  # ===========================================
+  # Token Economics
+  # ===========================================
+  manifest_tokens:
+    type: integer
+    minimum: 0
+    description: |
+      Token count for manifest-level info only (id, name, description).
+      Used for progressive disclosure decisions.
+
+  index_tokens:
+    type: integer
+    minimum: 0
+    description: |
+      Token count for capability index (all summaries).
+      Enables agents to estimate context cost.
+
+  # ===========================================
+  # Capabilities (Required)
+  # ===========================================
+  capabilities:
+    type: array
+    minItems: 1
+    items:
+      $ref: "#/$defs/CapabilitySummary"
+    description: |
+      List of capabilities in this manifest.
+      Can be inline summaries or references to full capability files.
+
+  # ===========================================
+  # Manifest-Level Evidence
+  # ===========================================
+  evidence:
+    type: array
+    items:
+      $ref: "#/$defs/Evidence"
+    description: Evidence that applies to the entire manifest (not individual capabilities)
+
+  # ===========================================
+  # Changelog
+  # ===========================================
+  changelog:
+    type: array
+    items:
+      $ref: "#/$defs/ChangelogEntry"
+    description: Version history for this manifest
+
+  # ===========================================
+  # A2A Agent Card Compatibility
+  # ===========================================
+  a2a:
+    type: object
+    description: |
+      Optional A2A Agent Card fields for agent-to-agent discovery.
+      If provided, manifest can be published as an Agent Card.
+    properties:
+      url:
+        type: string
+        format: uri
+        description: Agent endpoint URL
+      authentication:
+        type: object
+        properties:
+          schemes:
+            type: array
+            items:
+              type: string
+              enum: [apiKey, oauth2, bearer, none]
+        description: Supported authentication methods
+      provider:
+        type: object
+        properties:
+          organization:
+            type: string
+          url:
+            type: string
+            format: uri
+    additionalProperties: true
+
+  # ===========================================
+  # Lifecycle
+  # ===========================================
+  created_at:
+    type: string
+    format: date-time
+
+  updated_at:
+    type: string
+    format: date-time
+
+  # ===========================================
+  # Access Control
+  # ===========================================
+  internal:
+    type: boolean
+    default: false
+    description: If true, entire manifest is internal-only
+
+# ===========================================
+# Definitions
+# ===========================================
+$defs:
+  # Capability summary for inline manifest inclusion
+  # Subset of full Capability schema for token efficiency
+  CapabilitySummary:
+    type: object
+    required:
+      - capability_id
+      - category
+      - maturity
+      - summary
+    properties:
+      # Identity
+      capability_id:
+        type: string
+        pattern: "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*$"
+
+      category:
+        type: string
+        enum:
+          - transform
+          - generate
+          - validate
+          - query
+          - action
+          - security
+          - integration
+          - observe
+
+      maturity:
+        type: string
+        enum: [draft, beta, stable, deprecated]
+
+      summary:
+        type: string
+        maxLength: 150
+
+      # Discovery
+      audiences:
+        type: array
+        items:
+          type: string
+          enum: [agent, human, gtm]
+        default: [human]
+
+      triggers:
+        type: array
+        items:
+          type: string
+
+      # Quality
+      confidence:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+
+      # Dependencies
+      dependencies:
+        type: array
+        items:
+          type: string
+          pattern: "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*$"
+
+      # Typed I/O (JSON Schema)
+      inputs:
+        type: object
+        additionalProperties: true
+
+      outputs:
+        type: object
+        additionalProperties: true
+
+      # Lifecycle
+      deprecated_at:
+        type: string
+        format: date-time
+
+      sunset_at:
+        type: string
+        format: date-time
+
+      anti_patterns:
+        type: array
+        items:
+          type: string
+
+      # Access
+      internal:
+        type: boolean
+        default: false
+
+      feature_flag:
+        type: string
+
+      # Reference to full capability file (if not inline)
+      $ref:
+        type: string
+        description: |
+          Path to full capability definition file.
+          If provided, other fields are optional (loaded from ref).
+
+    additionalProperties: false
+
+  # Evidence reference
+  Evidence:
+    type: object
+    required:
+      - type
+      - ref
+    properties:
+      type:
+        type: string
+        enum:
+          - code
+          - api
+          - openapi
+          - asyncapi
+          - graphql
+          - grpc
+          - test
+          - doc
+          - adr
+          - schema
+          - sbom
+          - trace
+          - metric
+          - log
+          - event
+          - mcp
+          - example
+          - demo
+
+      ref:
+        type: string
+        description: Path, URL, or identifier
+
+      description:
+        type: string
+        maxLength: 200
+
+      tokens:
+        type: integer
+        description: Token cost to include this evidence
+
+    additionalProperties: false
+
+  # Changelog entry
+  ChangelogEntry:
+    type: object
+    required:
+      - version
+      - date
+      - changes
+    properties:
+      version:
+        type: string
+        pattern: "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.]+)?$"
+
+      date:
+        type: string
+        format: date
+        description: Release date (YYYY-MM-DD)
+
+      changes:
+        type: array
+        items:
+          type: string
+        minItems: 1
+        description: List of changes in this version
+
+      breaking:
+        type: boolean
+        default: false
+        description: Whether this version includes breaking changes
+
+      migration:
+        type: string
+        description: Migration guide or notes for breaking changes
+
+    additionalProperties: false
+
+additionalProperties: false

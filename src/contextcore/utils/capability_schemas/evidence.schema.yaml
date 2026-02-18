@@ -1,0 +1,159 @@
+# Evidence Schema v0.1.0
+# JSON Schema for evidence references (shared by Capability and Manifest)
+#
+# Evidence links capabilities to implementation proof:
+# - Code paths, API specs, test files
+# - Documentation, ADRs
+# - Observability artifacts (traces, metrics, logs)
+# - SBOM for supply chain transparency
+#
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://capability-index.local/schema/evidence.schema.yaml"
+title: Evidence
+description: Reference to implementation proof for a capability
+
+type: object
+required:
+  - type
+  - ref
+
+properties:
+  type:
+    type: string
+    enum:
+      # Source Code
+      - code          # Source file path (src/auth/mfa.py)
+
+      # API Specifications
+      - api           # Generic API endpoint
+      - openapi       # OpenAPI/Swagger spec reference
+      - asyncapi      # AsyncAPI spec for events/messaging
+      - graphql       # GraphQL schema or endpoint
+      - grpc          # gRPC service/proto definition
+
+      # Testing
+      - test          # Test file path
+
+      # Documentation
+      - doc           # General documentation
+      - adr           # Architecture Decision Record
+
+      # Schemas & Contracts
+      - schema        # Data schema (JSON Schema, Avro, etc.)
+      - mcp           # MCP tool definition
+
+      # Supply Chain
+      - sbom          # Software Bill of Materials (CycloneDX/SPDX)
+
+      # Observability
+      - trace         # Distributed trace (Tempo, Jaeger)
+      - metric        # Metric name or PromQL query
+      - log           # Log pattern or LogQL query
+      - event         # CloudEvents schema
+
+      # Examples & Demos
+      - example       # Usage example (code snippet, curl)
+      - demo          # Demo, video, or interactive POC
+
+    description: |
+      Type of evidence. Determines how the ref should be interpreted:
+      - code, test, doc, adr, schema: File paths
+      - api, openapi, asyncapi, graphql, grpc: URLs or spec paths
+      - trace, metric, log: Query strings or dashboard links
+      - sbom: Path to CycloneDX/SPDX file
+      - mcp: Path to MCP tool definition
+      - example, demo: URLs or file paths
+
+  ref:
+    type: string
+    description: |
+      Path, URL, or identifier for the evidence.
+
+      Examples by type:
+      - code: "src/auth/mfa/totp.py"
+      - openapi: "https://api.example.com/openapi.yaml#/paths/~1auth~1mfa/post"
+      - asyncapi: "specs/events.yaml#/channels/user.authenticated"
+      - test: "tests/auth/test_totp.py"
+      - trace: "tempo:trace_id=abc123" or TraceQL query
+      - metric: "auth_mfa_verifications_total"
+      - log: '{job="auth"} |= "mfa_verify"'
+      - sbom: "sbom/service.cdx.json"
+      - mcp: "tools/auth-mcp.json#/tools/verify_totp"
+
+  description:
+    type: string
+    maxLength: 200
+    description: Brief explanation of what this evidence demonstrates
+
+  tokens:
+    type: integer
+    minimum: 0
+    description: |
+      Approximate token count if this evidence is loaded.
+      Enables progressive disclosure decisions.
+
+  # Optional: For query-based evidence (traces, metrics, logs)
+  query:
+    type: string
+    description: |
+      Query string for observability evidence.
+      - TraceQL for traces
+      - PromQL for metrics
+      - LogQL for logs
+
+  # Optional: For time-sensitive evidence
+  timestamp:
+    type: string
+    format: date-time
+    description: When this evidence was captured (for traces, logs)
+
+  # Optional: Validation status
+  validated:
+    type: boolean
+    description: Whether this evidence ref has been validated to exist
+
+  validated_at:
+    type: string
+    format: date-time
+    description: When validation last occurred
+
+additionalProperties: false
+
+# ===========================================
+# Examples
+# ===========================================
+examples:
+  - type: code
+    ref: "src/auth/mfa/totp.py"
+    description: "Core TOTP verification logic"
+    tokens: 150
+
+  - type: openapi
+    ref: "https://api.example.com/openapi.yaml#/paths/~1auth~1mfa~1verify/post"
+    description: "POST /auth/mfa/verify endpoint"
+
+  - type: asyncapi
+    ref: "specs/auth-events.yaml#/channels/mfa.verified"
+    description: "mfa.verified event published on success"
+
+  - type: test
+    ref: "tests/auth/test_totp.py::test_valid_code"
+    description: "Unit test for valid TOTP code"
+
+  - type: trace
+    ref: "tempo"
+    query: '{ span.service.name = "auth" && name = "mfa.verify" }'
+    description: "Example trace of MFA verification"
+
+  - type: metric
+    ref: "auth_mfa_verifications_total"
+    query: 'sum(rate(auth_mfa_verifications_total{status="success"}[5m]))'
+    description: "MFA verification success rate"
+
+  - type: sbom
+    ref: "sbom/auth-service.cdx.json"
+    description: "CycloneDX SBOM showing pyotp dependency"
+
+  - type: mcp
+    ref: "tools/auth.mcp.json#/tools/verify_totp"
+    description: "MCP tool definition for LLM consumption"

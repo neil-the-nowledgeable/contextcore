@@ -1,0 +1,282 @@
+# Benefit Schema v0.1.0
+# JSON Schema in YAML format for user benefit definitions
+#
+# PURPOSE: Benefits are first-class entities that:
+# - Articulate user value independent of implementation
+# - Drive capability creation (benefit → gap → roadmap → capability)
+# - Serve as functional requirements design input
+# - Enable reverse-engineering from "what users need" to "what we build"
+#
+# RELATIONSHIP TO CAPABILITIES:
+#   Benefit (value articulation)
+#     ↓ delivered_by (0..n capabilities)
+#   Capability (implementation)
+#     ↓ serves (1..n personas)
+#   Persona (user archetype)
+#
+# When delivered_by is empty, the benefit represents a GAP → roadmap item
+
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://capability-index.local/schema/benefit.schema.yaml"
+title: Benefit
+description: A user benefit that may or may not be delivered by existing capabilities
+
+type: object
+required:
+  - benefit_id
+  - name
+  - value_statement
+  - personas
+
+properties:
+  # ===========================================
+  # Identity (Required)
+  # ===========================================
+  benefit_id:
+    type: string
+    pattern: "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*$"
+    description: |
+      Semantic identifier using dot notation.
+      Format: domain.outcome
+      Examples: time.status_updates_eliminated, visibility.portfolio_realtime
+    examples:
+      - "time.status_updates_eliminated"
+      - "visibility.portfolio_realtime"
+      - "compliance.audit_instant"
+      - "collaboration.agent_memory_persistent"
+
+  name:
+    type: string
+    maxLength: 80
+    description: |
+      Human-readable benefit name in outcome language.
+      Start with what the user GAINS, not what the system DOES.
+    examples:
+      - "Eliminate Manual Status Updates"
+      - "Real-Time Portfolio Visibility"
+      - "Instant Audit Response"
+
+  value_statement:
+    type: string
+    maxLength: 300
+    description: |
+      Plain-language articulation of the benefit from user perspective.
+      Template: "Users can [outcome] so they [higher-order value]"
+    examples:
+      - "Users can see all project status in one dashboard so they don't context-switch between tools"
+      - "Users can query any historical state so they respond to audits in minutes, not weeks"
+
+  # ===========================================
+  # Persona Mapping (Required)
+  # ===========================================
+  personas:
+    type: array
+    items:
+      $ref: "#/$defs/PersonaBenefit"
+    minItems: 1
+    description: |
+      Which personas receive this benefit and how.
+      Each persona may experience the benefit differently.
+
+  # ===========================================
+  # Capability Linkage (Optional)
+  # ===========================================
+  delivered_by:
+    type: array
+    items:
+      type: string
+      pattern: "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*$"
+    description: |
+      Capability IDs that deliver this benefit.
+      EMPTY ARRAY = GAP (benefit not yet delivered)
+      Multiple capabilities may contribute to one benefit.
+
+  delivery_status:
+    type: string
+    enum:
+      - gap           # No capabilities deliver this benefit
+      - partial       # Some capabilities exist but benefit not fully realized
+      - delivered     # Capabilities fully deliver this benefit
+      - exceeded      # Capabilities exceed the original benefit articulation
+    description: |
+      How well current capabilities deliver this benefit.
+      Derived from delivered_by + evidence, but can be overridden.
+
+  # ===========================================
+  # Measurability (Optional but Recommended)
+  # ===========================================
+  measurable_outcome:
+    type: string
+    maxLength: 150
+    description: |
+      How users know the benefit is realized.
+      Quantitative when possible, qualitative when necessary.
+    examples:
+      - "80% reduction in status update time"
+      - "50% fewer context switches per task"
+      - "Audit response in minutes, not weeks"
+
+  measurement_method:
+    type: string
+    description: |
+      How to measure the outcome.
+      Survey, metric, observation, etc.
+    examples:
+      - "Survey: tools used to complete single task"
+      - "Metric: contextcore_status_update_time_seconds"
+      - "Observation: time to produce weekly report"
+
+  baseline:
+    type: string
+    description: |
+      Current state before benefit is realized.
+      "Without ContextCore, users currently..."
+
+  # ===========================================
+  # Prioritization (Optional)
+  # ===========================================
+  priority:
+    type: string
+    enum:
+      - critical    # Core value proposition, must have
+      - high        # Significant differentiator
+      - medium      # Nice to have, improves experience
+      - low         # Future consideration
+    description: Business priority for delivering this benefit
+
+  effort_estimate:
+    type: string
+    enum:
+      - small       # Days of work
+      - medium      # Weeks of work
+      - large       # Months of work
+      - unknown     # Needs investigation
+    description: Rough implementation effort if benefit is a gap
+
+  # ===========================================
+  # Functional Requirements (Optional)
+  # ===========================================
+  functional_requirements:
+    type: array
+    items:
+      $ref: "#/$defs/FunctionalRequirement"
+    description: |
+      Derived functional requirements to deliver this benefit.
+      Used as design input for capability creation.
+
+  acceptance_criteria:
+    type: array
+    items:
+      type: string
+    description: |
+      Criteria for considering this benefit "delivered".
+      Written from user perspective.
+    examples:
+      - "User can see portfolio dashboard without logging into multiple tools"
+      - "Task status updates within 1 minute of Git push"
+      - "Audit query returns results in under 10 seconds"
+
+  # ===========================================
+  # Traceability (Optional)
+  # ===========================================
+  origin:
+    type: object
+    description: Where this benefit was identified
+    properties:
+      type:
+        type: string
+        enum:
+          - user_interview   # Direct user feedback
+          - support_ticket   # Support request pattern
+          - competitor       # Competitive analysis
+          - vision           # Product vision/strategy
+          - incident         # Post-incident learnings
+          - agent_insight    # AI agent identified need
+      ref:
+        type: string
+        description: Reference to source (interview ID, ticket #, etc.)
+      date:
+        type: string
+        format: date
+
+  supersedes:
+    type: string
+    pattern: "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*$"
+    description: Previous benefit_id this replaces (if evolved)
+
+  # ===========================================
+  # Lifecycle (Optional)
+  # ===========================================
+  created_at:
+    type: string
+    format: date-time
+  updated_at:
+    type: string
+    format: date-time
+  delivered_at:
+    type: string
+    format: date-time
+    description: When delivery_status changed to "delivered"
+
+# ===========================================
+# Definitions
+# ===========================================
+$defs:
+  PersonaBenefit:
+    type: object
+    required:
+      - persona_id
+      - pain_point
+    properties:
+      persona_id:
+        type: string
+        description: Reference to persona (e.g., "developer", "project_manager")
+      pain_point:
+        type: string
+        maxLength: 200
+        description: |
+          The specific pain this benefit addresses for this persona.
+          Written in first person from persona perspective.
+        examples:
+          - "I update Jira, then GitHub, then Slack—same info 3 places"
+          - "I can't see across all projects without opening 5 tools"
+      value_received:
+        type: string
+        maxLength: 200
+        description: |
+          How this persona specifically benefits.
+          May differ from the general value_statement.
+      importance:
+        type: string
+        enum: [critical, high, medium, low]
+        description: How important this benefit is to this persona
+
+  FunctionalRequirement:
+    type: object
+    required:
+      - id
+      - description
+    properties:
+      id:
+        type: string
+        pattern: "^FR-[0-9]+$"
+        description: Functional requirement identifier
+      description:
+        type: string
+        description: What the system must do to deliver the benefit
+      type:
+        type: string
+        enum:
+          - data          # Data collection/storage
+          - integration   # External system integration
+          - computation   # Processing/derivation
+          - presentation  # UI/API exposure
+          - automation    # Automated action
+      depends_on:
+        type: array
+        items:
+          type: string
+          pattern: "^FR-[0-9]+$"
+        description: Other FRs this depends on
+
+additionalProperties: false

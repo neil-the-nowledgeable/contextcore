@@ -1,0 +1,294 @@
+# Capability Schema v0.1.0
+# JSON Schema in YAML format for capability definitions
+#
+# Standards Alignment:
+# - JSON Schema 2020-12 (same as MCP, OpenAPI 3.1, OpenAI function calling)
+# - Backstage-inspired metadata structure (labels, annotations)
+# - OTel-inspired attribute naming (dot notation)
+# - MCP-compatible input/output schemas
+#
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://capability-index.local/schema/capability.schema.yaml"
+title: Capability
+description: A queryable software capability definition
+
+type: object
+required:
+  - capability_id
+  - category
+  - maturity
+  - summary
+
+properties:
+  # ===========================================
+  # Identity (Required)
+  # ===========================================
+  capability_id:
+    type: string
+    pattern: "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*$"
+    description: |
+      Semantic identifier using dot notation.
+      Format: domain.subdomain.feature
+      Examples: auth.mfa.totp, billing.subscription.cancel
+    examples:
+      - "auth.mfa.totp"
+      - "billing.subscription.cancel"
+      - "search.fulltext.fuzzy"
+
+  category:
+    type: string
+    enum:
+      - transform    # Data transformation
+      - generate     # Content/artifact generation
+      - validate     # Verification/validation
+      - query        # Data retrieval
+      - action       # State-changing operation
+      - security     # Auth, authz, encryption
+      - integration  # External system connection
+      - observe      # Monitoring, logging, tracing
+    description: Functional classification for filtering
+
+  maturity:
+    type: string
+    enum:
+      - draft       # Proposed, not implemented
+      - beta        # Implemented, not production-ready
+      - stable      # Production-ready, documented
+      - deprecated  # Scheduled for removal
+    description: Lifecycle stage
+
+  summary:
+    type: string
+    maxLength: 150
+    description: |
+      1-2 sentence description optimized for search.
+      Include key terms, avoid marketing language.
+
+  # ===========================================
+  # Audience Projections (Optional)
+  # ===========================================
+  audiences:
+    type: array
+    items:
+      type: string
+      enum: [agent, human, gtm]
+    default: [human]
+    description: |
+      Who consumes this capability definition.
+      - agent: AI systems (terse, structured)
+      - human: Engineers, users (detailed, contextual)
+      - gtm: Marketing, sales (value-focused)
+
+  description:
+    type: object
+    description: Audience-specific detailed descriptions
+    properties:
+      agent:
+        type: string
+        maxLength: 200
+        description: Terse, structured for LLM consumption
+      human:
+        type: string
+        maxLength: 1000
+        description: Full technical documentation
+      gtm:
+        type: string
+        maxLength: 500
+        description: Value proposition, competitive positioning
+    additionalProperties: false
+
+  # ===========================================
+  # Discovery & Routing (Optional)
+  # ===========================================
+  triggers:
+    type: array
+    items:
+      type: string
+    description: |
+      Keywords that route queries to this capability.
+      Include synonyms, common phrasings.
+    examples:
+      - ["2fa", "two-factor", "mfa", "authenticator"]
+
+  inputs:
+    type: object
+    description: JSON Schema defining expected inputs
+    additionalProperties: true
+
+  outputs:
+    type: object
+    description: JSON Schema defining expected outputs
+    additionalProperties: true
+
+  # ===========================================
+  # Evidence & Proof (Optional)
+  # ===========================================
+  evidence:
+    type: array
+    items:
+      $ref: "#/$defs/Evidence"
+    description: References grounding this capability in implementation
+
+  # ===========================================
+  # Metadata (Optional)
+  # ===========================================
+  version:
+    type: string
+    pattern: "^\\d+\\.\\d+\\.\\d+$"
+    description: Semantic version of this capability definition
+
+  supersedes:
+    type: string
+    pattern: "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*$"
+    description: Previous capability_id this replaces
+
+  token_budget:
+    type: integer
+    minimum: 0
+    description: Approximate tokens for full capability content
+
+  confidence:
+    type: number
+    minimum: 0.0
+    maximum: 1.0
+    description: |
+      Quality score based on evidence completeness.
+      1.0 = full evidence, tests, docs
+      0.5 = partial evidence
+      0.0 = no evidence, speculative
+
+  anti_patterns:
+    type: array
+    items:
+      type: string
+    description: Common mistakes to avoid with this capability
+
+  dependencies:
+    type: array
+    items:
+      type: string
+      pattern: "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*$"
+    description: Other capability_ids this depends on
+
+  # ===========================================
+  # User Value & Intent (Optional)
+  # See PURPOSE.md for rationale
+  # ===========================================
+  user_benefit:
+    type: string
+    maxLength: 300
+    description: |
+      Plain-language explanation of why this capability matters to users.
+      For infrastructure capabilities, explain what user-facing value it enables.
+
+  enables:
+    type: array
+    items:
+      type: string
+      pattern: "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*$"
+    description: |
+      For infrastructure capabilities: which user-facing capabilities does this enable?
+      Creates traceability from internal plumbing to user value.
+
+  intent:
+    type: object
+    description: |
+      Tracks whether implementation matches original purpose.
+      Captures pivots, divergence, and abandoned work.
+    properties:
+      original:
+        type: string
+        description: Original vision/purpose for this capability
+      current:
+        type: string
+        description: Current purpose (may differ from original)
+      status:
+        type: string
+        enum: [aligned, diverged, pivoted, abandoned]
+        description: Relationship between original and current intent
+      reason:
+        type: string
+        description: Why intent changed (if not aligned)
+    additionalProperties: false
+
+  risk_flags:
+    type: array
+    items:
+      type: string
+    description: |
+      Qualitative risk indicators affecting capability reliability.
+      Use named flags instead of arbitrary confidence adjustments.
+      Examples: "risk:no-retry-on-failure", "risk:beta-in-upstream"
+
+  # ===========================================
+  # Lifecycle (Optional)
+  # ===========================================
+  created_at:
+    type: string
+    format: date-time
+  updated_at:
+    type: string
+    format: date-time
+  deprecated_at:
+    type: string
+    format: date-time
+  sunset_at:
+    type: string
+    format: date-time
+    description: When this capability will be removed
+
+  # ===========================================
+  # Internal Flags (Optional)
+  # ===========================================
+  internal:
+    type: boolean
+    default: false
+    description: If true, not exposed to external audiences
+
+  feature_flag:
+    type: string
+    description: Feature flag controlling this capability's availability
+
+# ===========================================
+# Definitions
+# ===========================================
+$defs:
+  Evidence:
+    type: object
+    required:
+      - type
+      - ref
+    properties:
+      type:
+        type: string
+        enum:
+          - code        # Source code path
+          - api         # API endpoint (generic)
+          - openapi     # OpenAPI/Swagger spec
+          - asyncapi    # AsyncAPI spec (events/messaging)
+          - graphql     # GraphQL schema/endpoint
+          - grpc        # gRPC service definition
+          - test        # Test file
+          - doc         # Documentation
+          - adr         # Architecture decision record
+          - schema      # Data schema definition
+          - sbom        # Software bill of materials (CycloneDX/SPDX)
+          - trace       # Observability trace (OTel/Tempo)
+          - metric      # Metric name/query (Prometheus/Mimir)
+          - log         # Log pattern/query (Loki)
+          - event       # CloudEvents schema
+          - mcp         # MCP tool definition
+          - example     # Usage example
+          - demo        # Demo/POC reference
+      ref:
+        type: string
+        description: Path, URL, or identifier for the evidence
+      description:
+        type: string
+        maxLength: 200
+        description: Brief explanation of what this evidence shows
+      tokens:
+        type: integer
+        description: Token cost to include this evidence
+
+additionalProperties: false

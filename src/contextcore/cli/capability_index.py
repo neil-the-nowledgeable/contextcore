@@ -2,10 +2,13 @@
 CLI commands for capability index management.
 
 Commands:
-    contextcore capability-index build     Build/update the capability index
-    contextcore capability-index validate  Validate the current index
-    contextcore capability-index diff      Show what would change
-    contextcore capability-index extract   Extract capabilities from a project
+    contextcore capability-index build         Build/update the capability index
+    contextcore capability-index validate      Validate the current index
+    contextcore capability-index diff          Show what would change
+    contextcore capability-index extract       Extract capabilities from a project
+    contextcore capability-index generate-mcp  Generate MCP tool definitions
+    contextcore capability-index generate-a2a  Generate A2A Agent Card
+    contextcore capability-index query         Query capabilities with filters
 """
 
 from __future__ import annotations
@@ -172,61 +175,132 @@ def diff() -> None:
         click.echo("No changes detected.")
 
 
-# Default craft toolkit location
-_CRAFT_TOOLS = Path.home() / "Documents" / "craft" / "capability-index" / "tools"
-
-
 @capability_index.command()
 @click.argument("project_path", type=click.Path(exists=True), default=".")
 @click.option("--output", "-o", type=click.Path(), default=None,
               help="Output directory (default: ./capability-index-output)")
 @click.option("--project-name", default=None,
               help="Project name for the extraction (default: directory name)")
-@click.option("--toolkit-path", type=click.Path(exists=True), default=None,
-              help="Path to craft capability-index tools directory")
-def extract(project_path: str, output: str | None, project_name: str | None,
-            toolkit_path: str | None) -> None:
-    """Extract capabilities from a project using the craft toolkit.
+def extract(project_path: str, output: str | None, project_name: str | None) -> None:
+    """Extract capabilities from a project via AST-based analysis.
 
-    Wraps the craft toolkit's extract_capabilities.py for general-purpose
-    AST-based capability extraction from Python codebases.
+    Analyzes Python source files and Markdown docs to discover CLI commands,
+    classes, public functions, API endpoints, tests, and documentation sections.
     """
-    import subprocess
-    import sys
+    from contextcore.utils.capability_extractor import run_extraction
 
     project = Path(project_path).resolve()
-    tools_dir = Path(toolkit_path) if toolkit_path else _CRAFT_TOOLS
-    extract_script = tools_dir / "extract_capabilities.py"
-
-    if not extract_script.is_file():
-        click.echo(f"Extract tool not found at {extract_script}")
-        click.echo("Install the craft capability-index toolkit or use --toolkit-path")
-        raise SystemExit(1)
-
     out_dir = Path(output) if output else Path.cwd() / "capability-index-output"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    cmd = [
-        sys.executable,
-        str(extract_script),
-        str(project),
-        "--output", str(out_dir),
-    ]
-    if project_name:
-        cmd.extend(["--project-name", project_name])
 
     click.echo(f"Extracting capabilities from {project}...")
     click.echo(f"Output: {out_dir}")
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = run_extraction(project, out_dir, project_name)
 
-    if result.stdout:
-        click.echo(result.stdout)
-    if result.stderr:
-        click.echo(result.stderr, err=True)
+    click.echo(f"\n{'='*60}")
+    click.echo(f"Extraction complete for: {result.project_name}")
+    click.echo(f"{'='*60}")
+    click.echo(f"  CLI commands:     {len(result.cli_commands):4d}")
+    click.echo(f"  Classes:          {len(result.classes):4d}")
+    click.echo(f"  Functions:        {len(result.functions):4d}")
+    click.echo(f"  API endpoints:    {len(result.api_endpoints):4d}")
+    click.echo(f"  Doc sections:     {len(result.doc_sections):4d}")
+    click.echo(f"  Tests:            {len(result.tests):4d}")
+    click.echo(f"  {'─'*28}")
+    click.echo(f"  TOTAL:            {result.total_count():4d}")
+    click.echo(f"\nOutputs in {out_dir}")
 
-    if result.returncode != 0:
-        click.echo(f"Extraction failed (exit code {result.returncode})")
-        raise SystemExit(result.returncode)
 
-    click.echo(f"Extraction complete. Output in {out_dir}")
+@capability_index.command("generate-mcp")
+@click.argument("manifest_path", type=click.Path(exists=True))
+@click.option("--output", "-o", type=click.Path(), default=None,
+              help="Output file (default: stdout)")
+@click.option("--server-config", is_flag=True,
+              help="Generate full MCP server config (not just tools)")
+def generate_mcp(manifest_path: str, output: str | None, server_config: bool) -> None:
+    """Generate MCP tool definitions from a capability manifest."""
+    import json
+    from contextcore.utils.capability_mcp_generator import generate_mcp_from_file
+
+    result = generate_mcp_from_file(Path(manifest_path), server_config=server_config)
+    json_output = json.dumps(result, indent=2)
+
+    if output:
+        Path(output).write_text(json_output)
+        tool_count = result.get("tool_count", len(result.get("tools", [])))
+        click.echo(f"Wrote {tool_count} tools to {output}")
+    else:
+        click.echo(json_output)
+
+
+@capability_index.command("generate-a2a")
+@click.argument("manifest_path", type=click.Path(exists=True))
+@click.option("--output", "-o", type=click.Path(), default=None,
+              help="Output file (default: stdout)")
+@click.option("--well-known", is_flag=True,
+              help="Output in /.well-known/agent.json format")
+def generate_a2a(manifest_path: str, output: str | None, well_known: bool) -> None:
+    """Generate A2A Agent Card from a capability manifest."""
+    import json
+    from contextcore.utils.capability_a2a_generator import generate_a2a_from_file
+
+    result = generate_a2a_from_file(Path(manifest_path), well_known=well_known)
+    json_output = json.dumps(result, indent=2)
+
+    if output:
+        Path(output).write_text(json_output)
+        click.echo(f"Wrote Agent Card to {output}")
+    else:
+        click.echo(json_output)
+
+
+@capability_index.command()
+@click.argument("index_path", type=click.Path(exists=True))
+@click.option("--id", "capability_id", default=None,
+              help="Filter by capability ID (exact or prefix)")
+@click.option("--category", "-c", default=None,
+              help="Filter by category")
+@click.option("--maturity", "-m",
+              type=click.Choice(["draft", "beta", "stable", "deprecated"]),
+              default=None, help="Filter by maturity")
+@click.option("--audience", "-a",
+              type=click.Choice(["agent", "human", "gtm"]),
+              default=None, help="Filter by audience")
+@click.option("--trigger", "-t", default=None,
+              help="Filter by trigger keyword")
+@click.option("--min-confidence", type=float, default=None,
+              help="Minimum confidence threshold (0.0-1.0)")
+@click.option("--include-internal", is_flag=True,
+              help="Include internal capabilities")
+@click.option("--verbose", "-v", is_flag=True,
+              help="Show detailed output")
+@click.option("--json", "as_json", is_flag=True,
+              help="Output as JSON")
+def query(index_path: str, capability_id: str | None, category: str | None,
+          maturity: str | None, audience: str | None, trigger: str | None,
+          min_confidence: float | None, include_internal: bool,
+          verbose: bool, as_json: bool) -> None:
+    """Query capabilities from an index with filters."""
+    import json as json_mod
+    from contextcore.utils.capability_query import query_from_file, format_capability
+
+    results = query_from_file(
+        Path(index_path),
+        capability_id=capability_id,
+        category=category,
+        maturity=maturity,
+        audience=audience,
+        trigger=trigger,
+        min_confidence=min_confidence,
+        include_internal=include_internal,
+    )
+
+    if as_json:
+        click.echo(json_mod.dumps({"capabilities": results, "count": len(results)}, indent=2))
+    elif not results:
+        click.echo("No capabilities found matching filters")
+    else:
+        click.echo(f"Found {len(results)} capabilities:\n")
+        for cap in results:
+            click.echo(format_capability(cap, verbose=verbose))
+            click.echo()
