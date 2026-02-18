@@ -1,6 +1,6 @@
 manifest_id: contextcore.agent
 name: ContextCore Agent Capabilities
-version: 1.14.0
+version: 1.15.0
 description: 'Agent-focused capabilities for ContextCore SDK.
 
   Tasks as OTel spans, insights as knowledge, handoffs as coordination.
@@ -16,6 +16,15 @@ labels:
   audience: agent
 manifest_tokens: 400
 index_tokens: 2500
+a2a:
+  url: "${CONTEXTCORE_A2A_URL:-https://localhost:8080/contextcore.agent}"
+  discovery_endpoint: "/.well-known/agent.json"
+  extended_discovery_endpoint: "/.well-known/contextcore.json"
+  authentication:
+    schemes: [bearer, none]
+  provider:
+    organization: "force-multiplier-labs"
+    url: "https://github.com/Force-Multiplier-Labs/contextcore"
 capabilities:
 - capability_id: contextcore.insight.emit
   category: action
@@ -789,6 +798,8 @@ capabilities:
   confidence: 0.8
   anti_patterns:
   - Don't expose A2A server without authentication in production
+  cross_references:
+  - contextcore.discovery.well_known
 - capability_id: contextcore.a2a.client
   category: integration
   maturity: beta
@@ -2899,6 +2910,9 @@ capabilities:
   category: transform
   maturity: beta
   summary: Declare end-to-end field flow contracts, validate at phase boundaries, track provenance
+  audiences:
+  - agent
+  - human
   triggers:
   - context contract
   - propagation chain
@@ -2926,6 +2940,9 @@ capabilities:
   category: transform
   maturity: beta
   summary: Cross-service schema compatibility checking with field mapping and value translation
+  audiences:
+  - agent
+  - human
   triggers:
   - schema compatibility
   - contract drift
@@ -2947,6 +2964,9 @@ capabilities:
   category: transform
   maturity: beta
   summary: Attribute naming and enum consistency enforcement across services
+  audiences:
+  - agent
+  - human
   triggers:
   - semantic convention
   - attribute naming
@@ -2968,6 +2988,9 @@ capabilities:
   category: transform
   maturity: beta
   summary: Cross-boundary event ordering contracts with timestamp verification
+  audiences:
+  - agent
+  - human
   triggers:
   - causal ordering
   - event ordering
@@ -2989,6 +3012,9 @@ capabilities:
   category: transform
   maturity: beta
   summary: End-to-end permission and capability flow verification through call chains
+  audiences:
+  - agent
+  - human
   triggers:
   - capability propagation
   - permission flow
@@ -3011,6 +3037,9 @@ capabilities:
   category: transform
   maturity: beta
   summary: Per-hop latency budget allocation, tracking, and DEGRADED/BROKEN signaling
+  audiences:
+  - agent
+  - human
   triggers:
   - SLO budget
   - latency budget
@@ -3033,6 +3062,9 @@ capabilities:
   category: transform
   maturity: beta
   summary: Transformation history verification and data provenance tracking
+  audiences:
+  - agent
+  - human
   triggers:
   - data lineage
   - provenance
@@ -3054,6 +3086,9 @@ capabilities:
   category: transform
   maturity: beta
   summary: Typed contract for task span interchange — validates SpanState v2 compliance, required attributes, and enum values
+  audiences:
+  - agent
+  - human
   triggers:
   - task span contract
   - span validation
@@ -3076,6 +3111,9 @@ capabilities:
   category: transform
   maturity: beta
   summary: Typed contract for agent-to-agent handoff — validates ExpectedOutput, lifecycle status, and provenance chain
+  audiences:
+  - agent
+  - human
   triggers:
   - handoff contract
   - a2a contract
@@ -3097,6 +3135,9 @@ capabilities:
   category: transform
   maturity: beta
   summary: Typed declaration of expected artifacts with semantic roles — the Mottainai principle
+  audiences:
+  - agent
+  - human
   triggers:
   - artifact intent
   - a2a contract
@@ -3119,6 +3160,9 @@ capabilities:
   category: transform
   maturity: beta
   summary: Typed result from governance gates — pass/fail/warning with structured diagnostics
+  audiences:
+  - agent
+  - human
   triggers:
   - gate result
   - governance gate
@@ -3140,6 +3184,9 @@ capabilities:
   category: action
   maturity: beta
   summary: 'Gate 1: 6 structural integrity checks on exported pipeline artifacts'
+  audiences:
+  - agent
+  - human
   triggers:
   - pipeline integrity
   - governance gate
@@ -3165,6 +3212,9 @@ capabilities:
   category: action
   maturity: beta
   summary: 'Gate 2: Three Questions diagnostic — Was anything lost? Does the shape match? Can we trace the lineage?'
+  audiences:
+  - agent
+  - human
   triggers:
   - diagnostic gate
   - three questions
@@ -3187,6 +3237,9 @@ capabilities:
   category: integration
   maturity: beta
   summary: Use A2A typed primitives (Part, ExpectedOutput) for intra-pipeline stage communication
+  audiences:
+  - agent
+  - human
   description:
     agent: 'Apply A2A communication patterns within a sequential pipeline. Stages declare
 
@@ -3220,6 +3273,9 @@ capabilities:
   category: transform
   maturity: beta
   summary: Define typed output contracts with required fields, size limits, and completeness markers
+  audiences:
+  - agent
+  - human
   description:
     agent: 'ExpectedOutput defines what a pipeline stage or agent must produce. Fields:
 
@@ -3250,6 +3306,36 @@ capabilities:
   discovery_paths:
   - If you need to define what output a stage or agent must produce before it runs.
   - If you need size limits, required fields, or completeness markers on generated output.
+- capability_id: contextcore.discovery.well_known
+  category: query
+  maturity: beta
+  audiences:
+  - agent
+  - human
+  summary: Serve A2A Agent Card and ContextCore extended discovery at standard well-known endpoints
+  description:
+    agent: |
+      ContextCore exposes two standard discovery endpoints: GET /.well-known/agent.json
+      returns an A2A-compatible Agent Card with skills, authentication, and provider
+      metadata. GET /.well-known/contextcore.json returns extended discovery with
+      capability index, design principles, and communication patterns. Both endpoints
+      serve JSON and support CORS for browser-based agent discovery.
+    human: |
+      The system exposes standard discovery URLs that other agents and tools can use
+      to find ContextCore's capabilities automatically, following the A2A and MCP
+      discovery conventions.
+  triggers:
+  - discovery endpoint
+  - well-known
+  - agent discovery
+  - agent card endpoint
+  - .well-known/agent.json
+  - programmatic discovery
+  - MCP discovery
+  - A2A discovery
+  cross_references:
+  - contextcore.a2a.server
+  - contextcore.a2a.client
 evidence:
 - type: doc
   ref: docs/semantic-conventions.md

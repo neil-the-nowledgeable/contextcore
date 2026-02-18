@@ -3,8 +3,8 @@
   "agent_card": {
     "name": "ContextCore Agent Capabilities",
     "description": "Agent-focused capabilities for ContextCore SDK.\nTasks as OTel spans, insights as knowledge, handoffs as coordination.\nA2A protocol interoperability for cross-framework agent communication.\n",
-    "url": "https://api.example.com/contextcore.agent",
-    "version": "1.14.0",
+    "url": "${CONTEXTCORE_A2A_URL:-https://localhost:8080/contextcore.agent}",
+    "version": "1.15.0",
     "capabilities": {
       "streaming": false,
       "pushNotifications": false,
@@ -687,16 +687,339 @@
         "outputModes": [
           "application/json"
         ]
+      },
+      {
+        "id": "contextcore.contract.propagation",
+        "name": "Propagation",
+        "description": "Declare end-to-end field flow contracts, validate at phase boundaries, track provenance",
+        "tags": [
+          "context contract",
+          "propagation chain",
+          "boundary validation",
+          "field flow",
+          "context propagation",
+          "chain status",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.contract.schema_compat",
+        "name": "Schema Compat",
+        "description": "Cross-service schema compatibility checking with field mapping and value translation",
+        "tags": [
+          "schema compatibility",
+          "contract drift",
+          "field mapping",
+          "value translation",
+          "schema evolution",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.contract.semantic_convention",
+        "name": "Semantic Convention",
+        "description": "Attribute naming and enum consistency enforcement across services",
+        "tags": [
+          "semantic convention",
+          "attribute naming",
+          "enum consistency",
+          "naming convention enforcement",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.contract.causal_ordering",
+        "name": "Causal Ordering",
+        "description": "Cross-boundary event ordering contracts with timestamp verification",
+        "tags": [
+          "causal ordering",
+          "event ordering",
+          "ordering constraint",
+          "happens-before",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.contract.capability_propagation",
+        "name": "Capability Propagation",
+        "description": "End-to-end permission and capability flow verification through call chains",
+        "tags": [
+          "capability propagation",
+          "permission flow",
+          "authorization chain",
+          "capability verification",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.contract.slo_budget",
+        "name": "Slo Budget",
+        "description": "Per-hop latency budget allocation, tracking, and DEGRADED/BROKEN signaling",
+        "tags": [
+          "SLO budget",
+          "latency budget",
+          "budget tracking",
+          "deadline propagation",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.contract.data_lineage",
+        "name": "Data Lineage",
+        "description": "Transformation history verification and data provenance tracking",
+        "tags": [
+          "data lineage",
+          "provenance",
+          "transformation history",
+          "data origin",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.a2a.contract.task_span",
+        "name": "Task Span",
+        "description": "Typed contract for task span interchange \u2014 validates SpanState v2 compliance, required attributes, and enum values",
+        "tags": [
+          "task span contract",
+          "span validation",
+          "a2a contract",
+          "task interchange",
+          "SpanState validation",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.a2a.contract.handoff",
+        "name": "Handoff",
+        "description": "Typed contract for agent-to-agent handoff \u2014 validates ExpectedOutput, lifecycle status, and provenance chain",
+        "tags": [
+          "handoff contract",
+          "a2a contract",
+          "delegation validation",
+          "handoff integrity",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.a2a.contract.artifact_intent",
+        "name": "Artifact Intent",
+        "description": "Typed declaration of expected artifacts with semantic roles \u2014 the Mottainai principle",
+        "tags": [
+          "artifact intent",
+          "a2a contract",
+          "artifact declaration",
+          "pipeline output",
+          "Mottainai",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.a2a.contract.gate_result",
+        "name": "Gate Result",
+        "description": "Typed result from governance gates \u2014 pass/fail/warning with structured diagnostics",
+        "tags": [
+          "gate result",
+          "governance gate",
+          "gate diagnostic",
+          "integrity check result",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.a2a.gate.pipeline_integrity",
+        "name": "Pipeline Integrity",
+        "description": "Gate 1: 6 structural integrity checks on exported pipeline artifacts",
+        "tags": [
+          "pipeline integrity",
+          "governance gate",
+          "a2a-check-pipeline",
+          "integrity checks",
+          "export validation",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.a2a.gate.diagnostic",
+        "name": "Diagnostic",
+        "description": "Gate 2: Three Questions diagnostic \u2014 Was anything lost? Does the shape match? Can we trace the lineage?",
+        "tags": [
+          "diagnostic gate",
+          "three questions",
+          "a2a-diagnose",
+          "governance diagnostic",
+          "pipeline diagnostic",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.pipeline.typed_handoff",
+        "name": "Typed Handoff",
+        "description": "Use A2A typed primitives (Part, ExpectedOutput) for intra-pipeline stage communication",
+        "tags": [
+          "pipeline communication",
+          "stage contract",
+          "intra-pipeline handoff",
+          "typed stage output",
+          "stage-to-stage",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.contract.expected_output",
+        "name": "Expected Output",
+        "description": "Define typed output contracts with required fields, size limits, and completeness markers",
+        "tags": [
+          "output contract",
+          "expected output",
+          "required fields",
+          "completeness markers",
+          "output schema",
+          "typed output",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
+      },
+      {
+        "id": "contextcore.discovery.well_known",
+        "name": "Well Known",
+        "description": "Serve A2A Agent Card and ContextCore extended discovery at standard well-known endpoints",
+        "tags": [
+          "discovery endpoint",
+          "well-known",
+          "agent discovery",
+          "agent card endpoint",
+          ".well-known/agent.json",
+          "programmatic discovery",
+          "MCP discovery",
+          "A2A discovery",
+          "maturity:beta"
+        ],
+        "maturity": "beta",
+        "inputModes": [
+          "application/json"
+        ],
+        "outputModes": [
+          "application/json"
+        ]
       }
     ],
     "authentication": {
       "schemes": [
-        "bearer"
+        "bearer",
+        "none"
       ]
     },
     "provider": {
       "organization": "force-multiplier-labs",
       "url": "https://github.com/Force-Multiplier-Labs/contextcore"
+    },
+    "metadata": {
+      "discoveryEndpoint": "/.well-known/agent.json",
+      "extendedDiscoveryEndpoint": "/.well-known/contextcore.json"
     }
   }
 }

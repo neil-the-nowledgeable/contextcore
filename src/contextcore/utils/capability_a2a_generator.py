@@ -102,6 +102,16 @@ def manifest_to_agent_card(manifest: dict) -> dict:
     if "contact" in manifest:
         agent_card["provider"]["contact"] = manifest["contact"]
 
+    # Add discovery metadata from a2a config
+    if "discovery_endpoint" in a2a_config or "extended_discovery_endpoint" in a2a_config:
+        agent_card["metadata"] = {}
+        if "discovery_endpoint" in a2a_config:
+            agent_card["metadata"]["discoveryEndpoint"] = a2a_config["discovery_endpoint"]
+        if "extended_discovery_endpoint" in a2a_config:
+            agent_card["metadata"]["extendedDiscoveryEndpoint"] = a2a_config[
+                "extended_discovery_endpoint"
+            ]
+
     return agent_card
 
 

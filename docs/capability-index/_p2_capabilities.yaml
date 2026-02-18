@@ -7,6 +7,7 @@ capabilities:
     category: integration
     maturity: beta
     summary: Use A2A typed primitives (Part, ExpectedOutput) for intra-pipeline stage communication
+    audiences: ["agent", "human"]
 
     description:
       agent: |
@@ -33,6 +34,7 @@ capabilities:
     category: transform
     maturity: beta
     summary: Define typed output contracts with required fields, size limits, and completeness markers
+    audiences: ["agent", "human"]
 
     description:
       agent: |

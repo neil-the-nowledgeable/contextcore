@@ -229,7 +229,17 @@ def build_capability_index(
     else:
         report.notes.append("No _discovery_paths.yaml found or empty")
 
-    # 9. Bump version
+    # 9. Default audiences for non-internal capabilities (REQ-CID-019)
+    # Ensures MCP/A2A generators don't silently skip capabilities that lack audiences
+    for cap in manifest.get("capabilities", []):
+        if not isinstance(cap, dict):
+            continue
+        if "audiences" not in cap and not cap.get("internal", False):
+            cap["audiences"] = ["agent", "human"]
+            cap_id = cap.get("capability_id", "unknown")
+            report.audiences_defaulted.append(cap_id)
+
+    # 10. Bump version
     old_version = manifest.get("version", "1.0.0")
     new_version = _bump_version(old_version)
     manifest["version"] = new_version
@@ -262,6 +272,7 @@ class BuildReport:
         self.original_capability_count: int = 0
         self.added_capabilities: List[str] = []
         self.skipped_capabilities: List[str] = []
+        self.audiences_defaulted: List[str] = []
         self.principles_added: int = 0
         self.patterns_added: int = 0
         self.triggers_enriched: Dict[str, List[str]] = {}
@@ -281,6 +292,8 @@ class BuildReport:
             lines.append(f"  Added: {', '.join(self.added_capabilities)}")
         if self.skipped_capabilities:
             lines.append(f"  Skipped (already exist): {', '.join(self.skipped_capabilities)}")
+        if self.audiences_defaulted:
+            lines.append(f"  Audiences defaulted to [agent, human]: {len(self.audiences_defaulted)} capabilities")
         if self.principles_added:
             lines.append(f"Principles: {self.principles_added} added")
         if self.patterns_added:

@@ -2305,7 +2305,231 @@
         "maturity": "development",
         "confidence": 0.5
       }
+    },
+    {
+      "name": "contextcore.contract.propagation",
+      "description": "Declare end-to-end field flow contracts, validate at phase boundaries, track provenance",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "transform",
+        "maturity": "beta",
+        "confidence": 0.9
+      }
+    },
+    {
+      "name": "contextcore.contract.schema_compat",
+      "description": "Cross-service schema compatibility checking with field mapping and value translation",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "transform",
+        "maturity": "beta",
+        "confidence": 0.7
+      }
+    },
+    {
+      "name": "contextcore.contract.semantic_convention",
+      "description": "Attribute naming and enum consistency enforcement across services",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "transform",
+        "maturity": "beta",
+        "confidence": 0.9
+      }
+    },
+    {
+      "name": "contextcore.contract.causal_ordering",
+      "description": "Cross-boundary event ordering contracts with timestamp verification",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "transform",
+        "maturity": "beta",
+        "confidence": 0.9
+      }
+    },
+    {
+      "name": "contextcore.contract.capability_propagation",
+      "description": "End-to-end permission and capability flow verification through call chains",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "transform",
+        "maturity": "beta",
+        "confidence": 0.9
+      }
+    },
+    {
+      "name": "contextcore.contract.slo_budget",
+      "description": "Per-hop latency budget allocation, tracking, and DEGRADED/BROKEN signaling",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "transform",
+        "maturity": "beta",
+        "confidence": 0.9
+      }
+    },
+    {
+      "name": "contextcore.contract.data_lineage",
+      "description": "Transformation history verification and data provenance tracking",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "transform",
+        "maturity": "beta",
+        "confidence": 0.7
+      }
+    },
+    {
+      "name": "contextcore.a2a.contract.task_span",
+      "description": "Typed contract for task span interchange \u2014 validates SpanState v2 compliance, required attributes, and enum values",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "transform",
+        "maturity": "beta",
+        "confidence": 0.7
+      }
+    },
+    {
+      "name": "contextcore.a2a.contract.handoff",
+      "description": "Typed contract for agent-to-agent handoff \u2014 validates ExpectedOutput, lifecycle status, and provenance chain",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "transform",
+        "maturity": "beta",
+        "confidence": 0.7
+      }
+    },
+    {
+      "name": "contextcore.a2a.contract.artifact_intent",
+      "description": "Typed declaration of expected artifacts with semantic roles \u2014 the Mottainai principle",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "transform",
+        "maturity": "beta",
+        "confidence": 0.7
+      }
+    },
+    {
+      "name": "contextcore.a2a.contract.gate_result",
+      "description": "Typed result from governance gates \u2014 pass/fail/warning with structured diagnostics",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "transform",
+        "maturity": "beta",
+        "confidence": 0.7
+      }
+    },
+    {
+      "name": "contextcore.a2a.gate.pipeline_integrity",
+      "description": "Gate 1: 6 structural integrity checks on exported pipeline artifacts",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "action",
+        "maturity": "beta",
+        "confidence": 0.7
+      }
+    },
+    {
+      "name": "contextcore.a2a.gate.diagnostic",
+      "description": "Gate 2: Three Questions diagnostic \u2014 Was anything lost? Does the shape match? Can we trace the lineage?",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "action",
+        "maturity": "beta",
+        "confidence": 0.7
+      }
+    },
+    {
+      "name": "contextcore.pipeline.typed_handoff",
+      "description": "Use A2A typed primitives (Part, ExpectedOutput) for intra-pipeline stage communication",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "integration",
+        "maturity": "beta",
+        "confidence": 0.5
+      }
+    },
+    {
+      "name": "contextcore.contract.expected_output",
+      "description": "Define typed output contracts with required fields, size limits, and completeness markers",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "transform",
+        "maturity": "beta",
+        "confidence": 0.5
+      }
+    },
+    {
+      "name": "contextcore.discovery.well_known",
+      "description": "Serve A2A Agent Card and ContextCore extended discovery at standard well-known endpoints",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "manifest_id": "contextcore.agent",
+        "category": "query",
+        "maturity": "beta",
+        "confidence": 0.5
+      }
     }
   ],
-  "tool_count": 34
+  "tool_count": 50
 }

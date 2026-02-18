@@ -145,6 +145,23 @@ def _validate_schema(manifest: Dict[str, Any], report: ValidationReport) -> None
             severity="warning",
         ))
 
+        # audiences field present (REQ-CID-019)
+        # Non-internal capabilities without audiences will default to human-only
+        # and be excluded from MCP/A2A export
+        is_internal = cap.get("internal", False)
+        has_audiences = "audiences" in cap
+        report.checks.append(CheckResult(
+            name=f"cap_{cap_id}_audiences",
+            passed=has_audiences or is_internal,
+            message=f"audiences field present"
+                    if has_audiences
+                    else (f"internal capability, audiences not required"
+                          if is_internal
+                          else f"Capability '{cap_id}' has no audiences field; "
+                               f"it will default to human-only and be excluded from MCP/A2A export"),
+            severity="warning",
+        ))
+
     # design_principles validation
     principles = manifest.get("design_principles")
     if isinstance(principles, list):
