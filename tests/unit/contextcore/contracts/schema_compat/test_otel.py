@@ -34,8 +34,8 @@ def mock_span():
 @pytest.fixture
 def mock_otel(mock_span):
     """Patch OTel to return our mock span."""
-    with patch("contextcore.contracts.schema_compat.otel._HAS_OTEL", True), \
-         patch("contextcore.contracts.schema_compat.otel.otel_trace") as mock_trace:
+    with patch("contextcore.contracts._otel_helpers.HAS_OTEL", True), \
+         patch("contextcore.contracts._otel_helpers.otel_trace") as mock_trace:
         mock_trace.get_current_span.return_value = mock_span
         yield mock_span
 
@@ -79,7 +79,7 @@ class TestEmitCompatibilityCheck:
         assert attrs["schema.drift_count"] == 2
 
     def test_no_otel_does_not_crash(self):
-        with patch("contextcore.contracts.schema_compat.otel._HAS_OTEL", False):
+        with patch("contextcore.contracts._otel_helpers.HAS_OTEL", False):
             result = CompatibilityResult(
                 compatible=True,
                 level=CompatibilityLevel.STRUCTURAL,
@@ -117,7 +117,7 @@ class TestEmitCompatibilityDrift:
         assert attrs["schema.severity"] == "blocking"
 
     def test_no_otel_does_not_crash(self):
-        with patch("contextcore.contracts.schema_compat.otel._HAS_OTEL", False):
+        with patch("contextcore.contracts._otel_helpers.HAS_OTEL", False):
             result = CompatibilityResult(
                 compatible=True,
                 level=CompatibilityLevel.STRUCTURAL,
@@ -168,7 +168,7 @@ class TestEmitCompatibilityBreaking:
         assert attrs["schema.policy"] == ""
 
     def test_no_otel_does_not_crash(self):
-        with patch("contextcore.contracts.schema_compat.otel._HAS_OTEL", False):
+        with patch("contextcore.contracts._otel_helpers.HAS_OTEL", False):
             result = EvolutionCheckResult(
                 compatible=False,
                 service="tracker",

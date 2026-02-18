@@ -212,8 +212,8 @@ class TestOtel:
     def test_emit_convention_result(self):
         span = MagicMock()
         span.is_recording.return_value = True
-        with patch("contextcore.contracts.semconv.otel._HAS_OTEL", True), \
-             patch("contextcore.contracts.semconv.otel.otel_trace") as mt:
+        with patch("contextcore.contracts._otel_helpers.HAS_OTEL", True), \
+             patch("contextcore.contracts._otel_helpers.otel_trace") as mt:
             mt.get_current_span.return_value = span
             emit_convention_result(
                 ConventionValidationResult(passed=True, total_checked=3, violations=0, aliases_resolved=1)
@@ -223,7 +223,7 @@ class TestOtel:
             assert attrs["convention.passed"] is True
 
     def test_no_otel_no_crash(self):
-        with patch("contextcore.contracts.semconv.otel._HAS_OTEL", False):
+        with patch("contextcore.contracts._otel_helpers.HAS_OTEL", False):
             emit_convention_result(
                 ConventionValidationResult(passed=True, total_checked=0, violations=0, aliases_resolved=0)
             )

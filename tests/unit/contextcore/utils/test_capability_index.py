@@ -12,6 +12,7 @@ from contextcore.utils.capability_index import (
     Pattern,
     Principle,
     clear_cache,
+    discover_expansion_pack_metrics,
     load_capability_index,
     match_patterns,
     match_principles,
@@ -270,3 +271,79 @@ class TestMatchPrinciples:
     def test_no_overlap(self):
         result = match_principles(["cap.99"], self.PRINCIPLES)
         assert result == []
+
+
+# ── discover_expansion_pack_metrics ──────────────────────────────
+
+
+class TestDiscoverExpansionPackMetrics:
+    def test_no_expansion_caps(self):
+        """Returns empty dict when no expansion pack capabilities exist."""
+        index = CapabilityIndex(capabilities=[
+            Capability(
+                capability_id="contextcore.insight.emit",
+                triggers=["emit insight"],
+            ),
+        ])
+        result = discover_expansion_pack_metrics(index)
+        assert result == {}
+
+    def test_discovers_beaver_metrics(self):
+        """Discovers beaver metrics from startd8 capabilities."""
+        index = CapabilityIndex(capabilities=[
+            Capability(
+                capability_id="startd8.cost.track",
+                triggers=["cost tracking", "token usage metric"],
+            ),
+            Capability(
+                capability_id="startd8.session.monitor",
+                triggers=["monitor sessions", "session metric"],
+            ),
+            Capability(
+                capability_id="contextcore.insight.emit",
+                triggers=["emit insight"],
+            ),
+        ])
+        result = discover_expansion_pack_metrics(index)
+        assert "beaver" in result
+        assert len(result["beaver"]) >= 1
+
+    def test_empty_index(self):
+        """Returns empty dict for empty index."""
+        index = CapabilityIndex()
+        result = discover_expansion_pack_metrics(index)
+        assert result == {}
+
+    def test_no_metric_triggers(self):
+        """Ignores expansion pack caps without metric-related triggers."""
+        index = CapabilityIndex(capabilities=[
+            Capability(
+                capability_id="startd8.agent.run",
+                triggers=["run agent", "execute task"],
+            ),
+        ])
+        result = discover_expansion_pack_metrics(index)
+        assert result == {}
+
+    def test_contextcore_beaver_prefix(self):
+        """Discovers metrics from contextcore.beaver.* prefix."""
+        index = CapabilityIndex(capabilities=[
+            Capability(
+                capability_id="contextcore.beaver.cost",
+                triggers=["cost metric"],
+            ),
+        ])
+        result = discover_expansion_pack_metrics(index)
+        assert "beaver" in result
+        assert "contextcore_beaver_cost" in result["beaver"]
+
+    def test_deduplicates_metric_names(self):
+        """Same capability_id appears only once even with multiple metric triggers."""
+        index = CapabilityIndex(capabilities=[
+            Capability(
+                capability_id="startd8.cost.track",
+                triggers=["cost metric", "token metric", "usage tracking"],
+            ),
+        ])
+        result = discover_expansion_pack_metrics(index)
+        assert result["beaver"].count("startd8_cost_track") == 1

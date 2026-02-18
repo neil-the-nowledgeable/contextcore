@@ -60,6 +60,9 @@ from .weaver import weaver
 # Phase 3 commands
 from .graph import graph
 
+# Capability index commands
+from .capability_index import capability_index
+
 # TUI commands
 from .tui import tui
 
@@ -114,6 +117,9 @@ main.add_command(graph)
 
 # TUI command group
 main.add_command(tui)
+
+# Capability index command group
+main.add_command(capability_index, name="capability-index")
 
 # Discovery command group
 main.add_command(discovery_group, name="discovery")

@@ -24,9 +24,9 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
-from contextcore.contracts.budget.schema import BudgetPropagationSpec
+from contextcore.contracts.budget.schema import BudgetPropagationSpec, BudgetSpec
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ def _get_records(context: dict[str, Any]) -> list[dict[str, Any]]:
     return context.setdefault(BUDGET_KEY, [])
 
 
-def _find_budget(contract: BudgetPropagationSpec, budget_id: str) -> Any:
+def _find_budget(contract: BudgetPropagationSpec, budget_id: str) -> Optional[BudgetSpec]:
     """Find a BudgetSpec by id, or None."""
     for b in contract.budgets:
         if b.budget_id == budget_id:

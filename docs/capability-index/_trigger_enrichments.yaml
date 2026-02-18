@@ -1,0 +1,22 @@
+# Pipeline-specific trigger enrichments for existing A2A capabilities
+# Source: REQ-CID-003 (REQ_CAPABILITY_INDEX_DISCOVERABILITY.md)
+# These are appended to existing capability triggers by capability_builder.py
+
+trigger_enrichments:
+  contextcore.handoff.initiate:
+    - "stage output contract"
+    - "pipeline stage handoff"
+    - "typed stage output"
+
+  contextcore.a2a.content_model:
+    - "pipeline data model"
+    - "stage output type"
+    - "typed pipeline message"
+
+  contextcore.code_generation.contract:
+    - "pipeline output contract"
+    - "generation size limit"
+
+  contextcore.handoff.receive:
+    - "stage input validation"
+    - "pipeline stage input"

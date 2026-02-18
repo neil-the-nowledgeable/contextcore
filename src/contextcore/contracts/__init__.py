@@ -1,38 +1,39 @@
 """
-Schema contracts for ContextCore telemetry.
+Contract system for ContextCore telemetry and context correctness.
 
-This module provides centralized definitions for:
-- Metric names and prefixes
-- Label names and required labels
-- Event types and attributes
-- Dashboard query builders
-- Core type enums (TaskStatus, Priority, etc.)
+This package provides two complementary systems:
 
-Using these contracts ensures consistency between:
-- Metric emission (TaskTracker, TaskLogger)
-- Dashboard queries (Grafana)
-- Alert rules (Prometheus/Mimir)
-- Log queries (Loki)
+**Telemetry contracts** — centralized definitions for metric names,
+labels, event types, query builders, and type enums used across
+the ContextCore observability stack.
+
+**7-Layer defense-in-depth** — contract domain packages (``L1``–``L7``)
+that enforce context correctness at every layer:
+
+- ``propagation/``     — L1: Context propagation boundary contracts
+- ``schema_compat/``   — L2: Schema compatibility contracts
+- ``semconv/``         — L3: Semantic convention contracts
+- ``ordering/``        — L4: Causal ordering contracts
+- ``capability/``      — L5: Capability propagation contracts
+- ``budget/``          — L6: SLO budget tracking contracts
+- ``lineage/``         — L7: Data lineage contracts
+
+Each domain follows a common structure: ``schema.py`` (Pydantic v2
+models), ``loader.py`` (YAML loading with caching), ``validator.py``
+(contract enforcement), ``tracker.py`` (provenance tracking), and
+``otel.py`` (OTel span event emission).
 
 Example:
     from contextcore.contracts import ProjectSchema, MetricName, TaskStatus
 
-    # Define project schema
-    schema = ProjectSchema(
-        project_id="lm1_campaign",
-        metric_prefix="lm1_",
-    )
+    # Telemetry contracts
+    schema = ProjectSchema(project_id="lm1_campaign", metric_prefix="lm1_")
+    metric = schema.metric(MetricName.PROGRESS)  # "lm1_progress"
 
-    # Get validated metric name
-    metric = schema.metric(MetricName.PROGRESS)
-    # Returns: "lm1_progress"
-
-    # Build query with correct labels
-    query = schema.promql(MetricName.PROGRESS)
-    # Returns: 'lm1_progress{project="lm1_campaign"}'
-
-    # Use canonical status values
-    status = TaskStatus.IN_PROGRESS  # "in_progress"
+    # L5 capability contracts
+    from contextcore.contracts.capability import CapabilityLoader, CapabilityValidator
+    contract = CapabilityLoader().load(Path("pipeline.capability.yaml"))
+    result = CapabilityValidator(contract).validate_entry("implement", context)
 """
 
 from contextcore.contracts.metrics import (

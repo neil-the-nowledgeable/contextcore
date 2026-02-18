@@ -1,11 +1,13 @@
 # Requirements: Capability Delivery Pipeline
 
-**Status:** Draft
-**Date:** 2026-02-16
+**Status:** Draft (partially enabled by capability index tooling)
+**Date:** 2026-02-16 (requirements), 2026-02-17 (partial enablement update)
 **Author:** Force Multiplier Labs
 **Priority Tier:** Tier 1 (pipeline evolution)
 **Predecessor:** Export Pipeline Analysis Guide (`docs/guides/EXPORT_PIPELINE_ANALYSIS_GUIDE.md`)
 **Pipeline version:** 2.0 (Capability Delivery Pipeline)
+
+> **Enablement update (2026-02-17):** `CAPABILITY_INDEX` has been added as a recognized `ArtifactType` in `src/contextcore/models/artifact_manifest.py`, enabling the pipeline to produce capability indexes as first-class artifacts. The `contextcore capability-index build` command can now be invoked as a pipeline stage. Onboarding metadata for `capability_index` artifacts has been added to `src/contextcore/utils/onboarding.py`. The remaining pipeline orchestration requirements (REQ-CDP-001 through REQ-CDP-012) are still draft.
 
 ---
 

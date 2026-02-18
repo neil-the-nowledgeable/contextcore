@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from contextcore.contracts.propagation.otel import (
-    _HAS_OTEL,
     emit_boundary_result,
     emit_chain_result,
     emit_propagation_summary,
@@ -33,8 +32,8 @@ def mock_span():
 @pytest.fixture
 def mock_otel(mock_span):
     """Patch OTel to return our mock span."""
-    with patch("contextcore.contracts.propagation.otel._HAS_OTEL", True), \
-         patch("contextcore.contracts.propagation.otel.otel_trace") as mock_trace:
+    with patch("contextcore.contracts._otel_helpers.HAS_OTEL", True), \
+         patch("contextcore.contracts._otel_helpers.otel_trace") as mock_trace:
         mock_trace.get_current_span.return_value = mock_span
         yield mock_span
 
@@ -87,7 +86,7 @@ class TestEmitBoundaryResult:
 
     def test_no_otel_does_not_crash(self):
         """When OTel is not available, emit_boundary_result should not crash."""
-        with patch("contextcore.contracts.propagation.otel._HAS_OTEL", False):
+        with patch("contextcore.contracts._otel_helpers.HAS_OTEL", False):
             result = ContractValidationResult(
                 passed=True, phase="test", direction="entry",
             )

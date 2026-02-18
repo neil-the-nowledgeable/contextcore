@@ -1,7 +1,7 @@
 # Requirements: Capability Index Discoverability Enhancements
 
-**Status:** Draft
-**Date:** 2026-02-16
+**Status:** Implemented (P1 requirements)
+**Date:** 2026-02-16 (requirements), 2026-02-17 (implementation)
 **Author:** Force Multiplier Labs
 **Priority Tier:** Tier 1 (high value, low complexity)
 **Companion doc:** [Capability Index Gap Analysis](../../capability-index/CAPABILITY_INDEX_GAP_ANALYSIS.md)
@@ -10,6 +10,54 @@
 - `docs/capability-index/contextcore.benefits.yaml`
 - `docs/capability-index/contextcore.user.yaml`
 **Estimated implementation:** ~200 YAML lines + documentation updates
+
+---
+
+## Implementation Status (2026-02-17)
+
+All P1 requirements have been implemented via programmatic capability index generation tooling:
+
+| REQ ID | Priority | Status | Implementation |
+|--------|----------|--------|----------------|
+| REQ-CID-001 | P1 | **Implemented** | 9 design principles in `contextcore.agent.yaml` via `_principles.yaml` sidecar |
+| REQ-CID-002 | P1 | **Implemented** | 6 communication patterns in `contextcore.agent.yaml` via `_patterns.yaml` sidecar |
+| REQ-CID-003 | P1 | **Implemented** | 10 pipeline triggers across 4 capabilities via `_trigger_enrichments.yaml` |
+| REQ-CID-004 | P2 | Not started | Pipeline typed handoff capability entry |
+| REQ-CID-005 | P2 | Not started | ExpectedOutput promoted to discoverable capability |
+| REQ-CID-006 | P2 | Not started | Structured authority meta-capability |
+| REQ-CID-007 | P1 | Not started | Cross-reference from Export Pipeline Analysis Guide |
+| REQ-CID-008 | P3 | Not started | Discovery paths on capability entries |
+| REQ-CID-009 | P3 | Not started | Capability index navigation skill |
+| REQ-CID-010 | P1 | **Implemented** | All pre-existing capability IDs preserved; version bumped 1.10.1→1.12.0 |
+| REQ-CID-011 | P1 | **Implemented** | 7 `contextcore.contract.*` capabilities scanned from `src/contextcore/contracts/` |
+| REQ-CID-012 | P1 | **Implemented** | 6 A2A governance capabilities (4 contracts + 2 gates) |
+
+### Tooling implemented
+
+| Module | Purpose |
+|--------|---------|
+| `src/contextcore/utils/capability_scanner.py` | Scans `contracts/` directories to discover L1-L7 and A2A capabilities |
+| `src/contextcore/utils/capability_builder.py` | Merges scanned + hand-authored + sidecar content, bumps version |
+| `src/contextcore/utils/capability_validator.py` | Schema validation + REQ-CID acceptance criteria (220/230 checks) |
+| `src/contextcore/cli/capability_index.py` | CLI: `contextcore capability-index build \| validate \| diff` |
+| `docs/capability-index/_principles.yaml` | 9 design principles (REQ-CID-001) |
+| `docs/capability-index/_patterns.yaml` | 6 communication patterns (REQ-CID-002) |
+| `docs/capability-index/_trigger_enrichments.yaml` | Pipeline triggers for 4 capabilities (REQ-CID-003) |
+
+### Pipeline integration
+
+- `CAPABILITY_INDEX` added to `ArtifactType` enum in `src/contextcore/models/artifact_manifest.py`
+- Onboarding metadata enriched for `capability_index` artifact type in `src/contextcore/utils/onboarding.py`
+- 84 unit tests across scanner (19), builder (17), validator (32), existing loader (16)
+
+### Manifest state
+
+- Version: **1.12.0** (from 1.10.1)
+- Capabilities: **47** (34 original + 13 added by scanner)
+- Design principles: **9**
+- Communication patterns: **6**
+- Trigger enrichments: **10** new triggers across 4 capabilities
+- Validation: 220/230 checks pass (10 warnings from pre-existing categories/maturities)
 
 ---
 

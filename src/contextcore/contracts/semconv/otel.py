@@ -20,25 +20,10 @@ from __future__ import annotations
 
 import logging
 
+from contextcore.contracts._otel_helpers import add_span_event
 from contextcore.contracts.semconv.validator import ConventionValidationResult
 
-try:
-    from opentelemetry import trace as otel_trace
-
-    _HAS_OTEL = True
-except ImportError:  # pragma: no cover
-    _HAS_OTEL = False
-
 logger = logging.getLogger(__name__)
-
-
-def _add_span_event(name: str, attributes: dict[str, str | int | float | bool]) -> None:
-    """Add an event to the current OTel span if available."""
-    if not _HAS_OTEL:
-        return
-    span = otel_trace.get_current_span()
-    if span and span.is_recording():
-        span.add_event(name=name, attributes=attributes)
 
 
 def emit_convention_result(result: ConventionValidationResult) -> None:
@@ -67,7 +52,7 @@ def emit_convention_result(result: ConventionValidationResult) -> None:
             result.aliases_resolved,
         )
 
-    _add_span_event("convention.validation.complete", attrs)
+    add_span_event("convention.validation.complete", attrs)
 
 
 def emit_alias_detected(original: str, canonical: str) -> None:
@@ -86,4 +71,4 @@ def emit_alias_detected(original: str, canonical: str) -> None:
         canonical,
     )
 
-    _add_span_event("convention.alias.detected", attrs)
+    add_span_event("convention.alias.detected", attrs)

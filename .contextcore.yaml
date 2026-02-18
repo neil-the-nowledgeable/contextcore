@@ -1,6 +1,6 @@
 # ContextCore Project Context
 # This file defines project metadata that Claude Code uses for context-aware assistance
-# Updated: 2026-02-04
+# Updated: 2026-02-17
 
 # =============================================================================
 # ENVIRONMENT QUICK REFERENCE
@@ -56,10 +56,24 @@ status:
     - "Created scripts/validate_dependencies.py (CI validation for dependency manifests)"
     - "Added .pre-commit-config.yaml with dashboard dependency scanning hook"
     - "Added GitHub Actions workflow for dependency validation on PR"
+    - "Implemented programmatic capability index generation (scanner, builder, validator, CLI)"
+    - "Added capability_scanner.py — discovers 7 contract domains + 6 A2A governance capabilities from source"
+    - "Added capability_builder.py — merges scanned + hand-authored + REQ-CID sidecar content"
+    - "Added capability_validator.py — schema + REQ-CID acceptance validation (220/230 checks pass)"
+    - "Added CLI: contextcore capability-index build|validate|diff"
+    - "Enhanced contextcore.agent.yaml: 47 capabilities (was 34), 9 principles, 6 patterns, v1.12.0"
+    - "Added CAPABILITY_INDEX to ArtifactType enum for pipeline recognition"
+    - "Added capability_index artifact type to onboarding metadata (parameter sources, examples)"
+    - "REQ-CID P1 requirements implemented: 001, 002, 003, 010, 011, 012"
+    - "84 new unit tests across capability index tooling modules"
+    - "Validated end-to-end with microservices demo dataset (Online Boutique)"
   nextSteps:
     - "Consolidate DEV and TEST environments into single deployment source"
     - "Add runtime GrafanaPluginRequirement to contextcore install verify"
     - "Create Agent Handoffs dashboard (handoff.* + gen_ai.tool.*)"
+    - "Implement REQ-CID P2 requirements (004, 005, 006) — pipeline typed handoff, ExpectedOutput, structured authority"
+    - "Implement REQ-CID-007 — cross-reference from Export Pipeline Analysis Guide"
+    - "Implement REQ-CAP-002 through REQ-CAP-010 — capability-aware init/export pipeline"
 
 business:
   criticality: critical

@@ -229,14 +229,14 @@ class TestOtel:
     def test_emit_ordering_result(self):
         span = MagicMock()
         span.is_recording.return_value = True
-        with patch("contextcore.contracts.ordering.otel._HAS_OTEL", True), \
-             patch("contextcore.contracts.ordering.otel.otel_trace") as mt:
+        with patch("contextcore.contracts._otel_helpers.HAS_OTEL", True), \
+             patch("contextcore.contracts._otel_helpers.otel_trace") as mt:
             mt.get_current_span.return_value = span
             emit_ordering_result(OrderingValidationResult(passed=True, total_checked=2, violations=0))
             span.add_event.assert_called_once()
 
     def test_no_otel_no_crash(self):
-        with patch("contextcore.contracts.ordering.otel._HAS_OTEL", False):
+        with patch("contextcore.contracts._otel_helpers.HAS_OTEL", False):
             emit_ordering_result(OrderingValidationResult(passed=True, total_checked=0, violations=0))
             emit_ordering_violation(OrderingCheckResult(
                 dependency=_dep(), satisfied=False, before_ts=None, after_ts=None, message="test",

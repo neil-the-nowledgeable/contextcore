@@ -1,0 +1,62 @@
+# Communication Patterns for ContextCore Agent Capability Index
+# Source: REQ-CID-002 (REQ_CAPABILITY_INDEX_DISCOVERABILITY.md)
+# These are injected into contextcore.agent.yaml by capability_builder.py
+
+patterns:
+  - pattern_id: typed_handoff
+    name: "Typed Handoff"
+    summary: "Define output contracts, produce Part-based output, validate at boundary"
+    capabilities:
+      - contextcore.handoff.initiate
+      - contextcore.a2a.content_model
+      - contextcore.code_generation.contract
+    anti_pattern: "String-based context propagation with regex parsing"
+
+  - pattern_id: insight_accumulation
+    name: "Insight Accumulation"
+    summary: "Emit insights as spans, query accumulated knowledge, compound over time"
+    capabilities:
+      - contextcore.insight.emit
+      - contextcore.insight.query
+    anti_pattern: "Storing knowledge in chat transcripts or session logs"
+
+  - pattern_id: constraint_gated
+    name: "Constraint-Gated Execution"
+    summary: "Read constraints before acting, validate compliance, emit decisions"
+    capabilities:
+      - contextcore.guidance.read_constraints
+      - contextcore.insight.emit
+    anti_pattern: "Ignoring governance rules or hardcoding them in prompts"
+
+  - pattern_id: pipeline_communication
+    name: "Pipeline Communication"
+    summary: "Stages declare typed contracts, produce Part-based output, gates validate at boundaries"
+    capabilities:
+      - contextcore.handoff.initiate
+      - contextcore.a2a.content_model
+    anti_pattern: "Passing untyped strings between pipeline stages and parsing with regex"
+
+  - pattern_id: contract_validation
+    name: "Contract Validation (Defense-in-Depth)"
+    summary: "Declare contracts in YAML, validate at boundaries, track provenance, emit OTel events"
+    capabilities:
+      - contextcore.contract.propagation
+      - contextcore.contract.schema_compat
+      - contextcore.contract.semantic_convention
+      - contextcore.contract.causal_ordering
+      - contextcore.contract.capability_propagation
+      - contextcore.contract.slo_budget
+      - contextcore.contract.data_lineage
+    anti_pattern: "Propagating context through service boundaries without boundary validation or provenance tracking"
+
+  - pattern_id: a2a_governance
+    name: "A2A Governance"
+    summary: "Typed contracts at pipeline export boundaries with integrity gates and diagnostic checks"
+    capabilities:
+      - contextcore.a2a.contract.task_span
+      - contextcore.a2a.contract.handoff
+      - contextcore.a2a.contract.artifact_intent
+      - contextcore.a2a.contract.gate_result
+      - contextcore.a2a.gate.pipeline_integrity
+      - contextcore.a2a.gate.diagnostic
+    anti_pattern: "Exporting pipeline artifacts without structural integrity checks or typed contracts"

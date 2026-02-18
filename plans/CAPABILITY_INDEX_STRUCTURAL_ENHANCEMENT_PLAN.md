@@ -1,11 +1,13 @@
 # Capability Index Structural Enhancement Plan
 
-**Date:** 2026-02-13 (updated 2026-02-16)
-**Status:** Draft — Requirements Formalized
+**Date:** 2026-02-13 (updated 2026-02-17)
+**Status:** Implemented — P1 Requirements Complete
 **Author:** Analysis collaboration (human + agent)
 **Prerequisite Reading:** `docs/capability-index/CAPABILITY_INDEX_GAP_ANALYSIS.md`
 **Requirements Document:** [`docs/design/requirements/REQ_CAPABILITY_INDEX_DISCOVERABILITY.md`](../docs/design/requirements/REQ_CAPABILITY_INDEX_DISCOVERABILITY.md) — 12 formal requirements (REQ-CID-001 through REQ-CID-012)
 **Relates to:** Coyote Modular Pipeline Design (`wayfinder/contextcore-coyote/docs/MODULAR_PIPELINE_DESIGN.md`)
+
+> **Implementation completed 2026-02-17.** All P1 requirements (REQ-CID-001, 002, 003, 010, 011, 012) implemented via programmatic capability index generation tooling. The manifest is now at v1.12.0 with 47 capabilities, 9 design principles, 6 communication patterns, and enriched pipeline triggers. See `contextcore capability-index build` for regeneration. P2/P3 requirements remain open.
 
 ---
 
@@ -49,20 +51,20 @@ This plan's formal requirements are defined in the companion document
 [REQ_CAPABILITY_INDEX_DISCOVERABILITY.md](../docs/design/requirements/REQ_CAPABILITY_INDEX_DISCOVERABILITY.md).
 Summary:
 
-| ID | Priority | Description |
-|-----|----------|-------------|
-| REQ-CID-001 | P1 | Design principles section (9 principles) |
-| REQ-CID-002 | P1 | Communication patterns section (5+ patterns) |
-| REQ-CID-003 | P1 | Pipeline-specific triggers on A2A capabilities |
-| REQ-CID-004 | P2 | Pipeline typed handoff capability entry |
-| REQ-CID-005 | P2 | ExpectedOutput promoted to discoverable capability |
-| REQ-CID-006 | P2 | Structured authority meta-capability |
-| REQ-CID-007 | P1 | Cross-reference from Export Pipeline Analysis Guide |
-| REQ-CID-008 | P3 | Discovery paths on capability entries |
-| REQ-CID-009 | P3 | Capability index navigation skill |
-| REQ-CID-010 | P1 | Backward compatibility guarantee |
-| REQ-CID-011 | P1 | 7 contract layer capabilities in agent manifest |
-| REQ-CID-012 | P1 | 6 A2A governance contract capabilities |
+| ID | Priority | Description | Status |
+|-----|----------|-------------|--------|
+| REQ-CID-001 | P1 | Design principles section (9 principles) | **Implemented** |
+| REQ-CID-002 | P1 | Communication patterns section (6 patterns) | **Implemented** |
+| REQ-CID-003 | P1 | Pipeline-specific triggers on A2A capabilities | **Implemented** |
+| REQ-CID-004 | P2 | Pipeline typed handoff capability entry | Not started |
+| REQ-CID-005 | P2 | ExpectedOutput promoted to discoverable capability | Not started |
+| REQ-CID-006 | P2 | Structured authority meta-capability | Not started |
+| REQ-CID-007 | P1 | Cross-reference from Export Pipeline Analysis Guide | Not started |
+| REQ-CID-008 | P3 | Discovery paths on capability entries | Not started |
+| REQ-CID-009 | P3 | Capability index navigation skill | Not started |
+| REQ-CID-010 | P1 | Backward compatibility guarantee | **Implemented** |
+| REQ-CID-011 | P1 | 7 contract layer capabilities in agent manifest | **Implemented** |
+| REQ-CID-012 | P1 | 6 A2A governance contract capabilities | **Implemented** |
 
 ---
 
@@ -108,7 +110,7 @@ All structural enhancements are **additive**. No existing fields are removed or 
 
 | File | `manifest_id` | Version | Entries | Purpose |
 |------|---------------|---------|---------|---------|
-| `contextcore.agent.yaml` | `contextcore.agent` | 1.10.1 | 38 capabilities | Agent-facing capabilities |
+| `contextcore.agent.yaml` | `contextcore.agent` | 1.12.0 | 47 capabilities, 9 principles, 6 patterns | Agent-facing capabilities (enhanced 2026-02-17) |
 | `contextcore.user.yaml` | `contextcore.user` | 1.3.1 | ~15 capabilities | User/GTM-facing capabilities |
 | `contextcore.benefits.yaml` | `contextcore.benefits` | 1.7.1 | ~25 benefits | Value statements per persona |
 | `contextcore.pain_points.yaml` | `contextcore.pain_points` | 2.2.0 | Pain points per persona | Cost/ROI quantification |
@@ -158,12 +160,12 @@ All structural enhancements are **additive**. No existing fields are removed or 
 
 | Element | Current State | Impact |
 |---------|--------------|--------|
-| Design principles | Not in index | Can't discover *why* capabilities are designed the way they are |
-| Named patterns | Not in index | Can't discover *how* capabilities compose into solutions |
+| Design principles | **9 principles added (2026-02-17)** | Agents can now discover governing principles via `design_principles` section |
+| Named patterns | **6 patterns added (2026-02-17)** | Agents can discover capability composition via `patterns` section |
 | Cross-references between capabilities | Not in index | Can't discover *what goes together* |
-| Problem-centric triggers | Only verb-centric triggers exist | Can't enter from "I have this problem" |
-| Discovery paths per capability | Not in index | Can't reach capabilities from unfamiliar entry points |
-| Index self-description | Not in index | Index can't explain its own value |
+| Problem-centric triggers | **10 pipeline triggers added (2026-02-17)** | Pipeline-oriented agents now find A2A primitives |
+| Discovery paths per capability | Not in index (REQ-CID-008, P3) | Can't reach capabilities from unfamiliar entry points |
+| Index self-description | Not in index (REQ-CID-006, P2) | Index can't explain its own value |
 
 ---
 

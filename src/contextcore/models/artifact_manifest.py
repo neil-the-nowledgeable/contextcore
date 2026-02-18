@@ -35,6 +35,7 @@ class ArtifactType(str, Enum):
     NOTIFICATION_POLICY = "notification_policy"
     RUNBOOK = "runbook"
     ALERT_TEMPLATE = "alert_template"
+    CAPABILITY_INDEX = "capability_index"
 
 
 class ArtifactPriority(str, Enum):

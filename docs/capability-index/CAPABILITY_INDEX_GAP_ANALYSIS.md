@@ -1,8 +1,11 @@
 # Capability Index Gap Analysis: A2A Communication Discoverability
 
 **Date:** 2026-02-13
+**Status:** Partially Resolved (2026-02-17)
 **Trigger:** While designing Coyote modular pipeline, the A2A typed communication primitives (Part, Message, Handoff, ExpectedOutput) were the exact solution needed but were NOT discovered during initial plan analysis. They were only found via manual code exploration.
 **Question:** Why didn't the capability-index surface these assets during analysis? What needs to change?
+
+> **Resolution status (2026-02-17):** Gaps 1, 3, and 5 have been addressed by the capability index generation tooling. The manifest now contains 9 design principles (including `typed_over_prose`), 6 communication patterns (including `pipeline_communication` and `contract_validation`), 10 enriched pipeline triggers, 7 contract layer capabilities, and 6 A2A governance capabilities. Gap 2 (pipeline communication capability) and Gap 4 (ExpectedOutput promotion) remain as P2 requirements (REQ-CID-004, REQ-CID-005). See `contextcore capability-index build` for regeneration.
 
 ---
 

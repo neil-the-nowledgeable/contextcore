@@ -1,7 +1,7 @@
 """
 OTel span event emission helpers for data lineage tracking.
 
-Follows the ``_add_span_event()`` pattern from ``propagation/otel.py``.
+Follows the ``add_span_event()`` pattern from ``propagation/otel.py``.
 All functions are guarded by ``_HAS_OTEL`` so they degrade gracefully
 when OTel is not installed.
 
@@ -22,27 +22,12 @@ from __future__ import annotations
 
 import logging
 
+from contextcore.contracts._otel_helpers import add_span_event
 from contextcore.contracts.lineage.auditor import LineageAuditResult, LineageAuditSummary
 from contextcore.contracts.lineage.tracker import TransformationRecord
 from contextcore.contracts.types import LineageStatus
 
-try:
-    from opentelemetry import trace as otel_trace
-
-    _HAS_OTEL = True
-except ImportError:  # pragma: no cover
-    _HAS_OTEL = False
-
 logger = logging.getLogger(__name__)
-
-
-def _add_span_event(name: str, attributes: dict[str, str | int | float | bool]) -> None:
-    """Add an event to the current OTel span if available."""
-    if not _HAS_OTEL:
-        return
-    span = otel_trace.get_current_span()
-    if span and span.is_recording():
-        span.add_event(name=name, attributes=attributes)
 
 
 def emit_transformation(field: str, record: TransformationRecord) -> None:
@@ -66,7 +51,7 @@ def emit_transformation(field: str, record: TransformationRecord) -> None:
         record.operation.value,
     )
 
-    _add_span_event("lineage.stage.recorded", attrs)
+    add_span_event("lineage.stage.recorded", attrs)
 
 
 def emit_audit_result(result: LineageAuditResult) -> None:
@@ -98,7 +83,7 @@ def emit_audit_result(result: LineageAuditResult) -> None:
     else:
         logger.debug("Lineage chain %s: verified", result.chain_id)
 
-    _add_span_event(event_name, attrs)
+    add_span_event(event_name, attrs)
 
 
 def emit_audit_summary(result: LineageAuditSummary) -> None:
@@ -127,4 +112,4 @@ def emit_audit_summary(result: LineageAuditSummary) -> None:
         result.broken_count,
     )
 
-    _add_span_event("lineage.audit.complete", attrs)
+    add_span_event("lineage.audit.complete", attrs)

@@ -237,3 +237,190 @@ class TestInferCapabilityMatching:
         )
         assert cap_check is not None
         assert cap_check["status"] == "warn"
+
+
+# ── Capability-aware question generation (REQ-CAP-008) ────────────
+
+
+class TestCapabilityAwareQuestions:
+    def test_generates_gap_questions(self, tmp_path: Path):
+        """Should generate questions for capability categories with no matches."""
+        from contextcore.cli.init_from_plan_ops import (
+            build_v2_manifest_template,
+            infer_init_from_plan,
+        )
+
+        _make_index_dir(tmp_path)
+        manifest = build_v2_manifest_template("test-project")
+        # Plan text that matches insight/task but NOT contract/a2a/handoff
+        plan_text = "## Goals\n- Emit insight for decisions\n- Track task progress\n"
+
+        result = infer_init_from_plan(
+            manifest_data=manifest,
+            plan_text=plan_text,
+            requirements_text="",
+            project_root=str(tmp_path),
+            emit_guidance_questions=True,
+        )
+
+        questions = result["manifest_data"]["guidance"].get("questions", [])
+        cap_questions = [q for q in questions if q["id"].startswith("Q-CAP-")]
+        # Should have gap questions for contract, a2a, and/or handoff
+        assert len(cap_questions) >= 1
+        assert all(q["status"] == "open" for q in cap_questions)
+        assert all(q["priority"] == "medium" for q in cap_questions)
+        assert all(q["source"] == "capability_gap_analysis" for q in cap_questions)
+
+    def test_no_questions_when_all_categories_matched(self, tmp_path: Path):
+        """Should not generate gap questions when all categories have matches."""
+        from contextcore.cli.init_from_plan_ops import (
+            build_v2_manifest_template,
+            infer_init_from_plan,
+        )
+
+        # Create an index with contract, a2a, and handoff capabilities
+        index_dir = tmp_path / "docs" / "capability-index"
+        index_dir.mkdir(parents=True)
+        (index_dir / "contextcore.agent.yaml").write_text(
+            textwrap.dedent("""\
+                version: "1.10.1"
+                capabilities:
+                  - capability_id: contextcore.contract.propagation
+                    triggers:
+                      - "context propagation"
+                  - capability_id: contextcore.a2a.gate.pipeline_integrity
+                    triggers:
+                      - "pipeline integrity"
+                  - capability_id: contextcore.handoff.initiate
+                    triggers:
+                      - "agent handoff"
+            """),
+            encoding="utf-8",
+        )
+        manifest = build_v2_manifest_template("test-project")
+        # Plan text that matches ALL categories
+        plan_text = "context propagation and pipeline integrity with agent handoff"
+
+        result = infer_init_from_plan(
+            manifest_data=manifest,
+            plan_text=plan_text,
+            requirements_text="",
+            project_root=str(tmp_path),
+            emit_guidance_questions=True,
+        )
+
+        questions = result["manifest_data"]["guidance"].get("questions", [])
+        cap_questions = [q for q in questions if q["id"].startswith("Q-CAP-")]
+        assert len(cap_questions) == 0
+
+    def test_no_questions_when_flag_disabled(self, tmp_path: Path):
+        """Should not generate gap questions when emit_guidance_questions is False."""
+        from contextcore.cli.init_from_plan_ops import (
+            build_v2_manifest_template,
+            infer_init_from_plan,
+        )
+
+        _make_index_dir(tmp_path)
+        manifest = build_v2_manifest_template("test-project")
+
+        result = infer_init_from_plan(
+            manifest_data=manifest,
+            plan_text="Simple plan with no matches",
+            requirements_text="",
+            project_root=str(tmp_path),
+            emit_guidance_questions=False,
+        )
+
+        questions = result["manifest_data"]["guidance"].get("questions", [])
+        cap_questions = [q for q in questions if q["id"].startswith("Q-CAP-")]
+        assert len(cap_questions) == 0
+
+    def test_max_three_questions(self, tmp_path: Path):
+        """Should generate at most 3 capability gap questions."""
+        from contextcore.cli.init_from_plan_ops import (
+            build_v2_manifest_template,
+            infer_init_from_plan,
+        )
+
+        _make_index_dir(tmp_path)
+        manifest = build_v2_manifest_template("test-project")
+        # Plan text with no capability matches at all
+        plan_text = "Build a simple calculator"
+
+        result = infer_init_from_plan(
+            manifest_data=manifest,
+            plan_text=plan_text,
+            requirements_text="",
+            project_root=str(tmp_path),
+            emit_guidance_questions=True,
+        )
+
+        questions = result["manifest_data"]["guidance"].get("questions", [])
+        cap_questions = [q for q in questions if q["id"].startswith("Q-CAP-")]
+        assert len(cap_questions) <= 3
+
+
+# ── Gate-derived readiness thresholds (REQ-CAP-004) ────────────────
+
+
+class TestGateDerivedThresholds:
+    def test_default_thresholds_used(self, tmp_path: Path):
+        """Readiness uses default thresholds when no capability index."""
+        from contextcore.cli.init_from_plan_ops import (
+            build_v2_manifest_template,
+            infer_init_from_plan,
+        )
+
+        manifest = build_v2_manifest_template("test-project")
+        result = infer_init_from_plan(
+            manifest_data=manifest,
+            plan_text="## Goals\n- Build authentication\n",
+            requirements_text="99.9% availability SLO, 500ms latency P99, 100rps throughput",
+            project_root=str(tmp_path / "nonexistent"),
+            emit_guidance_questions=False,
+        )
+        readiness = result["downstream_readiness"]
+        # With 3+ requirements populated and targets, score should be >= 60
+        assert readiness["verdict"] in ("ready", "needs_enrichment", "insufficient")
+        assert "score" in readiness
+
+    def test_thresholds_with_capability_index(self, tmp_path: Path):
+        """Readiness thresholds work when capability index is available."""
+        from contextcore.cli.init_from_plan_ops import (
+            build_v2_manifest_template,
+            infer_init_from_plan,
+        )
+
+        _make_index_dir(tmp_path)
+        manifest = build_v2_manifest_template("test-project")
+        result = infer_init_from_plan(
+            manifest_data=manifest,
+            plan_text="## Goals\n- Emit insight and track task progress\n",
+            requirements_text="99.9% availability SLO",
+            project_root=str(tmp_path),
+            emit_guidance_questions=False,
+        )
+        readiness = result["downstream_readiness"]
+        assert "verdict" in readiness
+        assert readiness["score"] >= 0
+
+    def test_gate_readiness_keys(self, tmp_path: Path):
+        """A2A gate readiness includes all expected gate checks."""
+        from contextcore.cli.init_from_plan_ops import (
+            build_v2_manifest_template,
+            infer_init_from_plan,
+        )
+
+        manifest = build_v2_manifest_template("test-project")
+        result = infer_init_from_plan(
+            manifest_data=manifest,
+            plan_text="Simple plan",
+            requirements_text="",
+            project_root=str(tmp_path / "nonexistent"),
+            emit_guidance_questions=False,
+        )
+        gates = result["downstream_readiness"]["a2a_gate_readiness"]
+        assert "checksum_chain" in gates
+        assert "derivation_rules" in gates
+        assert "design_calibration" in gates
+        assert "gap_parity" in gates

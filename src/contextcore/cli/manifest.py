@@ -1833,7 +1833,8 @@ def export(
         # 2. Generate Artifact Manifest
         # Implementation-specific metrics from expansion packs are injected
         # here at the CLI layer, keeping the core model standard-agnostic.
-        _beaver_metrics = {
+        # REQ-CAP-007: Try capability-derived metrics first, fall back to hardcoded.
+        _beaver_metrics_fallback = {
             "beaver": [
                 "startd8_active_sessions",
                 "startd8_requests_total",
@@ -1844,10 +1845,28 @@ def export(
                 "startd8_cost_total",
             ],
         }
+        _extra_metrics = _beaver_metrics_fallback
+        _cap_index_dir_for_metrics = Path(path).resolve().parent / "docs" / "capability-index"
+        _cap_index_dir_for_metrics_str = (
+            str(_cap_index_dir_for_metrics) if _cap_index_dir_for_metrics.is_dir() else None
+        )
+        if _cap_index_dir_for_metrics_str:
+            try:
+                from contextcore.utils.capability_index import (
+                    load_capability_index,
+                    discover_expansion_pack_metrics,
+                )
+                _cap_idx = load_capability_index(Path(_cap_index_dir_for_metrics_str))
+                if not _cap_idx.is_empty:
+                    _discovered = discover_expansion_pack_metrics(_cap_idx)
+                    if _discovered:
+                        _extra_metrics = _discovered
+            except Exception:
+                pass  # Fall back to hardcoded
         artifact_manifest = manifest.generate_artifact_manifest(
             source_path=str(path),
             existing_artifacts=existing_artifacts,
-            extra_metrics=_beaver_metrics,
+            extra_metrics=_extra_metrics,
         )
         if deterministic_output:
             artifact_manifest.artifacts = sorted(

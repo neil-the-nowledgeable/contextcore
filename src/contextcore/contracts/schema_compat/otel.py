@@ -1,7 +1,7 @@
 """
 OTel span event emission helpers for schema compatibility checks.
 
-Follows the ``_add_span_event()`` pattern from ``propagation/otel.py``.
+Follows the ``add_span_event()`` pattern from ``propagation/otel.py``.
 All functions are guarded by ``_HAS_OTEL`` so they degrade gracefully
 when OTel is not installed.
 
@@ -22,28 +22,13 @@ from __future__ import annotations
 
 import logging
 
+from contextcore.contracts._otel_helpers import add_span_event
 from contextcore.contracts.schema_compat.schema import (
     CompatibilityResult,
     EvolutionCheckResult,
 )
 
-try:
-    from opentelemetry import trace as otel_trace
-
-    _HAS_OTEL = True
-except ImportError:  # pragma: no cover
-    _HAS_OTEL = False
-
 logger = logging.getLogger(__name__)
-
-
-def _add_span_event(name: str, attributes: dict[str, str | int | float | bool]) -> None:
-    """Add an event to the current OTel span if available."""
-    if not _HAS_OTEL:
-        return
-    span = otel_trace.get_current_span()
-    if span and span.is_recording():
-        span.add_event(name=name, attributes=attributes)
 
 
 def emit_compatibility_check(result: CompatibilityResult) -> None:
@@ -77,7 +62,7 @@ def emit_compatibility_check(result: CompatibilityResult) -> None:
             len(result.drift_details),
         )
 
-    _add_span_event("schema.compatibility.check", attrs)
+    add_span_event("schema.compatibility.check", attrs)
 
 
 def emit_compatibility_drift(
@@ -107,7 +92,7 @@ def emit_compatibility_drift(
         drift_type,
     )
 
-    _add_span_event("schema.compatibility.drift", attrs)
+    add_span_event("schema.compatibility.drift", attrs)
 
 
 def emit_compatibility_breaking(
@@ -137,4 +122,4 @@ def emit_compatibility_breaking(
         change.get("field", ""),
     )
 
-    _add_span_event("schema.compatibility.breaking", attrs)
+    add_span_event("schema.compatibility.breaking", attrs)

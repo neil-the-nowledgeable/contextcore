@@ -7,7 +7,7 @@ deterministic trigger/pattern/principle matching for manifest enrichment.
 Used by:
 - contextcore manifest init (REQ-CAP-002)
 - contextcore manifest init-from-plan (REQ-CAP-003)
-- contextcore manifest export (REQ-CAP-005, REQ-CAP-006)
+- contextcore manifest export (REQ-CAP-005, REQ-CAP-006, REQ-CAP-007)
 - run provenance (REQ-CAP-009)
 """
 
@@ -201,6 +201,44 @@ def match_principles(
     """Return principles whose applies_to list overlaps with *capability_ids*."""
     id_set = set(capability_ids)
     return [p for p in principles if id_set & set(p.applies_to)]
+
+
+def discover_expansion_pack_metrics(index: CapabilityIndex) -> Dict[str, List[str]]:
+    """Discover expansion pack metrics from capability index.
+
+    Looks for capabilities whose capability_id starts with known expansion pack
+    prefixes and whose triggers mention metrics. Returns a dict mapping pack
+    name to list of metric names.
+
+    Falls back to empty dict if no metrics found.
+
+    REQ-CAP-007: Capability-derived expansion pack metrics.
+    """
+    # Known expansion pack prefixes
+    pack_prefixes = {
+        "startd8.": "beaver",
+        "contextcore.beaver.": "beaver",
+    }
+
+    metrics: Dict[str, List[str]] = {}
+
+    for cap in index.capabilities:
+        for prefix, pack_name in pack_prefixes.items():
+            if cap.capability_id.startswith(prefix):
+                # Check triggers for metric-related keywords
+                for trigger in cap.triggers:
+                    trigger_lower = trigger.lower()
+                    if any(kw in trigger_lower for kw in ("metric", "cost", "token", "usage")):
+                        # This capability is metric-related
+                        if pack_name not in metrics:
+                            metrics[pack_name] = []
+                        # Extract metric name from capability_id
+                        metric_name = cap.capability_id.replace(".", "_")
+                        if metric_name not in metrics[pack_name]:
+                            metrics[pack_name].append(metric_name)
+                        break
+
+    return metrics
 
 
 def clear_cache() -> None:

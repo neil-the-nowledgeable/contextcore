@@ -1,0 +1,132 @@
+# Design Principles for ContextCore Agent Capability Index
+# Source: REQ-CID-001 (REQ_CAPABILITY_INDEX_DISCOVERABILITY.md)
+# These are injected into contextcore.agent.yaml by capability_builder.py
+
+design_principles:
+  - id: typed_over_prose
+    principle: "All inter-agent data exchange uses typed schemas, not natural language parsing"
+    rationale: |
+      Structured data eliminates version drift, format ambiguity, and regex fragility.
+      ExpectedOutput.fields replaces regex section extraction.
+      Part.json_data() replaces string interpolation.
+      Time-series databases make structured data queryable over time.
+    anti_patterns:
+      - "Parsing LLM markdown output with regex to extract structured fields"
+      - "Passing strings between pipeline stages instead of typed objects"
+      - "Using document sections as the contract between agents"
+    applies_to:
+      - contextcore.handoff.initiate
+      - contextcore.a2a.content_model
+      - contextcore.code_generation.contract
+
+  - id: prescriptive_over_descriptive
+    principle: "Declare what should happen and verify it did, rather than recording what happened after the fact"
+    rationale: |
+      Traditional observability describes what happened. ContextCore prescribes what
+      should happen and verifies that it did. Contracts are the prescriptions.
+      This shifts context correctness from runtime hope to design-time guarantee.
+    anti_patterns:
+      - "Relying on post-hoc log analysis to detect context loss"
+      - "Observing failures after they reach production instead of preventing them at design time"
+    applies_to:
+      - contextcore.contract.propagation
+      - contextcore.contract.schema_compat
+      - contextcore.contract.semantic_convention
+
+  - id: design_time_over_runtime
+    principle: "Catch context correctness issues when the pipeline is designed, not when it fails in production"
+    rationale: |
+      YAML contracts are reviewed in PRs alongside code. Static analysis
+      walks the requires/produces graph before any workflow runs.
+    anti_patterns:
+      - "Discovering context propagation failures only in production"
+      - "Testing contract compatibility only during integration testing"
+    applies_to:
+      - contextcore.contract.propagation
+      - contextcore.contract.schema_compat
+
+  - id: graceful_degradation
+    principle: "Not all context fields are equally critical; the severity model (BLOCKING/WARNING/ADVISORY) mirrors real system priorities"
+    rationale: |
+      Some fields are load-bearing (task list), some are quality-enhancing
+      (domain constraints), some are diagnostic aids (debug metadata).
+      The severity model enables progressive tightening without all-or-nothing adoption.
+    anti_patterns:
+      - "Treating all context fields as equally critical (fail-fast on everything)"
+      - "Treating all context fields as non-critical (ignore all failures)"
+    applies_to:
+      - contextcore.contract.propagation
+      - contextcore.contract.capability_propagation
+      - contextcore.contract.slo_budget
+
+  - id: composable_primitives
+    principle: "Every contract layer uses the same four primitives: Declare, Validate, Track, Emit"
+    rationale: |
+      New layers are new contract types plugged into the same framework, not new frameworks.
+      The shared primitives ensure consistency across all 7 defense-in-depth layers.
+    anti_patterns:
+      - "Building a custom validation framework for each new contract type"
+      - "Inconsistent checking approaches across different boundary types"
+    applies_to:
+      - contextcore.contract.propagation
+      - contextcore.contract.schema_compat
+      - contextcore.contract.causal_ordering
+      - contextcore.contract.data_lineage
+
+  - id: opt_in_over_mandatory
+    principle: "Every layer is opt-in; existing systems work unchanged; contracts add verification on top"
+    rationale: |
+      Progressive adoption without breaking existing systems. Start with detection,
+      add contracts when ready, get prevention for free. Mirrors TypeScript's adoption
+      path — you don't need strict mode on day one.
+    anti_patterns:
+      - "Requiring all services to adopt contracts simultaneously"
+      - "Breaking existing pipelines when adding contract validation"
+    applies_to:
+      - contextcore.contract.propagation
+      - contextcore.contract.schema_compat
+
+  - id: observable_contracts
+    principle: "The contract system itself emits OTel events, making contract health observable through the same infrastructure"
+    rationale: |
+      You can build a dashboard showing '85% of propagation chains are INTACT,
+      10% are DEGRADED, 5% are BROKEN.' The meta-observability makes the contract
+      system trustworthy and queryable via TraceQL.
+    anti_patterns:
+      - "Contract validation that produces only pass/fail with no observability"
+      - "Separate monitoring for contract health vs runtime health"
+    applies_to:
+      - contextcore.contract.propagation
+      - contextcore.contract.schema_compat
+      - contextcore.contract.slo_budget
+
+  - id: framework_agnostic_contracts
+    principle: "Contracts declare what must be true about context propagation, not how frameworks achieve it"
+    rationale: |
+      ContextCore works with LangGraph, AutoGen, CrewAI, or any runtime. Contracts
+      are runtime-independent governance — they validate invariants regardless of
+      which framework executes the pipeline.
+    anti_patterns:
+      - "Coupling contract validation to a specific framework's execution model"
+      - "Requiring framework-specific adapters for each contract type"
+    applies_to:
+      - contextcore.contract.propagation
+      - contextcore.contract.schema_compat
+      - contextcore.a2a.contract.task_span
+      - contextcore.a2a.contract.handoff
+
+  - id: governance_metadata_over_runtime
+    principle: "ContextCore adds governance metadata (contracts, provenance, lineage) on top of whatever runtime metadata the framework already produces"
+    rationale: |
+      Frameworks like LangGraph emit their own telemetry (graph nodes, edges,
+      checkpoints). ContextCore does not duplicate this — it adds governance
+      metadata: was the contract satisfied? Was provenance maintained? Did the
+      lineage remain intact?
+    anti_patterns:
+      - "Duplicating framework-native telemetry in ContextCore spans"
+      - "Replacing framework telemetry instead of augmenting it"
+    applies_to:
+      - contextcore.contract.propagation
+      - contextcore.contract.data_lineage
+      - contextcore.a2a.gate.pipeline_integrity
+      - contextcore.a2a.gate.diagnostic

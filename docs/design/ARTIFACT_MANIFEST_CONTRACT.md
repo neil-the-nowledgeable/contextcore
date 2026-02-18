@@ -101,6 +101,7 @@ crdReference: "my-project-projectcontext.yaml"
 | `notification_policy` | Alert routing | Required for critical/high | [Alertmanager config](https://prometheus.io/docs/alerting/latest/configuration/) |
 | `runbook` | Incident response doc | Required for critical | Markdown (structure varies) |
 | `alert_template` | Alert message template | Optional | [Alertmanager config](https://prometheus.io/docs/alerting/latest/configuration/) |
+| `capability_index` | Capability index manifest | Recommended | [Capability Index Schema](https://capability-index.local/schema/manifest.schema.yaml) |
 
 The `onboarding-metadata.json` includes `schema_url` per artifact type for post-generation validation.
 

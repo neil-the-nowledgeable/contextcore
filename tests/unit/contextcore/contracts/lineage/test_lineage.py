@@ -255,6 +255,6 @@ class TestAuditor:
 
 class TestOtel:
     def test_no_otel_no_crash(self):
-        with patch("contextcore.contracts.lineage.otel._HAS_OTEL", False):
+        with patch("contextcore.contracts._otel_helpers.HAS_OTEL", False):
             emit_transformation("field", MagicMock())
             emit_audit_result(MagicMock())

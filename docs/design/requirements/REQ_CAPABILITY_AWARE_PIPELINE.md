@@ -1,7 +1,7 @@
 # Requirements: Capability-Aware Init and Export Pipeline
 
-**Status:** Draft
-**Date:** 2026-02-16
+**Status:** Draft (prerequisites partially resolved)
+**Date:** 2026-02-16 (requirements), 2026-02-17 (prerequisite update)
 **Author:** Force Multiplier Labs
 **Priority Tier:** Tier 2 (high value, medium complexity)
 **Companion docs:**
@@ -15,6 +15,8 @@
 - `src/contextcore/utils/provenance.py` — run provenance payload
 - `src/contextcore/cli/export_io_ops.py` — export file writing
 **Estimated implementation:** ~400 lines Python + test updates
+
+> **Prerequisite update (2026-02-17):** REQ-CAP-001 (capability index loader utility) is **already implemented** in `src/contextcore/utils/capability_index.py` (209 lines) with `load_capability_index()`, `match_triggers()`, `match_patterns()`, `match_principles()`, and module-level caching. 16 tests pass. Additionally, the capability index has been enhanced with 9 design principles, 6 patterns, and 13 new capabilities (REQ-CID P1 complete), and `CAPABILITY_INDEX` has been added to the `ArtifactType` enum. REQ-CAP-005 (onboarding metadata) is partially addressed — `capability_index` is now a recognized artifact type with parameter sources and example outputs. REQ-CAP-002 through REQ-CAP-010 remain open.
 
 ---
 
@@ -64,9 +66,12 @@ fields, inject results.
 ### REQ-CAP-001: Capability index loader utility
 
 **Priority:** P1 (prerequisite for all other requirements)
+**Status:** **Implemented** (pre-existing, 2026-02-17 confirmed)
 **Description:** Create a utility module that loads and caches capability index
 manifests from `docs/capability-index/`. This utility is shared by init, init-from-plan,
 and export commands.
+
+> **Already implemented** in `src/contextcore/utils/capability_index.py` (209 lines) with all acceptance criteria met: `load_capability_index()`, `CapabilityIndex` dataclass with `principles`, `patterns`, `capabilities`, `benefits`, `match_triggers()`, `match_patterns()`, `match_principles()`, module-level cache with `clear_cache()`. 16 unit tests in `tests/unit/contextcore/utils/test_capability_index.py`. Additionally, programmatic build/validate tooling added: `capability_scanner.py` (19 tests), `capability_builder.py` (17 tests), `capability_validator.py` (32 tests), CLI `contextcore capability-index build|validate|diff`.
 
 **Acceptance criteria:**
 - New module `src/contextcore/utils/capability_index.py` with:

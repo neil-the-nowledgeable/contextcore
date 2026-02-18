@@ -18,7 +18,7 @@ How `contextcore install init` and `contextcore manifest export` feed the Plan I
 
 **Related capability manifests** (ContextCore):
 
-- `docs/capability-index/contextcore.agent.yaml` — agent capabilities including `pipeline.check_pipeline`, `pipeline.diagnose`, `docs.index`
+- `docs/capability-index/contextcore.agent.yaml` — agent capabilities (v1.12.0, 47 capabilities) including `pipeline.check_pipeline`, `pipeline.diagnose`, `docs.index`, 7 `contextcore.contract.*` capabilities (L1-L7 defense-in-depth), and 6 `contextcore.a2a.*` capabilities (A2A governance). Also includes 9 design principles, 6 reusable patterns, and enriched pipeline triggers. Build/validate with `contextcore capability-index build|validate`.
 - `docs/capability-index/contextcore.user.yaml` — user capabilities including `pipeline.manifest_to_artifacts`, `pipeline.quality_gates`
 - `docs/capability-index/contextcore.benefits.yaml` — benefits including `pipeline.governance_gates`, `pipeline.contract_first_planning`
 
@@ -478,6 +478,13 @@ python3 scripts/run_artisan_implement_only.py --handoff out/design-handoff.json 
 contextcore contract a2a-validate TaskSpanContract payload.json
 contextcore contract a2a-pilot                                    # PI-101-002 simulation
 contextcore contract a2a-pilot --source-checksum sha256:BAD       # failure injection
+
+# Capability index — build, validate, and diff capability manifests
+contextcore capability-index build                   # scan contracts + merge + validate + write
+contextcore capability-index build --dry-run         # preview changes without writing
+contextcore capability-index validate                # schema + REQ-CID acceptance checks
+contextcore capability-index validate --strict       # fail on warnings
+contextcore capability-index diff                    # show added/removed/modified capabilities
 
 # Documentation index — track and query pipeline documentation artifacts
 contextcore docs index                               # generate docs index (with git freshness)

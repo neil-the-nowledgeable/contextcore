@@ -249,5 +249,5 @@ class TestTracker:
 
 class TestOtel:
     def test_no_otel_no_crash(self):
-        with patch("contextcore.contracts.capability.otel._HAS_OTEL", False):
+        with patch("contextcore.contracts._otel_helpers.HAS_OTEL", False):
             emit_capability_result(MagicMock())

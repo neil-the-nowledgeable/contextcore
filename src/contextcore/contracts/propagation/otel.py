@@ -1,9 +1,8 @@
 """
 OTel span event emission helpers for context propagation.
 
-Follows the ``_emit_failure_event()`` pattern from ``a2a/boundary.py:99-132``
-— log + optional OTel span event.  All functions are guarded by ``_HAS_OTEL``
-so they degrade gracefully when OTel is not installed.
+Log + optional OTel span event via the shared ``add_span_event()`` helper.
+All functions degrade gracefully when OTel is not installed.
 
 Usage::
 
@@ -21,29 +20,13 @@ Usage::
 from __future__ import annotations
 
 import logging
-from typing import Any
 
+from contextcore.contracts._otel_helpers import add_span_event
 from contextcore.contracts.propagation.tracker import PropagationChainResult
 from contextcore.contracts.propagation.validator import ContractValidationResult
 from contextcore.contracts.types import ChainStatus, PropagationStatus
 
-try:
-    from opentelemetry import trace as otel_trace
-
-    _HAS_OTEL = True
-except ImportError:  # pragma: no cover
-    _HAS_OTEL = False
-
 logger = logging.getLogger(__name__)
-
-
-def _add_span_event(name: str, attributes: dict[str, str | int | float | bool]) -> None:
-    """Add an event to the current OTel span if available."""
-    if not _HAS_OTEL:
-        return
-    span = otel_trace.get_current_span()
-    if span and span.is_recording():
-        span.add_event(name=name, attributes=attributes)
 
 
 def emit_boundary_result(result: ContractValidationResult) -> None:
@@ -82,7 +65,7 @@ def emit_boundary_result(result: ContractValidationResult) -> None:
             result.blocking_failures,
         )
 
-    _add_span_event(event_name, attrs)
+    add_span_event(event_name, attrs)
 
 
 def emit_chain_result(result: PropagationChainResult) -> None:
@@ -118,7 +101,7 @@ def emit_chain_result(result: PropagationChainResult) -> None:
     else:
         logger.debug("Chain %s: intact", result.chain_id)
 
-    _add_span_event(event_name, attrs)
+    add_span_event(event_name, attrs)
 
 
 def emit_propagation_summary(results: list[PropagationChainResult]) -> None:
@@ -150,4 +133,4 @@ def emit_propagation_summary(results: list[PropagationChainResult]) -> None:
         broken,
     )
 
-    _add_span_event("context.propagation_summary", attrs)
+    add_span_event("context.propagation_summary", attrs)

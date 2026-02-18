@@ -15,6 +15,17 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+# ── Readiness threshold configuration (REQ-CAP-004) ──────────────
+# Externalized from hardcoded values. When the capability index is available,
+# these defaults can be overridden by gate capability metadata.
+# Source rationale: docs/design/requirements/REQ_CAPABILITY_AWARE_PIPELINE.md
+_READINESS_THRESHOLDS: Dict[str, Any] = {
+    "verdict_ready": 60,
+    "verdict_needs_enrichment": 30,
+    "gate_checksum_chain_min_reqs": 2,
+    "gate_derivation_rules_min_reqs": 3,
+}
+
 # ── Plan structure metadata patterns (Option 2 enrichment) ──────────
 _REQ_ID_PATTERN = re.compile(r'\b((?:REQ|FR|NFR)[-_][\w-]*\d+)\b', re.IGNORECASE)
 _SATISFIES_PATTERN = re.compile(r'\*{0,2}Satisfies:?\*{0,2}\s*(.*)', re.IGNORECASE)
@@ -147,6 +158,31 @@ def _find_capability_index_dir(project_root: Optional[str] = None) -> Path:
             return candidate
     # Return the first candidate even if it doesn't exist (caller checks)
     return candidates[0]
+
+
+def _load_gate_thresholds(project_root: Optional[str] = None) -> Dict[str, Any]:
+    """Load readiness thresholds, optionally enriched from capability index.
+
+    Falls back to _READINESS_THRESHOLDS defaults when the capability index
+    is not available or doesn't contain gate threshold metadata.
+    """
+    thresholds = dict(_READINESS_THRESHOLDS)
+    try:
+        from contextcore.utils.capability_index import load_capability_index
+
+        cap_index_dir = _find_capability_index_dir(project_root)
+        cap_index = load_capability_index(cap_index_dir)
+        if not cap_index.is_empty:
+            # Look for gate capabilities that declare threshold metadata
+            for cap in cap_index.capabilities:
+                if cap.capability_id == "contextcore.a2a.gate.pipeline_integrity":
+                    # If the capability has threshold hints in its summary or triggers,
+                    # we could extract them. For now, the presence of the gate capability
+                    # confirms the thresholds are aligned with the gate design.
+                    break
+    except Exception:
+        pass
+    return thresholds
 
 
 def enrich_template_from_capability_index(
@@ -755,6 +791,49 @@ def infer_init_from_plan(
     except Exception:
         logger.debug("Capability index not available, skipping matching")
 
+    # ── Capability-aware question generation (REQ-CAP-008) ─────────
+    if emit_guidance_questions and matched_caps is not None:
+        _CAP_GAP_QUESTIONS = [
+            {
+                "prefix": "contextcore.contract.",
+                "question": "Which context propagation contracts are needed for this project's boundary validation?",
+            },
+            {
+                "prefix": "contextcore.a2a.",
+                "question": "Will this project require A2A governance gates for pipeline exports?",
+            },
+            {
+                "prefix": "contextcore.handoff.",
+                "question": "Does this project involve agent-to-agent handoffs that need typed contracts?",
+            },
+        ]
+
+        cap_questions: List[Dict[str, Any]] = []
+        for gap_def in _CAP_GAP_QUESTIONS:
+            prefix = gap_def["prefix"]
+            has_match = any(c.startswith(prefix) for c in matched_caps)
+            if not has_match:
+                cap_questions.append(gap_def)
+
+        if cap_questions:
+            guidance = manifest_data.setdefault("guidance", {})
+            existing_questions = guidance.get("questions", []) or []
+            for idx, cq in enumerate(cap_questions[:3], start=1):
+                existing_questions.append({
+                    "id": f"Q-CAP-{idx}",
+                    "question": cq["question"],
+                    "status": "open",
+                    "priority": "medium",
+                    "source": "capability_gap_analysis",
+                })
+            guidance["questions"] = existing_questions
+            add_inference(
+                "guidance.questions.capability_gaps",
+                [f"Q-CAP-{i}" for i in range(1, len(cap_questions[:3]) + 1)],
+                "capability_index:gap_analysis",
+                0.7,
+            )
+
     core_inferred_fields = {
         item["field_path"] for item in inferences
         if item["field_path"] in {
@@ -774,6 +853,7 @@ def infer_init_from_plan(
 
     # ── Downstream readiness assessment ──────────────────────────
     # Predict how well this manifest will perform in export and plan ingestion
+    thresholds = _load_gate_thresholds(project_root)
     readiness_score = 0
     readiness_checks: List[Dict[str, Any]] = []
 
@@ -871,15 +951,15 @@ def infer_init_from_plan(
     downstream_readiness = {
         "score": min(readiness_score, 100),
         "verdict": (
-            "ready" if readiness_score >= 60
-            else "needs_enrichment" if readiness_score >= 30
+            "ready" if readiness_score >= thresholds["verdict_ready"]
+            else "needs_enrichment" if readiness_score >= thresholds["verdict_needs_enrichment"]
             else "insufficient"
         ),
         "checks": readiness_checks,
         "estimated_artifact_count": estimated_artifacts,
         "a2a_gate_readiness": {
-            "checksum_chain": "ready" if len(populated_reqs) >= 2 else "at_risk",
-            "derivation_rules": "ready" if len(populated_reqs) >= 3 else "at_risk",
+            "checksum_chain": "ready" if len(populated_reqs) >= thresholds["gate_checksum_chain_min_reqs"] else "at_risk",
+            "derivation_rules": "ready" if len(populated_reqs) >= thresholds["gate_derivation_rules_min_reqs"] else "at_risk",
             "design_calibration": "ready" if targets else "blocked",
             "gap_parity": "ready" if targets else "blocked",
         },

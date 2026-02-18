@@ -243,6 +243,6 @@ class TestValidator:
 
 class TestOtel:
     def test_no_otel_no_crash(self):
-        with patch("contextcore.contracts.budget.otel._HAS_OTEL", False):
+        with patch("contextcore.contracts._otel_helpers.HAS_OTEL", False):
             emit_budget_check(MagicMock())
             emit_budget_summary(MagicMock())
