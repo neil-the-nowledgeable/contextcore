@@ -1289,6 +1289,27 @@ def init_from_plan(
     manifest_data = inference["manifest_data"]
     inference_warnings = list(inference["warnings"])
 
+    # Preserve resolved questions from existing manifest (if overwriting)
+    if output_path.exists() and force:
+        try:
+            existing = yaml.safe_load(output_path.read_text(encoding="utf-8")) or {}
+            existing_questions = (existing.get("guidance") or {}).get("questions") or []
+            resolved = {q["id"]: q for q in existing_questions if q.get("status") != "open"}
+            if resolved:
+                new_questions = (manifest_data.get("guidance") or {}).get("questions") or []
+                for q in new_questions:
+                    prev = resolved.pop(q["id"], None)
+                    if prev:
+                        q["status"] = prev["status"]
+                        if "answer" in prev:
+                            q["answer"] = prev["answer"]
+                # Append resolved questions whose IDs no longer exist in the new set
+                if resolved:
+                    new_questions.extend(resolved.values())
+                manifest_data.setdefault("guidance", {})["questions"] = new_questions
+        except Exception:
+            pass  # Best-effort; don't block regeneration
+
     report = {
         "version": "1.1.0",
         "schema": "contextcore.io/init-from-plan-report/v1",
