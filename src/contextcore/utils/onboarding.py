@@ -72,6 +72,10 @@ ARTIFACT_PARAMETER_SOURCES: Dict[str, Dict[str, str]] = {
         "summaryTemplate": "manifest (template default)",
         "descriptionTemplate": "manifest (template default)",
     },
+    ArtifactType.CAPABILITY_INDEX.value: {
+        "project_root": "manifest (auto-detected)",
+        "index_dir": "docs/capability-index/",
+    },
 }
 
 # Example output paths/snippets per artifact type (per R3-F3)
@@ -107,6 +111,10 @@ ARTIFACT_EXAMPLE_OUTPUTS: Dict[str, Dict[str, str]] = {
     ArtifactType.ALERT_TEMPLATE.value: {
         "example_output_path": "alertmanager/templates/checkout-api-alert-template.yaml",
         "example_snippet": "{{ define \"checkout-api.title\" }}{{ .GroupLabels.alertname }}{{ end }}",
+    },
+    ArtifactType.CAPABILITY_INDEX.value: {
+        "example_output_path": "docs/capability-index/project-name.agent.yaml",
+        "example_snippet": "manifest_id: project.agent\nname: Project Capabilities\nversion: '1.0.0'\ncapabilities:\n  - capability_id: project.feature.x\n    category: action\n    maturity: beta\n    summary: Feature X",
     },
 }
 
@@ -225,6 +233,10 @@ ARTIFACT_PARAMETER_SCHEMA: Dict[str, List[str]] = {
         "summaryTemplate",
         "descriptionTemplate",
     ],
+    ArtifactType.CAPABILITY_INDEX.value: [
+        "project_root",
+        "index_dir",
+    ],
 }
 
 
@@ -333,6 +345,16 @@ def build_onboarding_metadata(
                     "acceptance_anchors": [source_field],
                 }
             )
+
+    # ── Pipeline-innate requirements (satisfied by artifact generation) ──
+    from contextcore.utils.pipeline_requirements import get_pipeline_innate_hints
+
+    for hint in get_pipeline_innate_hints():
+        req_id = hint["id"]
+        if req_id in seen_requirement_ids:
+            continue
+        seen_requirement_ids.add(req_id)
+        requirements_hints.append(hint)
 
     # ── Strategic objectives for dashboard panel generation ──────────
     objectives_export: Optional[List[Dict[str, Any]]] = None

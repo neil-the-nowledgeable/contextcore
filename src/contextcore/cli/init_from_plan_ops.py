@@ -66,6 +66,7 @@ def build_v2_manifest_template(name: str) -> Dict[str, Any]:
                 "latencyP99": "500ms",
                 "throughput": "100rps",
                 "errorBudget": "0.1",
+                "source": "contextcore-pipeline-innate",
             },
             "risks": [
                 {
