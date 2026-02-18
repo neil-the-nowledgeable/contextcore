@@ -5,8 +5,10 @@ Produces a JSON structure that:
 - References artifact manifest and project context paths
 - Documents artifact type schemas (parameters, output conventions)
 - Includes coverage gaps for incremental generation
-- Embeds semantic conventions for dashboard/panel generation
+- Embeds semantic conventions for artifact generation (dashboards, alerts, etc.)
 - Supports provenance chain from export to downstream workflows
+- Covers all artifact categories: observability, onboarding, and integrity
+  (see docs/reference/pipeline-requirements-onboarding.md)
 
 Used by: contextcore manifest export --emit-onboarding
 Consumed by: Plan ingestion workflows, artisan context seed enrichment

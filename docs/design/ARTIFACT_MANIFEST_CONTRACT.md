@@ -91,6 +91,8 @@ crdReference: "my-project-projectcontext.yaml"
 
 ## Artifact Types
 
+### Observability (8)
+
 | Type | Description | Priority Logic | Schema URL (validation) |
 |------|-------------|----------------|-------------------------|
 | `dashboard` | Grafana dashboard | Required for all | [Grafana JSON model](https://grafana.com/docs/grafana/latest/dashboards/build-dashboards/view-dashboard-json-model/) |
@@ -101,7 +103,24 @@ crdReference: "my-project-projectcontext.yaml"
 | `notification_policy` | Alert routing | Required for critical/high | [Alertmanager config](https://prometheus.io/docs/alerting/latest/configuration/) |
 | `runbook` | Incident response doc | Required for critical | Markdown (structure varies) |
 | `alert_template` | Alert message template | Optional | [Alertmanager config](https://prometheus.io/docs/alerting/latest/configuration/) |
+
+### Onboarding (4) — pipeline-innate
+
+| Type | Description | Priority Logic | Schema URL (validation) |
+|------|-------------|----------------|-------------------------|
 | `capability_index` | Capability index manifest | Recommended | [Capability Index Schema](https://capability-index.local/schema/manifest.schema.yaml) |
+| `agent_card` | A2A agent card | Recommended | [A2A Specification](https://google.github.io/A2A/specification/) |
+| `mcp_tools` | MCP tool definitions | Optional | [MCP Specification](https://modelcontextprotocol.io/specification/) |
+| `onboarding_metadata` | Programmatic onboarding metadata | Required | [ContextCore Onboarding](https://contextcore.io/schemas/onboarding-metadata/v1) |
+
+### Integrity (2) — pipeline-innate
+
+| Type | Description | Priority Logic | Schema URL (validation) |
+|------|-------------|----------------|-------------------------|
+| `provenance` | Export provenance chain | Required | [ContextCore Provenance](https://contextcore.io/schemas/provenance/v1) |
+| `ingestion-traceability` | Requirements coverage gate | Required | [ContextCore Traceability](https://contextcore.io/schemas/ingestion-traceability/v1) |
+
+See [pipeline-requirements-onboarding.md](../reference/pipeline-requirements-onboarding.md) for full requirement definitions. Canonical source: `ArtifactType` enum in `src/contextcore/models/artifact_manifest.py`.
 
 The `onboarding-metadata.json` includes `schema_url` per artifact type for post-generation validation.
 

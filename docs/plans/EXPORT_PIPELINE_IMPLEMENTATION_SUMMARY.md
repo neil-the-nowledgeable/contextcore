@@ -67,7 +67,7 @@ print(json.dumps(design_calibration_hints, indent=2))
 "
 ```
 
-**Expected Output:** Generates `design_calibration_hints` for all 8 artifact types (dashboard, prometheus_rule, slo_definition, service_monitor, loki_rule, notification_policy, runbook, alert_template).
+**Expected Output:** Generates `design_calibration_hints` for all 8 observability artifact types (dashboard, prometheus_rule, slo_definition, service_monitor, loki_rule, notification_policy, runbook, alert_template). Additional onboarding and integrity types are defined in [pipeline-requirements-onboarding.md](../reference/pipeline-requirements-onboarding.md).
 
 **Impact:** Gate 6 will now run in production exports instead of being silently skipped.
 

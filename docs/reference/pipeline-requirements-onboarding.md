@@ -59,3 +59,18 @@ Plan ingestion verifies that project-specific requirements map to plan features 
 ## Implementation
 
 These requirements are defined in `src/contextcore/utils/pipeline_requirements.py` and injected into `onboarding-metadata.json` by `src/contextcore/utils/onboarding.py`. The plan-ingestion consumer (`startd8-sdk`) auto-satisfies them based on the `pipeline-innate` label.
+
+---
+
+## Referenced By
+
+The following files reference this document as the authoritative source for pipeline-innate artifact types:
+
+- `src/contextcore/models/artifact_manifest.py` — `ArtifactType` enum docstring
+- `src/contextcore/utils/artifact_conventions.py` — output conventions per type
+- `src/contextcore/utils/onboarding.py` — parameter sources, examples, contracts, schemas
+- `schemas/contracts/artifact-intent.schema.json` — schema description
+- `docs/capability-index/contextcore.agent.yaml` — `scope_boundaries` and `artifact_type_registry` capability
+- `docs/design/MANIFEST_EXPORT_REQUIREMENTS.md` — export requirements
+- `docs/design/ARTIFACT_MANIFEST_CONTRACT.md` — artifact types table
+- `docs/plans/EXPORT_PIPELINE_IMPLEMENTATION_SUMMARY.md` — calibration hints

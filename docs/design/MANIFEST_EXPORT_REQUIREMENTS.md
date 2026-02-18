@@ -96,7 +96,7 @@ Read a `.contextcore.yaml` manifest and produce the full artifact contract packa
    - Must produce an artifact manifest (`{project}-artifact-manifest.yaml` or `.json`).
    - Must declare every required observability artifact with: `id`, `type`, `name`, `target`, `priority`, `status`, `derivedFrom`, `parameters`.
    - Must compute coverage statistics: `totalRequired`, `totalExisting`, `totalOutdated`, `overallCoverage`, `byTarget`, `byType`.
-   - Must support 8 artifact types: `dashboard`, `prometheus_rule`, `slo_definition`, `service_monitor`, `loki_rule`, `notification_policy`, `runbook`, `alert_template`.
+   - Must support 8 observability artifact types: `dashboard`, `prometheus_rule`, `slo_definition`, `service_monitor`, `loki_rule`, `notification_policy`, `runbook`, `alert_template`. Additional onboarding and integrity artifact types are defined in [pipeline-requirements-onboarding.md](../reference/pipeline-requirements-onboarding.md).
 6. **Onboarding metadata** (default: enabled)
    - Must produce `onboarding-metadata.json` with programmatic context for plan ingestion.
    - Must include: `project_id`, file references, integrity checksums, artifact type schemas, output path conventions, parameter schemas, coverage summary.
