@@ -36,13 +36,16 @@ from scripts.prime_contractor.feature_queue import FeatureQueue, FeatureStatus
 
 def cmd_run(args):
     """Run the Prime Contractor workflow."""
-    workflow = PrimeContractorWorkflow(
+    kwargs = dict(
         dry_run=args.dry_run,
         auto_commit=args.auto_commit,
         strict_checkpoints=args.strict,
         allow_dirty=args.allow_dirty,
-        auto_stash=args.auto_stash
+        auto_stash=args.auto_stash,
     )
+    if args.project_root:
+        kwargs["project_root"] = args.project_root
+    workflow = PrimeContractorWorkflow(**kwargs)
 
     # Import from backlog if requested
     if args.import_backlog:
@@ -356,7 +359,9 @@ Examples:
   %(prog)s reset                  # Reset failed features
         """
     )
-    
+    parser.add_argument("--project-root", type=Path,
+                        help="Project root directory (default: ContextCore repo root)")
+
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
     
     # Run command

@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import platform
+import signal
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -95,6 +97,11 @@ class PropagationChainResult:
 def _value_hash(value: Any) -> str:
     """Compute a short hash of a value for provenance tracking."""
     return hashlib.sha256(repr(value).encode()).hexdigest()[:8]
+
+
+def _timeout_handler(signum: int, frame: Any) -> None:
+    """Signal handler that raises TimeoutError for verification expression timeouts."""
+    raise TimeoutError("verification expression timed out")
 
 
 def _resolve_field(context: dict[str, Any], field_path: str) -> tuple[bool, Any]:
@@ -196,6 +203,64 @@ class PropagationTracker:
             timestamp=ts,
         )
 
+    def _evaluate_verification(
+        self,
+        chain_id: str,
+        expression: str,
+        context: dict[str, Any],
+        source_value: Any,
+        dest_value: Any,
+    ) -> Optional[str]:
+        """Evaluate a verification expression with a 1-second timeout.
+
+        Args:
+            chain_id: The chain identifier (used for log messages).
+            expression: The verification expression string to evaluate.
+            context: The workflow context dict.
+            source_value: Resolved value of the source field.
+            dest_value: Resolved value of the destination field.
+
+        Returns:
+            ``None`` if the verification passes, or an error message string
+            describing why it failed.
+        """
+        try:
+            # Set timeout (Unix only — signal.alarm not available on Windows)
+            _old_handler = None
+            if platform.system() != "Windows":
+                _old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+                signal.alarm(1)
+
+            try:
+                result = eval(  # noqa: S307 - expressions are AST-validated at parse time
+                    expression,
+                    {"__builtins__": {}},
+                    {"context": context, "source": source_value, "dest": dest_value},
+                )
+            finally:
+                if _old_handler is not None:
+                    signal.alarm(0)
+                    signal.signal(signal.SIGALRM, _old_handler)
+
+            if not result:
+                return f"Verification failed: {expression}"
+        except TimeoutError:
+            logger.warning(
+                "Chain %s verification expression timed out",
+                chain_id,
+                exc_info=True,
+            )
+            return "Verification expression timed out after 1 second"
+        except Exception as exc:
+            logger.warning(
+                "Chain %s verification expression error: %s",
+                chain_id,
+                exc,
+            )
+            return f"Verification error: {exc}"
+
+        return None
+
     def check_chain(
         self,
         chain_spec: PropagationChainSpec,
@@ -258,36 +323,23 @@ class PropagationTracker:
             )
 
         # Verification expression (optional)
+        # Expressions are AST-validated at parse time (NFR-PCG-004).
         if chain_spec.verification:
-            try:
-                # Safe evaluation: only allow access to context values
-                result = eval(  # noqa: S307
-                    chain_spec.verification,
-                    {"__builtins__": {}},
-                    {"context": context, "source": source_value, "dest": dest_value},
-                )
-                if not result:
-                    return PropagationChainResult(
-                        chain_id=chain_spec.chain_id,
-                        status=ChainStatus.BROKEN,
-                        source_present=True,
-                        destination_present=True,
-                        waypoints_present=waypoints_present,
-                        message=f"Verification failed: {chain_spec.verification}",
-                    )
-            except Exception as exc:
-                logger.warning(
-                    "Chain %s verification expression error: %s",
-                    chain_spec.chain_id,
-                    exc,
-                )
+            verification_message = self._evaluate_verification(
+                chain_id=chain_spec.chain_id,
+                expression=chain_spec.verification,
+                context=context,
+                source_value=source_value,
+                dest_value=dest_value,
+            )
+            if verification_message is not None:
                 return PropagationChainResult(
                     chain_id=chain_spec.chain_id,
                     status=ChainStatus.BROKEN,
                     source_present=True,
                     destination_present=True,
                     waypoints_present=waypoints_present,
-                    message=f"Verification error: {exc}",
+                    message=verification_message,
                 )
 
         return PropagationChainResult(

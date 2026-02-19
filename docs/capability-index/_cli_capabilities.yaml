@@ -1,0 +1,208 @@
+# CLI Capability Index Tooling capabilities
+# These represent the capability-index CLI commands themselves.
+# Injected into contextcore.agent.yaml by capability_builder.py
+
+capabilities:
+  - capability_id: contextcore.capability_index.build
+    category: generate
+    maturity: beta
+    summary: Build/update the capability index from source code scanning and sidecar merging
+    audiences: ["agent", "human"]
+
+    description:
+      agent: |
+        Runs 10-step pipeline: load base manifest, scan contract domains (L1-L7),
+        scan A2A governance, merge sidecars (_principles, _patterns, _triggers,
+        _p2_capabilities, _discovery_paths, _cli_capabilities), default audiences,
+        bump version. Never overwrites existing capabilities.
+        CLI: contextcore capability-index build [--dry-run] [--validate-only]
+      human: |
+        Programmatic capability index builder that merges multiple sources:
+        auto-scanned contract domains, hand-authored sidecar YAML files, and
+        enrichment data. Produces a single contextcore.agent.yaml manifest.
+        Use --dry-run to preview changes without writing.
+
+    triggers:
+      - "build index"
+      - "rebuild capabilities"
+      - "update manifest"
+      - "capability index build"
+      - "merge sidecars"
+
+    evidence:
+      - type: code
+        ref: src/contextcore/utils/capability_builder.py
+        description: Build pipeline implementation
+      - type: code
+        ref: src/contextcore/cli/capability_index.py
+        description: CLI entry point
+      - type: test
+        ref: tests/test_capability_builder.py
+        description: Builder unit tests
+
+    confidence: 0.85
+
+  - capability_id: contextcore.capability_index.validate
+    category: validate
+    maturity: beta
+    summary: Validate capability index against schema and REQ-CID acceptance criteria
+    audiences: ["agent", "human"]
+
+    description:
+      agent: |
+        Two-layer validation: (1) structural schema checks (required fields, enum
+        values, format patterns), (2) REQ-CID acceptance criteria (247 checks).
+        CLI: contextcore capability-index validate [--strict]
+      human: |
+        Validates the capability manifest against both JSON Schema (capability IDs,
+        categories, maturity levels, summary length) and project-specific REQ-CID
+        requirements. Strict mode treats warnings as errors.
+
+    triggers:
+      - "validate capabilities"
+      - "check manifest"
+      - "capability index validate"
+      - "schema validation"
+
+    evidence:
+      - type: code
+        ref: src/contextcore/utils/capability_validator.py
+        description: REQ-CID validation engine
+      - type: code
+        ref: src/contextcore/utils/capability_schema_validator.py
+        description: JSON Schema structural validator
+
+    confidence: 0.9
+
+  - capability_id: contextcore.capability_index.extract
+    category: query
+    maturity: beta
+    summary: Extract raw capabilities from a project via AST-based source code analysis
+    audiences: ["agent", "human"]
+
+    description:
+      agent: |
+        AST-based scanner discovers 6 capability types from Python source and Markdown:
+        CLI commands (Click/Typer decorators), classes, public functions, API endpoints
+        (FastAPI/Flask), tests, documentation sections. Outputs raw_capabilities.yaml
+        and synthesis_prompt.md for LLM refinement.
+        CLI: contextcore capability-index extract <project_path> [-o output_dir]
+      human: |
+        Analyzes a project's source code using Python AST parsing and Markdown parsing
+        to discover capabilities. Useful for bootstrapping a capability index for any
+        Python project. Outputs raw extraction data and an LLM synthesis prompt for
+        converting raw data into structured capability entries.
+
+    triggers:
+      - "extract capabilities"
+      - "scan source code"
+      - "discover capabilities"
+      - "capability extraction"
+      - "AST scan"
+      - "bootstrap index"
+
+    evidence:
+      - type: code
+        ref: src/contextcore/utils/capability_extractor.py
+        description: AST-based extraction engine
+
+    confidence: 0.85
+
+  - capability_id: contextcore.capability_index.generate_mcp
+    category: generate
+    maturity: beta
+    summary: Generate MCP tool definitions from a capability manifest
+    audiences: ["agent", "human"]
+
+    description:
+      agent: |
+        Transforms capability manifest into MCP-compatible tool definitions. Filters
+        to agent-audience capabilities, maps inputs/outputs to JSON Schema, includes
+        development-stage capabilities with [DEVELOPMENT] prefix. Persists to
+        mcp-tools.json alongside manifest by default.
+        CLI: contextcore capability-index generate-mcp [manifest] [--stdout]
+      human: |
+        Generates Model Context Protocol tool definitions from capability manifests,
+        enabling LLMs to discover and invoke capabilities. Development-stage capabilities
+        are included with clear status markers. Output defaults to mcp-tools.json
+        alongside the source manifest.
+
+    triggers:
+      - "generate MCP"
+      - "MCP tools"
+      - "tool definitions"
+      - "LLM tools"
+      - "model context protocol"
+
+    evidence:
+      - type: code
+        ref: src/contextcore/utils/capability_mcp_generator.py
+        description: MCP tool generator
+
+    confidence: 0.85
+
+  - capability_id: contextcore.capability_index.generate_a2a
+    category: generate
+    maturity: beta
+    summary: Generate A2A Agent Card from a capability manifest for agent-to-agent discovery
+    audiences: ["agent", "human"]
+
+    description:
+      agent: |
+        Transforms capability manifest into an A2A Agent Card with skills array.
+        Each capability becomes a skill with id, name, description, tags (including
+        maturity:{level}). Development-stage skills included with markers. Persists
+        to agent-card.json alongside manifest by default.
+        CLI: contextcore capability-index generate-a2a [manifest] [--well-known] [--stdout]
+      human: |
+        Generates Agent-to-Agent protocol Agent Cards from capability manifests,
+        enabling cross-agent discovery. Each capability maps to an A2A skill entry.
+        The --well-known flag outputs in /.well-known/agent.json format for
+        standardized agent discovery endpoints.
+
+    triggers:
+      - "generate A2A"
+      - "agent card"
+      - "agent discovery"
+      - "A2A card"
+      - "well-known agent"
+
+    evidence:
+      - type: code
+        ref: src/contextcore/utils/capability_a2a_generator.py
+        description: A2A Agent Card generator
+
+    confidence: 0.85
+
+  - capability_id: contextcore.capability_index.query
+    category: query
+    maturity: beta
+    summary: Query capabilities from a manifest with category, maturity, audience, and trigger filters
+    audiences: ["agent", "human"]
+
+    description:
+      agent: |
+        Filter capabilities by: capability_id (exact or prefix), category, maturity,
+        audience, trigger keyword, min_confidence. Supports JSON output for programmatic
+        use. --include-internal shows internal capabilities.
+        CLI: contextcore capability-index query <index> [--category C] [--maturity M]
+             [--audience A] [--trigger T] [--min-confidence F] [--json]
+      human: |
+        Queries a capability manifest with multiple filter dimensions. Useful for
+        finding capabilities by category, checking what's stable vs development,
+        filtering by audience, or searching by trigger keywords. JSON output mode
+        enables integration with other tools.
+
+    triggers:
+      - "query capabilities"
+      - "search capabilities"
+      - "filter capabilities"
+      - "find capability"
+      - "capability lookup"
+
+    evidence:
+      - type: code
+        ref: src/contextcore/utils/capability_query.py
+        description: Query engine with multi-dimensional filtering
+
+    confidence: 0.85

@@ -8,11 +8,11 @@ This document is intentionally living guidance. Update it as the commands evolve
 
 ## Vision
 
-`manifest export` is the central command in the ContextCore pipeline. It reads a `.contextcore.yaml` manifest and produces the **artifact contract** — the declaration of what observability artifacts are needed, why, and with what parameters. Everything downstream (plan ingestion, contractor execution, quality gates) depends on the completeness and correctness of this output.
+`manifest export` is the central command in the ContextCore pipeline. It reads a `.contextcore.yaml` manifest and produces the **artifact contract** — the declaration of what artifacts are needed, why, and with what parameters. This covers observability artifacts (generated from business metadata), pipeline-innate artifacts (onboarding and integrity), and source artifacts (containerization, dependency, and infrastructure files that the pipeline characterizes for downstream generation). Everything downstream (plan ingestion, contractor execution, quality gates) depends on the completeness and correctness of this output.
 
 `manifest validate` is the prerequisite gate that ensures the manifest is structurally and semantically valid before export. Together they form a single "produce and validate the contract" phase.
 
-**Core principle**: ContextCore knows WHAT artifacts are needed (derived from business metadata). It does not know HOW to create them. The export output is the contract between the "what" and the "how."
+**Core principle**: ContextCore knows WHAT artifacts are needed (derived from business metadata) and WHAT already exists (detected via filesystem scanning). It does not know HOW to create them. The export output is the contract between the "what" and the "how," including calibration hints, output contracts, and pre-resolved parameters for all artifact types — including source artifacts that contractors will generate.
 
 ---
 
@@ -22,7 +22,7 @@ Steps 2–3 of the 7-step A2A governance-aware pipeline:
 
 1. ~~`contextcore install init`~~ — infrastructure readiness (separate concern)
 2. **`contextcore manifest export`** — produce contract + enrichment metadata
-3. **`contextcore contract a2a-check-pipeline`** — Gate 1 validation (6 integrity checks)
+3. **`contextcore contract a2a-check-pipeline`** — Gate 1 validation (8 integrity checks)
 4. `startd8 workflow run plan-ingestion` — parse, assess, route, refine, emit
 5. `contextcore contract a2a-diagnose` — Gate 2 validation (Three Questions)
 6. Contractor execution — structured build
@@ -94,20 +94,25 @@ Read a `.contextcore.yaml` manifest and produce the full artifact contract packa
    - Must include all `spec` fields from the manifest.
 5. **Artifact Manifest**
    - Must produce an artifact manifest (`{project}-artifact-manifest.yaml` or `.json`).
-   - Must declare every required observability artifact with: `id`, `type`, `name`, `target`, `priority`, `status`, `derivedFrom`, `parameters`.
+   - Must declare every required artifact with: `id`, `type`, `name`, `target`, `priority`, `status`, `derivedFrom`, `parameters`.
    - Must compute coverage statistics: `totalRequired`, `totalExisting`, `totalOutdated`, `overallCoverage`, `byTarget`, `byType`.
-   - Must support 8 observability artifact types: `dashboard`, `prometheus_rule`, `slo_definition`, `service_monitor`, `loki_rule`, `notification_policy`, `runbook`, `alert_template`. Additional onboarding and integrity artifact types are defined in [pipeline-requirements-onboarding.md](../reference/pipeline-requirements-onboarding.md).
+   - Must support artifact types across all registered categories:
+     - **Observability** (8): `dashboard`, `prometheus_rule`, `slo_definition`, `service_monitor`, `loki_rule`, `notification_policy`, `runbook`, `alert_template`
+     - **Onboarding** (4): `capability_index`, `agent_card`, `mcp_tools`, `onboarding_metadata` — defined in [pipeline-requirements-onboarding.md](../reference/pipeline-requirements-onboarding.md)
+     - **Integrity** (2): `provenance`, `ingestion-traceability` — defined in [pipeline-requirements-onboarding.md](../reference/pipeline-requirements-onboarding.md)
+     - **Source** (5): `dockerfile`, `python_requirements`, `protobuf_schema`, `editorconfig`, `ci_workflow` — defined in [GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md](~/Documents/Processes/cap-dev-pipe-test/GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md). Source types are language-extensible; additional types may be registered as the pipeline validates additional language ecosystems.
 6. **Onboarding metadata** (default: enabled)
    - Must produce `onboarding-metadata.json` with programmatic context for plan ingestion.
    - Must include: `project_id`, file references, integrity checksums, artifact type schemas, output path conventions, parameter schemas, coverage summary.
-   - Must include enrichment fields: `derivation_rules`, `expected_output_contracts`, `artifact_dependency_graph`, `resolved_artifact_parameters`, `open_questions`, `file_ownership`, `objectives`.
+   - Must include enrichment fields: `derivation_rules`, `expected_output_contracts`, `artifact_dependency_graph`, `resolved_artifact_parameters`, `open_questions`, `file_ownership`, `objectives`, `design_calibration_hints`.
+   - Enrichment fields (`derivation_rules`, `expected_output_contracts`, `design_calibration_hints`, `resolved_artifact_parameters`) must cover ALL registered artifact types — including source types — not only observability types. Source type entries include type-specific `completeness_markers` (e.g., `["FROM", "COPY", "EXPOSE", "ENTRYPOINT", "USER"]` for Dockerfiles) and calibrated `expected_loc_range` values.
    - Must be opt-out via `--no-onboarding`.
 7. **Validation report**
    - Must always produce `validation-report.json` with export-time diagnostic results.
 8. **Provenance** (opt-in)
    - When `--emit-provenance` is set, must produce `provenance.json` with: git context (branch, commit, dirty status), timestamps, source checksum, CLI arguments, duration.
    - When `--embed-provenance` is set, must embed provenance metadata in the artifact manifest itself.
-   - Provenance is required for the provenance-consistency gate (gate 3 of 6 in `a2a-check-pipeline`).
+   - Provenance is required for the provenance-consistency gate (gate 3 of 8 in `a2a-check-pipeline`).
 9. **Quality report** (opt-in)
    - When `--emit-quality-report` is set, must produce `export-quality-report.json` with strict-quality gate outcomes.
 
@@ -131,6 +136,9 @@ Read a `.contextcore.yaml` manifest and produce the full artifact contract packa
     - Must support `--scan-existing <dir>` to detect existing artifacts by filename pattern.
     - Must support `--existing <id:path>` for explicit artifact-to-path mapping.
     - Must set artifact status to `exists` when a matching file is found.
+    - Must scan for ALL registered artifact types — including source types (Dockerfiles, requirements files, proto schemas, editorconfig, CI workflows) — not only observability types.
+    - Discovery patterns for source types: `**/Dockerfile`, `**/Dockerfile.*`, `**/requirements.in`, `**/requirements.txt`, `**/*.proto`, `**/.editorconfig`, `**/.github/workflows/*.yml`.
+    - When source artifacts are detected as pre-existing, this information should be reflected in calibration data that flows downstream to plan-ingestion and contractor stages, enabling design prompts to reference existing files rather than generating from scratch.
 13. **Coverage computation**
     - Must compute per-target and per-type coverage percentages.
     - Must identify coverage gaps (artifacts with status `needed`).
@@ -256,10 +264,11 @@ These must hold true for every export run:
 
 ## Downstream Success Criteria
 
-1. `a2a-check-pipeline` can run all 6 gates on export output without errors.
+1. `a2a-check-pipeline` can run all 8 checks on export output without errors.
 2. Plan ingestion can parse `onboarding-metadata.json` and route artifacts by complexity.
-3. Contractor workflows receive pre-resolved parameters that do not require re-derivation.
+3. Contractor workflows receive pre-resolved parameters that do not require re-derivation — for ALL artifact types including source types (Dockerfiles, dependency manifests, proto schemas).
 4. Coverage re-scan after artifact generation correctly updates statuses from `needed` to `exists`.
+5. When source artifacts are pre-existing in the target project, `design_calibration_hints` and `expected_output_contracts` for those types flow through to the design phase, preventing LLM re-derivation of specifications that can be deterministically resolved from the existing files.
 
 ---
 

@@ -1,0 +1,11 @@
+{
+  "document_path": "/Users/neilyashinsky/Documents/dev/ContextCore/docs/design/requirements/REQ_PIPELINE_CONTRACT_GOVERNANCE.md",
+  "review_profile": "requirements",
+  "reviewer_count": 2,
+  "max_suggestions": 10,
+  "scope": "Review requirements for completeness, consistency, testability, and traceability across the ContextCore/startd8-sdk pipeline split.",
+  "enable_triage": true,
+  "context_files": [
+    "/Users/neilyashinsky/Documents/dev/ContextCore/docs/design/requirements/REQ_CAPABILITY_DELIVERY_PIPELINE.md"
+  ]
+}

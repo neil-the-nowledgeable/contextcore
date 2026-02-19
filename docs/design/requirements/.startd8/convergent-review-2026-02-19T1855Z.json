@@ -1,0 +1,8 @@
+{
+  "requirements_path": "/Users/neilyashinsky/Documents/dev/ContextCore/docs/design/requirements/REQ_PIPELINE_CONTRACT_GOVERNANCE.md",
+  "plan_path": "/Users/neilyashinsky/.claude/plans/linear-hatching-reef.md",
+  "reviewer_count": 2,
+  "max_suggestions": 10,
+  "scope": "Validate that the implementation plan covers all accepted review suggestions (33 applied across R1-R4), reconciles the Gate 1 check count (8 actual vs 7/6 documented), corrects the Implementation Status Matrix, and that the eval() sandbox hardening approach is technically sound.",
+  "enable_triage": true
+}

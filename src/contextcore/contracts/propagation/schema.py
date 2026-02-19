@@ -21,9 +21,10 @@ Usage::
 
 from __future__ import annotations
 
+import ast
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from contextcore.contracts.types import ConstraintSeverity, EvaluationPolicy
 
@@ -180,6 +181,95 @@ class ChainEndpoint(BaseModel):
     field: str = Field(..., min_length=1)
 
 
+# ---------------------------------------------------------------------------
+# Expression safety: AST-based allowlist for verification expressions
+# (NFR-PCG-004 — interim hardening pending CEL migration R6-S1)
+# ---------------------------------------------------------------------------
+
+# Builtins allowed inside verification expressions.
+_ALLOWED_BUILTINS = frozenset({"len", "str", "int", "float", "bool", "isinstance"})
+
+# Variables that may appear as the root of an attribute access (e.g. context.get).
+_ALLOWED_VARIABLES = frozenset({"context", "source", "dest"})
+
+# Methods allowed on allowed variables (e.g., context.get, source.keys).
+_ALLOWED_METHODS = frozenset({"get", "keys", "values", "items", "startswith", "endswith", "lower", "upper", "strip"})
+
+# Maximum expression length (characters).
+_MAX_EXPRESSION_LENGTH = 500
+
+
+def _validate_expression(expr: str) -> None:
+    """Validate a verification expression against the AST allowlist.
+
+    Ensures the expression does not contain dangerous constructs such as
+    imports, arbitrary function calls, deep attribute chains, or f-strings.
+
+    Allowed patterns:
+      - Simple comparisons: ``source == dest``
+      - Builtin calls: ``len(dest) > 0``
+      - Method calls on allowed variables: ``context.get("field", "")``
+
+    Raises:
+        ValueError: If the expression is too long, unparsable, or contains
+            a disallowed AST node.
+    """
+    if len(expr) > _MAX_EXPRESSION_LENGTH:
+        raise ValueError(
+            f"Expression too long ({len(expr)} chars, max {_MAX_EXPRESSION_LENGTH})"
+        )
+
+    try:
+        tree = ast.parse(expr, mode="eval")
+    except SyntaxError as exc:
+        raise ValueError(f"Expression is not valid Python: {exc}") from exc
+
+    for node in ast.walk(tree):
+        # Block imports
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            raise ValueError(
+                "Import statements are not allowed in verification expressions"
+            )
+
+        # Block f-strings (prevents sensitive value exfiltration per R5-S5)
+        if isinstance(node, (ast.JoinedStr, ast.FormattedValue)):
+            raise ValueError(
+                "f-strings are not allowed in verification expressions"
+            )
+
+        # Block calls except for allowed builtins and methods on allowed variables
+        if isinstance(node, ast.Call):
+            func = node.func
+            # Allow: len(x), str(x), etc.
+            if isinstance(func, ast.Name) and func.id in _ALLOWED_BUILTINS:
+                continue
+            # Allow: context.get("field", ""), source.keys(), etc.
+            # Only one level deep — the base must be a simple Name node
+            # for an allowed variable, NOT another Call or Attribute.
+            if isinstance(func, ast.Attribute) and (
+                isinstance(func.value, ast.Name)
+                and func.value.id in _ALLOWED_VARIABLES
+                and func.attr in _ALLOWED_METHODS
+            ):
+                continue
+            raise ValueError(
+                f"Function call not allowed in verification expressions: "
+                f"{ast.dump(func)}"
+            )
+
+        # Block attribute access on disallowed names and deep attribute chains
+        if isinstance(node, ast.Attribute):
+            if (
+                isinstance(node.value, ast.Name)
+                and node.value.id in _ALLOWED_VARIABLES
+            ):
+                continue
+            raise ValueError(
+                f"Attribute access not allowed in verification expressions: "
+                f"{ast.dump(node)}"
+            )
+
+
 class PropagationChainSpec(BaseModel):
     """End-to-end declaration of a field flowing through the pipeline."""
 
@@ -203,6 +293,14 @@ class PropagationChainSpec(BaseModel):
         None,
         description="Python expression evaluated against context for verification",
     )
+
+    @field_validator("verification")
+    @classmethod
+    def validate_verification_expression(cls, v: Optional[str]) -> Optional[str]:
+        """Validate verification expression against AST allowlist (NFR-PCG-004)."""
+        if v is not None:
+            _validate_expression(v)
+        return v
 
 
 # ---------------------------------------------------------------------------

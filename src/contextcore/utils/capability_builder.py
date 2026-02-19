@@ -10,6 +10,7 @@ Workflow:
     5. Inject patterns from _patterns.yaml
     6. Enrich triggers from _trigger_enrichments.yaml
     7. Merge P2 capabilities from _p2_capabilities.yaml (REQ-CID-004/005)
+    7b. Merge CLI capabilities from _cli_capabilities.yaml
     8. Merge discovery paths from _discovery_paths.yaml (REQ-CID-008)
     9. Bump version and return updated manifest dict
 
@@ -206,6 +207,23 @@ def build_capability_index(
                 report.skipped_capabilities.append(cap_id)
     else:
         report.notes.append("No _p2_capabilities.yaml found or empty")
+
+    # 7b. Merge CLI capabilities from _cli_capabilities.yaml
+    cli_path = index_dir / "_cli_capabilities.yaml"
+    cli_data = _load_yaml(cli_path)
+    if cli_data and "capabilities" in cli_data:
+        for cap in cli_data["capabilities"]:
+            if not isinstance(cap, dict):
+                continue
+            cap_id = cap.get("capability_id", "")
+            if cap_id and cap_id not in existing_ids:
+                manifest["capabilities"].append(cap)
+                existing_ids.add(cap_id)
+                report.added_capabilities.append(cap_id)
+            elif cap_id:
+                report.skipped_capabilities.append(cap_id)
+    else:
+        report.notes.append("No _cli_capabilities.yaml found or empty")
 
     # 8. Merge discovery paths (REQ-CID-008)
     discovery_path = index_dir / "_discovery_paths.yaml"

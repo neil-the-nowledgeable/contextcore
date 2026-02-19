@@ -115,22 +115,31 @@ The extended schema adds `artifact_inventory` alongside the existing fields. All
 
    | Role | Stage | Description |
    |------|-------|-------------|
-   | `derivation_rules` | export | Business-to-parameter mapping rules per artifact type |
-   | `resolved_parameters` | export | Pre-resolved parameter values per artifact, ready for template substitution |
-   | `output_contracts` | export | Per-artifact-type expected depth, completeness markers, max lines/tokens |
+   | `derivation_rules` | export | Business-to-parameter mapping rules per artifact type (all categories including source) |
+   | `resolved_parameters` | export | Pre-resolved parameter values per artifact, ready for template substitution (all categories including source) |
+   | `output_contracts` | export | Per-artifact-type expected depth, completeness markers, max lines/tokens (all categories including source) |
    | `dependency_graph` | export | Artifact-level dependency ordering |
-   | `calibration_hints` | export | Per-artifact-type expected depth tier and LOC range |
+   | `calibration_hints` | export | Per-artifact-type expected depth tier and LOC range (all categories including source) |
    | `open_questions` | export | Unresolved questions from manifest guidance |
-   | `parameter_sources` | export | Per-artifact-type parameter origin mapping |
+   | `parameter_sources` | export | Per-artifact-type parameter origin mapping (all categories including source) |
    | `semantic_conventions` | export | Metric and label naming conventions |
    | `example_artifacts` | export | Example output per artifact type |
-   | `coverage_gaps` | export | Artifact types needing generation |
+   | `coverage_gaps` | export | Artifact types needing generation (all categories including source) |
+   | `existing_source_artifacts` | export | Pre-existing source artifacts detected via `scan_existing_artifacts()` with file paths and SHA-256 checksums |
    | `plan_document` | ingestion | Structured plan with architecture, risks, verification strategy |
    | `refine_suggestions` | ingestion | Architectural review suggestions from REFINE phase |
    | `design_calibration` | ingestion | Per-task depth tier, section list, max output tokens |
    | `task_decomposition` | ingestion | Per-task descriptions, file targets, complexity assessment |
    | `design_handoff` | contractor | Per-task design documents from DESIGN phase |
    | `implementation_results` | contractor | Per-task generated code from IMPLEMENT phase |
+
+   **Source artifact coverage note:** The roles `derivation_rules`, `resolved_parameters`,
+   `output_contracts`, `calibration_hints`, `parameter_sources`, and `coverage_gaps` must
+   cover ALL registered artifact types — including source types (dockerfile,
+   python_requirements, protobuf_schema, editorconfig, ci_workflow). When these roles
+   contain only observability-type entries, downstream stages are forced to re-derive
+   source artifact specifications via LLM — a violation of the Mottainai principle.
+   See [GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md](~/Documents/Processes/cap-dev-pipe-test/GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md) for evidence ($1.43/run waste for Dockerfile tasks).
 
 3. **Freshness model**
    - The `freshness` object must include:
@@ -144,8 +153,10 @@ The extended schema adds `artifact_inventory` alongside the existing fields. All
 
 4. **Export stage production**
    - `contextcore manifest export` must populate `artifact_inventory` with entries for all reusable artifacts it produces.
-   - At minimum, the following roles must be registered: `derivation_rules`, `resolved_parameters`, `output_contracts`, `dependency_graph`, `calibration_hints`, `open_questions`, `parameter_sources`, `semantic_conventions`, `example_artifacts`, `coverage_gaps`.
+   - At minimum, the following roles must be registered: `derivation_rules`, `resolved_parameters`, `output_contracts`, `dependency_graph`, `calibration_hints`, `open_questions`, `parameter_sources`, `semantic_conventions`, `example_artifacts`, `coverage_gaps`, `existing_source_artifacts`.
    - Each entry must reference the `onboarding-metadata.json` file and include the `json_path` to the specific field.
+   - Inventory entries for `derivation_rules`, `resolved_parameters`, `output_contracts`, `calibration_hints`, and `parameter_sources` must span ALL registered artifact types — including source types — not only observability types. This ensures downstream consumers (plan-ingestion, contractors) receive pre-resolved specifications for Dockerfiles, dependency manifests, and proto schemas.
+   - When `scan_existing_artifacts()` detects pre-existing source artifacts, the `existing_source_artifacts` inventory entry must list them with file paths and SHA-256 checksums, enabling downstream stages to reference existing files in design prompts rather than generating from scratch.
 
 5. **Plan-ingestion stage extension**
    - `startd8 workflow run plan-ingestion` must extend the inventory with entries for ingestion-stage artifacts.
@@ -454,3 +465,4 @@ After plan-ingestion runs, the same file gains additional entries:
 | Date | Change |
 |------|--------|
 | 2026-02-16 | Initial version: schema extension, 16 artifact roles, production/consumption/validation requirements, implementation priorities |
+| 2026-02-18 | Extended for source artifact types per Gap 15: added `existing_source_artifacts` role (17 total), added source artifact coverage note to FR-2, extended FR-4 to require source type coverage across inventory roles |

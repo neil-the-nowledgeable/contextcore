@@ -90,7 +90,7 @@ The Capability Delivery Pipeline spans two codebases. Stages 0–4 run in
   │                                                                                  │
   └───────────────────────────────────┬──────────────────────────────────────────────┘
                                       │
-                    Handoff artifacts: │  artifact-manifest.yaml
+                    Handoff artifacts: │  {project}-artifact-manifest.yaml
                                       │  onboarding-metadata.json
                                       │  run-provenance.json
                                       │
@@ -126,7 +126,7 @@ startd8-sdk. Key files consumed by plan ingestion and contractor execution:
 
 | Artifact | Consumed by | Key fields |
 |----------|------------|------------|
-| `artifact-manifest.yaml` | Plan ingestion (PARSE), Artisan (PLAN/DESIGN) | coverage gaps, derivation rules, dependency graph |
+| `{project}-artifact-manifest.yaml` | Plan ingestion (PARSE), Artisan (PLAN/DESIGN) | coverage gaps, derivation rules, dependency graph |
 | `onboarding-metadata.json` | Plan ingestion (ASSESS), Artisan (IMPLEMENT) | parameter sources, output contracts, calibration hints |
 | `run-provenance.json` | Gate 1 (checksum chain), Gate 3 (provenance verify) | source checksum, artifact inventory |
 
@@ -145,7 +145,7 @@ The `force_route` config can override automatic routing.
 
 | Gate | Location | Command | Purpose |
 |------|----------|---------|---------|
-| Gate 1 | After export, before plan ingestion | `contextcore contract a2a-check-pipeline` | 6 structural integrity checks (checksums, provenance, gap parity) |
+| Gate 1 | After export, before plan ingestion | `contextcore contract a2a-check-pipeline` | 8 integrity checks: structural integrity, checksum chain, provenance cross-check, mapping completeness, gap parity, design calibration, parameter resolvability *(non-blocking)*, artifact inventory *(non-blocking)* |
 | Gate 2 | After plan ingestion, before contractor | `contextcore contract a2a-diagnose` | Three Questions diagnostic (stops at first failure) |
 | Gate 3 | After contractor execution | Finalize verification | Per-artifact checksums, provenance chain, status rollup |
 

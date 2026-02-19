@@ -1,7 +1,7 @@
 # Requirements: Capability Index Discoverability Enhancements
 
-**Status:** Phase 1 implemented (REQ-CID-001–012), Phase 2 implemented (REQ-CID-013–018), Phase 3 defined (REQ-CID-019–021)
-**Date:** 2026-02-16 (Phase 1 requirements), 2026-02-17 (Phase 1 implementation), 2026-02-18 (Phase 2 + Phase 3 requirements)
+**Status:** Phase 1 implemented (REQ-CID-001–012), Phase 2 implemented (REQ-CID-013–018, amendments pending per Gap 15), Phase 3 defined (REQ-CID-019–021), Phase 4 defined (REQ-CID-022–024)
+**Date:** 2026-02-16 (Phase 1 requirements), 2026-02-17 (Phase 1 implementation), 2026-02-18 (Phase 2 + Phase 3 + Phase 4 requirements)
 **Author:** Force Multiplier Labs
 **Priority Tier:** Tier 1 (high value, low complexity)
 **Companion docs:**
@@ -11,7 +11,7 @@
 - `docs/capability-index/contextcore.agent.yaml`
 - `docs/capability-index/contextcore.benefits.yaml`
 - `docs/capability-index/contextcore.user.yaml`
-**Estimated implementation:** Phase 1: ~200 YAML lines (done) | Phase 2: ~300 lines + code changes | Phase 3: ~50 YAML lines + artifact regeneration
+**Estimated implementation:** Phase 1: ~200 YAML lines (done) | Phase 2: ~300 lines + code changes (done, amendments pending) | Phase 3: ~50 YAML lines + artifact regeneration | Phase 4: ~500 lines Python + ~100 YAML
 **Last validated:** 2026-02-18 (rescan of capability-index directory — see Rescan Validation below)
 
 ---
@@ -45,12 +45,12 @@ Triggered by [Discoverability Failure Investigation](../DISCOVERABILITY_FAILURE_
 
 | REQ ID | Priority | Status | Summary |
 |--------|----------|--------|---------|
-| REQ-CID-013 | P1 | **Implemented** | Unified artifact type registry as first-class capability — `contextcore.meta.artifact_type_registry` in `contextcore.agent.yaml` |
-| REQ-CID-014 | P1 | **Implemented** | Scope boundary declaration — `scope_boundaries` section with 3 categories, 7 stages, explicit non-scope |
+| REQ-CID-013 | P1 | **Implemented + Amendment pending** | Unified artifact type registry as first-class capability — `contextcore.meta.artifact_type_registry` in `contextcore.agent.yaml`. Amendment: add `source` category (5 types) per Gap 15 |
+| REQ-CID-014 | P1 | **Implemented + Amendment pending** | Scope boundary declaration — `scope_boundaries` section with 4 categories (was 3), 2 scope tiers, 7 stages, narrowed non-scope. Amendment: add `source` category + `scope_tiers` per Gap 15 |
 | REQ-CID-015 | P1 | **Implemented** | Cross-reference enforcement — 10+ files reference `pipeline-requirements-onboarding.md`, "Referenced By" section added |
 | REQ-CID-016 | P1 | **Implemented** | Anti-false-ceiling — 3 false ceiling locations fixed in benefits.yaml + user.yaml; docstrings updated |
 | REQ-CID-017 | P1 | **Implemented** | Scope-question discoverability tests — 37 tests in `test_artifact_types.py` + `test_capability_discoverability.py` |
-| REQ-CID-018 | P1 | **Implemented** | ArtifactType enum expanded 9→14 with `OBSERVABILITY_TYPES`, `ONBOARDING_TYPES`, `INTEGRITY_TYPES` category sets |
+| REQ-CID-018 | P1 | **Implemented + Amendment pending** | ArtifactType enum expanded 9→14→19 with `OBSERVABILITY_TYPES`, `ONBOARDING_TYPES`, `INTEGRITY_TYPES`, `SOURCE_TYPES` category sets. Amendment: add 5 source types per Gap 15 |
 
 ### Phase 3 (2026-02-18): MCP/A2A Export Integrity — Requirements Defined
 
@@ -63,6 +63,20 @@ Triggered by [MCP and A2A Tools Documentation Audit](../capability-index/MCP_A2A
 | REQ-CID-019 | P1 | **Pending** | MCP/A2A export coverage for Phase 1+ capabilities (15 missing) |
 | REQ-CID-020 | P2 | **Pending** | A2A manifest section (url, authentication, provider) |
 | REQ-CID-021 | P2 | **Pending** | Discovery endpoint documentation in capability index |
+
+### Phase 4 (2026-02-18): Source Artifact Type Coverage — Requirements Defined
+
+Triggered by [Gap 15: Export Artifact Type Registry Does Not Cover Source Artifacts](~/Documents/Processes/cap-dev-pipe-test/GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md): the export pipeline's artifact type registry covers only observability, onboarding, and integrity artifacts. Source artifacts (Dockerfiles, dependency manifests, proto schemas) declared as deliverables in `.contextcore.yaml` are invisible to the export's artifact type registry, causing downstream stages to re-derive specifications from scratch via LLM.
+
+**Failure class:** Artifact type coverage gap — qualitatively different from Phase 2's scope discovery and Phase 3's export coverage. Phase 4 fixes "the export cannot produce calibration data for artifact types that are not registered, and the registration architecture does not scale."
+
+Phase 4 also subsumes the Phase 2 amendments to CID-013, CID-014, and CID-018 which add the `source` category and `scope_tiers` as an interim step before the modular registry.
+
+| REQ ID | Priority | Status | Summary |
+|--------|----------|--------|---------|
+| REQ-CID-022 | P2 | **Pending** | Modular artifact type registry (ArtifactTypeModule ABC) — replaces 8-file edit surface |
+| REQ-CID-023 | P2 | **Pending** | Cross-type existing-artifact detection via capability-index discovery paths |
+| REQ-CID-024 | P3 | **Pending** | Source artifact calibration flow to design phase (ContextCore side) |
 
 ### Tooling implemented
 
@@ -677,18 +691,55 @@ capability entry.
     loki_rule, notification_policy, runbook, alert_template
   - **Onboarding** (4): capability_index, agent_card, mcp_tools, onboarding_metadata
   - **Integrity** (2): provenance, ingestion-traceability
-- `description.human` explains: "The pipeline produces artifacts in three categories.
+  - **Source** (5): dockerfile, python_requirements, protobuf_schema, editorconfig,
+    ci_workflow
+- `description.human` explains: "The pipeline produces artifacts in four categories.
   Observability artifacts are generated from business metadata. Onboarding and integrity
   artifacts are pipeline-innate — they are produced automatically regardless of the
-  project's business context."
+  project's business context. Source artifacts are containerization, dependency, and
+  infrastructure files that the pipeline generates for new projects and detects as
+  pre-existing in established projects."
 - `triggers` include: `"artifact types"`, `"what artifacts"`, `"artifact scope"`,
   `"artifact categories"`, `"pipeline produces"`, `"artifact taxonomy"`,
   `"artifact registry"`, `"beyond observability"`, `"non-observability artifacts"`,
-  `"pipeline-innate"`.
-- `cross_references` links to `pipeline-requirements-onboarding.md` and
-  `artifact_manifest.py`.
-- After the change, searching triggers for "artifact type" or "what artifacts" matches
-  this capability.
+  `"pipeline-innate"`, `"source artifacts"`, `"dockerfile"`, `"pre-existing artifacts"`.
+- `cross_references` links to `pipeline-requirements-onboarding.md`,
+  `artifact_manifest.py`, and
+  `GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md`.
+- After the change, searching triggers for "artifact type", "what artifacts", or
+  "source artifacts" matches this capability.
+
+**Amendment (2026-02-18): Source artifact category added**
+
+The original requirement defined 3 categories (14 types). This amendment adds
+a 4th category — **source** — with 5 initial types. The amendment is driven by
+[Gap 15](~/Documents/Processes/cap-dev-pipe-test/GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md):
+the export pipeline's artifact type registry did not cover source artifacts
+(Dockerfiles, dependency manifests, proto schemas), causing downstream stages to
+re-derive specifications from scratch via LLM at a measured cost of $1.43 per
+pipeline run for Dockerfile tasks alone.
+
+Source artifacts differ from the other three categories:
+- **Observability/onboarding/integrity** artifacts are pipeline-generated or
+  pipeline-innate — the pipeline produces them.
+- **Source** artifacts are pipeline-characterized — the pipeline produces
+  `design_calibration_hints`, `expected_output_contracts`, and
+  `resolved_artifact_parameters` for them, and detects pre-existing instances
+  in the target project via `scan_existing_artifacts()`. When source artifacts
+  already exist, this detection should inform the design phase (not merely skip
+  generation) so that contractors can reference and build upon existing files.
+
+The initial 5 types (dockerfile, python_requirements, protobuf_schema,
+editorconfig, ci_workflow) cover the Online Boutique calibration exercise.
+The set is **language-extensible**: additional source types (go_mod,
+package_json, pom_xml, csproj) may be registered as Runs 2–5 validate
+additional languages.
+
+**Downstream aspiration (out of scope for CID):** Detection performed during
+`capability-index build` (via `_discovery_paths.yaml`) should be consumable by
+the startd8-sdk design phase, so that existing file references appear in design
+prompts. This bridges the ContextCore export → startd8-sdk design handoff for
+pre-existing assets.
 
 **Affected files:**
 - `docs/capability-index/contextcore.agent.yaml`
@@ -697,6 +748,7 @@ capability entry.
 **Source documents:**
 - [pipeline-requirements-onboarding.md](../../reference/pipeline-requirements-onboarding.md) — defines onboarding + integrity types
 - [DISCOVERABILITY_FAILURE_INVESTIGATION_2026-02-18.md](../DISCOVERABILITY_FAILURE_INVESTIGATION_2026-02-18.md) — documents the failure
+- [GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md](~/Documents/Processes/cap-dev-pipe-test/GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md) — source artifact coverage gap analysis
 
 ---
 
@@ -717,23 +769,76 @@ individual capabilities but cannot determine the system's complete scope.
     ```yaml
     artifact_categories:
       - category: observability
+        scope_tier: pipeline-generated
         description: "Generated from business metadata in .contextcore.yaml"
         types: [dashboard, prometheus_rule, slo_definition, service_monitor,
                 loki_rule, notification_policy, runbook, alert_template]
       - category: onboarding
+        scope_tier: pipeline-generated
         description: "Pipeline-innate artifacts produced automatically"
         types: [capability_index, agent_card, mcp_tools, onboarding_metadata]
       - category: integrity
+        scope_tier: pipeline-generated
         description: "Pipeline-innate provenance and traceability artifacts"
         types: [provenance, ingestion-traceability]
+      - category: source
+        scope_tier: pipeline-characterized
+        description: >
+          Containerization, dependency, and infrastructure artifacts. The pipeline
+          generates these for new projects and detects pre-existing instances in
+          established projects. When pre-existing, the pipeline produces calibration
+          hints, output contracts, and resolved parameters so downstream contractors
+          can reference existing files rather than re-deriving specifications.
+        types: [dockerfile, python_requirements, protobuf_schema, editorconfig,
+                ci_workflow]
+        extensible: true
+        extension_note: >
+          Additional source types (go_mod, package_json, pom_xml, csproj) may be
+          registered as the pipeline validates additional language ecosystems.
+    ```
+  - `scope_tiers`: Explains the two tiers
+    ```yaml
+    scope_tiers:
+      pipeline-generated:
+        description: "The pipeline produces these artifacts directly"
+        categories: [observability, onboarding, integrity]
+      pipeline-characterized:
+        description: >
+          The pipeline produces design_calibration_hints, expected_output_contracts,
+          and resolved_artifact_parameters for these artifacts, and detects
+          pre-existing instances via scan_existing_artifacts(). Downstream
+          contractors generate them using pipeline-provided calibration.
+        categories: [source]
     ```
   - `pipeline_stages`: List of 7 pipeline stages with their roles
-  - `explicit_non_scope`: What the system does NOT produce (e.g., application code,
-    Dockerfiles, CI/CD configs — these are plan deliverables, not pipeline artifacts)
+  - `explicit_non_scope`: What the system does NOT produce or characterize
+    ```yaml
+    explicit_non_scope:
+      - "Application business logic source code (service implementations, handlers, models)"
+      - "Test suites and test fixtures"
+      - "Documentation (README, API docs, guides)"
+    ```
 - The scope boundaries are positioned BEFORE individual capabilities in document
   order (agents encounter scope before searching capabilities).
 - An agent reading `scope_boundaries` can answer: "How many artifact categories
-  exist?" and "Does the system produce X?" without searching individual capabilities.
+  exist?", "Does the system produce X?", and "Does the pipeline generate or
+  characterize this artifact type?" without searching individual capabilities.
+
+**Amendment (2026-02-18): Source category and scope tiers added**
+
+The original requirement defined 3 categories and listed Dockerfiles/CI configs in
+`explicit_non_scope`. This amendment:
+1. Adds `source` as a 4th `artifact_categories` entry with 5 initial types
+2. Introduces `scope_tiers` to distinguish `pipeline-generated` (obs/onboarding/
+   integrity) from `pipeline-characterized` (source) — the pipeline's relationship
+   with these categories is fundamentally different
+3. Narrows `explicit_non_scope` to application business logic, tests, and documentation
+   — removing Dockerfiles, dependency manifests, proto schemas, editorconfig, and CI
+   workflows which are now registered source types
+4. Marks the `source` category as `extensible: true` with a note about additional
+   language-specific types
+
+Driven by [Gap 15](~/Documents/Processes/cap-dev-pipe-test/GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md).
 
 **Affected files:**
 - `docs/capability-index/contextcore.agent.yaml`
@@ -795,8 +900,9 @@ explicitly noting that additional types exist in other categories. This is the
 - `ArtifactType` enum docstring (`artifact_manifest.py:28`) changes from:
   "Types of observability artifacts that can be generated" to the docstring
   specified in REQ-CID-018 (which lists all categories, since the enum now
-  contains all 14 types). The enum docstring must NOT contain "observability"
-  without qualification (i.e., without also mentioning onboarding and integrity).
+  contains all 19 types). The enum docstring must NOT contain "observability"
+  without qualification (i.e., without also mentioning onboarding, integrity,
+  and source).
 - Module docstring (`artifact_manifest.py:1-2`) changes from:
   "Artifact Manifest Model - Defines required observability artifacts" to:
   "Artifact Manifest Model - Defines required artifacts for the ContextCore pipeline"
@@ -805,7 +911,8 @@ explicitly noting that additional types exist in other categories. This is the
   "contract for artifact generation"
 - `MANIFEST_EXPORT_REQUIREMENTS.md:99` "Must support 8 artifact types" adds a note:
   "These 8 types represent the observability category. Additional categories
-  (onboarding, integrity) are defined in pipeline-requirements-onboarding.md."
+  (onboarding, integrity, source) are defined in pipeline-requirements-onboarding.md
+  and GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md."
 - `contextcore.benefits.yaml:717` `pipeline.contract_first_planning` value_statement
   changes "observability artifacts" to "pipeline artifacts" or "artifacts".
 - `artifact-intent.schema.json:5` description changes from "observability artifact
@@ -813,7 +920,9 @@ explicitly noting that additional types exist in other categories. This is the
   pipeline-requirements-onboarding.md).
 - `onboarding.py:1-13` module docstring adds: "In addition to observability artifacts,
   the pipeline produces onboarding and integrity artifacts defined in
-  pipeline-requirements-onboarding.md."
+  pipeline-requirements-onboarding.md, and characterizes source artifacts
+  (Dockerfiles, dependency manifests, proto schemas) defined in
+  GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md."
 - A validation heuristic: any string matching `"[0-9]+ artifact types"` (e.g.,
   "8 artifact types", "9 artifact types") must be within 3 lines of text noting
   the existence of other categories.
@@ -848,7 +957,7 @@ artifacts?"
 |------|--------------------|----------------|
 | `test_scope_artifact_types_complete` | "What artifact types exist?" | Searching triggers/descriptions for "artifact type" finds a capability that lists ALL types across ALL categories |
 | `test_scope_beyond_observability` | "Does the system produce non-observability artifacts?" | Searching for "non-observability" OR "onboarding" OR "pipeline-innate" in triggers matches >= 1 capability |
-| `test_scope_artifact_categories` | "How many artifact categories exist?" | `scope_boundaries.artifact_categories` contains >= 3 categories |
+| `test_scope_artifact_categories` | "How many artifact categories exist?" | `scope_boundaries.artifact_categories` contains >= 4 categories (observability, onboarding, integrity, source) |
 | `test_scope_boundary_present` | "What is the system's scope?" | `scope_boundaries` section exists in manifest |
 | `test_no_false_ceiling_enum` | "Is the ArtifactType enum observability-only?" | Enum docstring does NOT contain the word "observability" without qualification |
 | `test_no_false_ceiling_schema` | "Does artifact-intent say observability?" | Schema description does NOT contain "observability" without qualification |
@@ -879,17 +988,21 @@ produced by the pipeline, with category annotations. This is the code-level sing
 source of truth that REQ-CID-013 (the capability entry) describes programmatically.
 
 **Acceptance criteria:**
-- `ArtifactType` enum in `artifact_manifest.py` includes all 14 types:
+- `ArtifactType` enum in `artifact_manifest.py` includes all 19 types:
   ```python
   class ArtifactType(str, Enum):
-      """Types of artifacts produced by the ContextCore pipeline.
+      """Types of artifacts produced or characterized by the ContextCore pipeline.
 
       Organized by category:
       - Observability: generated from business metadata
       - Onboarding: pipeline-innate, produced automatically
       - Integrity: pipeline-innate provenance and traceability
+      - Source: containerization, dependency, and infrastructure artifacts
+        that the pipeline generates for new projects and detects as
+        pre-existing in established projects
 
-      See docs/reference/pipeline-requirements-onboarding.md for requirements.
+      See docs/reference/pipeline-requirements-onboarding.md for onboarding/integrity.
+      See GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md for source artifact rationale.
       """
 
       # Observability (8)
@@ -911,6 +1024,13 @@ source of truth that REQ-CID-013 (the capability entry) describes programmatical
       # Integrity (2)
       PROVENANCE = "provenance"
       INGESTION_TRACEABILITY = "ingestion-traceability"
+
+      # Source (5)
+      DOCKERFILE = "dockerfile"
+      PYTHON_REQUIREMENTS = "python_requirements"
+      PROTOBUF_SCHEMA = "protobuf_schema"
+      EDITORCONFIG = "editorconfig"
+      CI_WORKFLOW = "ci_workflow"
   ```
 - Category can be derived programmatically:
   ```python
@@ -918,32 +1038,75 @@ source of truth that REQ-CID-013 (the capability entry) describes programmatical
                          SERVICE_MONITOR, NOTIFICATION_POLICY, RUNBOOK, ALERT_TEMPLATE}
   ONBOARDING_TYPES = {CAPABILITY_INDEX, AGENT_CARD, MCP_TOOLS, ONBOARDING_METADATA}
   INTEGRITY_TYPES = {PROVENANCE, INGESTION_TRACEABILITY}
+  SOURCE_TYPES = {DOCKERFILE, PYTHON_REQUIREMENTS, PROTOBUF_SCHEMA,
+                  EDITORCONFIG, CI_WORKFLOW}
   ```
+- `SOURCE_TYPES` is **language-extensible**: additional source types (e.g.,
+  `GO_MOD`, `PACKAGE_JSON`, `POM_XML`, `CSPROJ`) may be added as the
+  pipeline validates additional language ecosystems in Runs 2–5. The frozen
+  set is the minimum viable set validated by Run 1 (Python).
 - `ARTIFACT_OUTPUT_CONVENTIONS` in `artifact_conventions.py` updated with entries
-  for all new types (CAPABILITY_INDEX was missing since Phase 1; all 5 new types
-  also need entries).
+  for all new types (CAPABILITY_INDEX was missing since Phase 1; all 5 onboarding/
+  integrity types and all 5 source types also need entries).
 - All four onboarding dicts in `onboarding.py` updated with entries for new types:
   - `ARTIFACT_PARAMETER_SOURCES` — add entries for AGENT_CARD, MCP_TOOLS,
     ONBOARDING_METADATA, PROVENANCE, INGESTION_TRACEABILITY (CAPABILITY_INDEX
-    already exists)
+    already exists), and all 5 source types
   - `ARTIFACT_EXAMPLE_OUTPUTS` — add entries for AGENT_CARD, MCP_TOOLS,
     ONBOARDING_METADATA, PROVENANCE, INGESTION_TRACEABILITY (CAPABILITY_INDEX
-    already exists)
-  - `EXPECTED_OUTPUT_CONTRACTS` — add entries for ALL 6 new types including
-    CAPABILITY_INDEX (which was missing since Phase 1)
+    already exists), and all 5 source types
+  - `EXPECTED_OUTPUT_CONTRACTS` — add entries for ALL new types including
+    CAPABILITY_INDEX (which was missing since Phase 1) and all 5 source types.
+    Source type contracts include `completeness_markers` appropriate to each
+    type (e.g., `["FROM", "COPY", "EXPOSE", "ENTRYPOINT", "USER"]` for
+    Dockerfiles)
   - `ARTIFACT_PARAMETER_SCHEMA` — add entries for AGENT_CARD, MCP_TOOLS,
     ONBOARDING_METADATA, PROVENANCE, INGESTION_TRACEABILITY (CAPABILITY_INDEX
-    already exists)
+    already exists), and all 5 source types
+- `design_calibration_hints` in `onboarding-metadata.json` includes entries for
+  all source types (e.g., `dockerfile: {expected_depth: "standard",
+  expected_loc_range: "30-80"}`) alongside existing observability entries.
+- `scan_existing_artifacts()` in `export_io_ops.py` extended with discovery
+  patterns for source types: `**/Dockerfile`, `**/Dockerfile.*`,
+  `**/requirements.in`, `**/requirements.txt`, `**/*.proto`, `**/.editorconfig`,
+  `**/.github/workflows/*.yml`. Discovered source artifacts are marked
+  `ArtifactStatus.EXISTS` alongside observability artifacts.
+- `DEFAULT_SCAN_ALLOWLIST` in `export_quality_ops.py` extended to include
+  `src/` paths for source artifact scanning.
 - `pipeline_requirements.py` `satisfied_by_artifact` values validated against
   `ArtifactType` enum (no free-form strings that aren't in the enum).
 - Backward compatibility: existing code using `ArtifactType.DASHBOARD` etc. is unaffected.
-- Tests verify enum completeness against `pipeline-requirements-onboarding.md` definitions.
+  The 5 new source types are additive. Existing 14-type behavior is preserved.
+- Tests verify enum completeness against `pipeline-requirements-onboarding.md` definitions
+  and source type definitions.
+
+**Amendment (2026-02-18): Source artifact types added**
+
+The original requirement defined 14 types in 3 categories. This amendment adds
+5 source artifact types in a 4th category. The amendment is driven by
+[Gap 15](~/Documents/Processes/cap-dev-pipe-test/GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md).
+
+Key implementation additions beyond the original CID-018 scope:
+- `scan_existing_artifacts()` gains source artifact glob patterns (the original
+  CID-018 only addressed onboarding/integrity types, which are pipeline-innate
+  and do not need filesystem scanning)
+- `design_calibration_hints` gains source type entries (the original CID-018
+  only addressed onboarding/integrity entries in the 4 onboarding dicts)
+- Source type `EXPECTED_OUTPUT_CONTRACTS` carry `completeness_markers` specific
+  to each source type (as defined in Gap 15's `DockerfileModule` example)
+- Pre-existing source artifact detection informs the downstream design phase:
+  when a source artifact already exists in the target project, this fact should
+  be reflected in the calibration data that flows to plan-ingestion and
+  contractor stages. The exact consumption mechanism is a startd8-sdk concern
+  outside CID scope.
 
 **Affected files:**
 - `src/contextcore/models/artifact_manifest.py` (enum expansion + docstrings)
 - `src/contextcore/utils/artifact_conventions.py` (add missing types)
 - `src/contextcore/utils/onboarding.py` (add missing entries across 4 dicts)
 - `src/contextcore/utils/pipeline_requirements.py` (validate against enum)
+- `src/contextcore/cli/export_io_ops.py` (source artifact scan patterns)
+- `src/contextcore/cli/export_quality_ops.py` (scan allowlist extension)
 - `tests/test_artifact_types.py` (new — enum completeness tests)
 
 ---
@@ -1143,6 +1306,278 @@ programmatically.
 - [MCP_A2A_TOOLS_DOCUMENTATION_AUDIT.md](../capability-index/MCP_A2A_TOOLS_DOCUMENTATION_AUDIT.md) — Gap #2
 - [a2a_server.py](../../../src/contextcore/agent/a2a_server.py) — endpoint implementation
 - [endpoint.py](../../../src/contextcore/discovery/endpoint.py) — discovery document serving
+
+---
+
+## Phase 4 Problem Statement: Source Artifact Type Coverage and Modular Registry
+
+> **Gap analysis:** [GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md](~/Documents/Processes/cap-dev-pipe-test/GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md)
+
+Phase 2 fixed **scope discovery** so agents can determine the system's complete boundary.
+The Phase 2 amendments (CID-013, CID-014, CID-018) extend the boundary to include source
+artifacts. Phase 4 addresses the **structural prerequisite** for sustainable source artifact
+support: the current `ArtifactType` enum + hardcoded dictionary architecture requires
+editing 8 files to add a single artifact type. This makes the type registry expensive to
+extend and error-prone.
+
+### The Failure
+
+In Run 1 (Python) of the Online Boutique regeneration exercise, the artisan DESIGN phase
+spent $1.43 and ~21 minutes regenerating Docker architectural decisions that were already
+deterministically derivable from the plan + reference implementation. The root cause: the
+export produced `design_calibration_hints` and `expected_output_contracts` only for
+observability types, because the `ArtifactType` enum is a closed, static set and source
+types were not registered.
+
+The Phase 2 amendments address this for the initial 5 source types by extending the enum.
+But with Runs 2–5 requiring additional types (go_mod, package_json, pom_xml, csproj) and
+the potential for project-specific types beyond the standard set, the 8-file edit surface
+becomes a scaling bottleneck.
+
+### 8-file edit surface (current architecture)
+
+Adding a new artifact type today requires modifying:
+
+1. `ArtifactType` enum + frozen set membership in `artifact_manifest.py`
+2. `ARTIFACT_PARAMETER_SOURCES` in `onboarding.py`
+3. `ARTIFACT_EXAMPLE_OUTPUTS` in `onboarding.py`
+4. `EXPECTED_OUTPUT_CONTRACTS` in `onboarding.py`
+5. `ARTIFACT_PARAMETER_SCHEMA` in `onboarding.py`
+6. `ARTIFACT_OUTPUT_CONVENTIONS` in `artifact_conventions.py`
+7. `scan_existing_artifacts()` patterns in `export_io_ops.py`
+8. `DEFAULT_SCAN_ALLOWLIST` in `export_quality_ops.py`
+
+Phase 4 replaces this with a module-per-type pattern where adding a new artifact type
+requires dropping a single Python module into a directory.
+
+---
+
+### REQ-CID-022: Modular artifact type registry (ArtifactTypeModule ABC)
+
+**Priority:** P2
+**Failure addressed:** 8-file edit surface for adding artifact types (Gap 15 root cause)
+**Description:** Replace the static `ArtifactType` enum + hardcoded dictionary approach
+with a registry-based architecture where each artifact type is defined by a single
+Python module implementing an abstract base class. New types are registered by dropping
+a module into the appropriate category subdirectory — no edits to existing files required.
+
+**Design goals:**
+1. Separate observability from source artifact concerns — the export command should not
+   require observability knowledge to register a Dockerfile artifact type
+2. Leverage capability-index scanning — the `capability-index build` command's
+   `_discovery_paths.yaml` should be consumable by the export scanner
+3. Registry-based, not enum-based — new artifact types addable by dropping a module,
+   not by editing 8 files
+4. Backward-compatible — existing observability artifact behavior must not change
+
+**Acceptance criteria:**
+- An `ArtifactTypeModule` abstract base class is defined in
+  `src/contextcore/artifact_types/_base.py` with the following required methods:
+  - `type_id` (property) → str — unique identifier (e.g., "dockerfile", "dashboard")
+  - `category` (property) → str — one of "observability", "onboarding", "integrity", "source"
+  - `output_ext` (property) → str — file extension (e.g., ".json", ".yaml", "")
+  - `output_path_template` (property) → str — path template (e.g., "src/{service}/Dockerfile")
+  - `description` (property) → str — human-readable description
+  - `discovery_patterns()` → list[str] — glob patterns for `scan_existing_artifacts()`
+  - `parameter_schema()` → list[str] — parameter keys this type accepts
+  - `parameter_sources(manifest)` → dict[str, str] — map parameter keys to manifest sources
+  - `resolve_parameters(manifest, target)` → dict[str, Any] — compute concrete values
+  - `output_contract()` → OutputContract — expected output characteristics
+  - `calibration_hint()` → CalibrationHint — design-phase calibration guidance
+  - `derivation_rules(manifest)` → list[dict] — optional deterministic mappings
+  - `scan_path_allowlist_segments()` → list[str] — optional quality policy path segments
+- A registry auto-discovery mechanism in `src/contextcore/artifact_types/__init__.py`
+  walks subdirectories (`observability/`, `onboarding/`, `integrity/`, `source/`),
+  instantiates every `ArtifactTypeModule` subclass, and exposes:
+  - `get_registry()` → dict[str, ArtifactTypeModule]
+  - `get_module(type_id)` → ArtifactTypeModule | None
+  - `get_by_category(category)` → list[ArtifactTypeModule]
+- All existing 14 artifact types (8 observability, 4 onboarding, 2 integrity) are
+  migrated to individual modules under their category subdirectory. The migration
+  produces **identical output** to the current hardcoded dictionaries — no behavioral
+  regression.
+- The 5 source types from CID-018 amendment (dockerfile, python_requirements,
+  protobuf_schema, editorconfig, ci_workflow) are implemented as modules under
+  `source/`.
+- `build_onboarding_metadata()` in `onboarding.py` iterates the registry instead of
+  hardcoded dictionaries to assemble `design_calibration_hints`,
+  `expected_output_contracts`, `resolved_artifact_parameters`, etc.
+- `scan_existing_artifacts()` in `export_io_ops.py` uses `discovery_patterns()` from
+  all registered modules instead of hardcoded glob patterns.
+- The `ArtifactType` enum remains as a backward-compatible accessor but is derived
+  from the registry (not hand-maintained). Adding a module automatically extends the
+  enum.
+- Adding a new artifact type requires creating ONE file: a module in the appropriate
+  category subdirectory. No edits to existing files.
+
+**Directory structure:**
+```
+src/contextcore/artifact_types/
+    __init__.py                    # Registry loader — auto-discovers modules
+    _base.py                       # ArtifactTypeModule ABC + OutputContract + CalibrationHint
+    observability/
+        __init__.py
+        dashboard.py               # Migrated from onboarding.py constants
+        prometheus_rule.py
+        slo_definition.py
+        service_monitor.py
+        loki_rule.py
+        notification_policy.py
+        runbook.py
+        alert_template.py
+    onboarding/
+        __init__.py
+        capability_index.py
+        agent_card.py
+        mcp_tools.py
+        onboarding_metadata.py
+    integrity/
+        __init__.py
+        provenance.py
+        ingestion_traceability.py
+    source/
+        __init__.py
+        dockerfile.py
+        python_requirements.py
+        protobuf_schema.py
+        editorconfig.py
+        ci_workflow.py
+```
+
+**Migration path:**
+1. Phase A (extract): Move existing constants from `onboarding.py` into individual
+   modules under `observability/`, `onboarding/`, `integrity/`. No behavioral change.
+2. Phase B (extend): Add `source/` modules for the 5 initial source types.
+3. Phase C (integrate): Wire `build_onboarding_metadata()` and `scan_existing_artifacts()`
+   to use the registry.
+4. Phase D (derive enum): Make `ArtifactType` enum derived from registry, removing
+   manual maintenance.
+
+**Affected files:**
+- `src/contextcore/artifact_types/` (new package — ~19 modules)
+- `src/contextcore/utils/onboarding.py` (consume registry instead of dicts)
+- `src/contextcore/utils/artifact_conventions.py` (consume registry)
+- `src/contextcore/cli/export_io_ops.py` (consume registry for scanning)
+- `src/contextcore/cli/export_quality_ops.py` (consume registry for allowlist)
+- `src/contextcore/models/artifact_manifest.py` (enum derived from registry)
+- `tests/test_artifact_type_registry.py` (new — registry + module tests)
+
+**Source documents:**
+- [GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md](~/Documents/Processes/cap-dev-pipe-test/GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md) — architecture proposal and `DockerfileModule` example
+
+---
+
+### REQ-CID-023: Cross-type existing-artifact detection via capability-index discovery paths
+
+**Priority:** P2
+**Failure addressed:** Four disconnected detection fragments (Gap 15 "Current State" section)
+**Description:** Connect the `capability-index build` command's `_discovery_paths.yaml`
+to the export command's `scan_existing_artifacts()` so that capability-index scanning
+results are leveraged for artifact detection. Today `_discovery_paths.yaml` stores
+patterns as metadata strings but never performs filesystem scanning with them. The export
+command maintains a parallel, independent set of hardcoded scan patterns. These two
+mechanisms should be unified.
+
+**Acceptance criteria:**
+- `scan_all_artifacts()` function (new or extended from `scan_existing_artifacts()`)
+  uses two complementary mechanisms:
+  1. **Artifact type module `discovery_patterns()`** — type-aware glob scanning from
+     all registered modules (per REQ-CID-022 if modular registry exists, or from
+     hardcoded patterns in the interim)
+  2. **Capability-index `_discovery_paths.yaml`** — loads discovery path patterns
+     from the capability index sidecar and performs actual `rglob()` scanning with them,
+     cross-referencing with the artifact type registry to classify discovered files
+- Capability-index `_discovery_paths.yaml` gains entries for source artifact types:
+  ```yaml
+  contextcore.export.dockerfile:
+    - "src/**/Dockerfile"
+    - "src/**/Dockerfile.*"
+  contextcore.export.python_requirements:
+    - "src/**/requirements.in"
+    - "src/**/requirements.txt"
+  contextcore.export.protobuf_schema:
+    - "src/**/*.proto"
+    - "proto/**/*.proto"
+  contextcore.export.editorconfig:
+    - "**/.editorconfig"
+  contextcore.export.ci_workflow:
+    - "**/.github/workflows/*.yml"
+    - "**/.github/workflows/*.yaml"
+  ```
+- Discovered artifacts (from both mechanisms) are registered as
+  `ArtifactStatus.EXISTS` in the artifact manifest, regardless of category.
+- Coverage computation in `CoverageSummary` reflects source artifact coverage
+  (e.g., "4/4 Dockerfiles existing, 100%") alongside observability coverage.
+- The `existing_source_artifacts` inventory role (per PIPELINE_ARTIFACT_INVENTORY_REQUIREMENTS.md
+  FR-2 amendment) is populated with discovered source artifact paths and checksums.
+
+**Affected files:**
+- `src/contextcore/cli/export_io_ops.py` (extend or replace `scan_existing_artifacts()`)
+- `docs/capability-index/_discovery_paths.yaml` (add source artifact patterns)
+- `src/contextcore/utils/capability_builder.py` (optional: cross-reference scan)
+
+**Source documents:**
+- [GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md](~/Documents/Processes/cap-dev-pipe-test/GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md) — "Current State" section documenting 4 disconnected fragments
+
+---
+
+### REQ-CID-024: Source artifact calibration flow to design phase
+
+**Priority:** P3
+**Failure addressed:** $1.43/run DESIGN phase waste for Dockerfile tasks (Gap 15 evidence table)
+**Description:** Ensure that `design_calibration_hints`, `expected_output_contracts`, and
+`resolved_artifact_parameters` for source artifact types flow end-to-end from the export
+stage through plan-ingestion to the contractor design phase. When source artifacts are
+pre-existing in the target project, the design phase should receive both the calibration
+data AND the existing file reference, enabling the design prompt to build upon what exists
+rather than deriving specifications from scratch.
+
+This requirement spans the ContextCore → startd8-sdk boundary. The ContextCore side
+(producing the calibration data) is in scope. The startd8-sdk side (consuming it in the
+design prompt) is documented here as a downstream contract but implemented in the
+startd8-sdk codebase.
+
+**Acceptance criteria (ContextCore side):**
+- `onboarding-metadata.json` includes `design_calibration_hints` entries for all 5
+  source types with type-specific values:
+  - `dockerfile`: `{expected_depth: "standard", expected_loc_range: "30-80"}`
+  - `python_requirements`: `{expected_depth: "brief", expected_loc_range: "<=30"}`
+  - `protobuf_schema`: `{expected_depth: "standard", expected_loc_range: "20-100"}`
+  - `editorconfig`: `{expected_depth: "brief", expected_loc_range: "<=20"}`
+  - `ci_workflow`: `{expected_depth: "standard", expected_loc_range: "30-80"}`
+- `onboarding-metadata.json` includes `expected_output_contracts` entries for all 5
+  source types with type-specific `completeness_markers`:
+  - `dockerfile`: `["FROM", "COPY", "EXPOSE", "ENTRYPOINT", "USER"]`
+  - `python_requirements`: `["# constraints", package names]`
+  - `protobuf_schema`: `["syntax", "package", "service", "message"]`
+  - `editorconfig`: `["root", "indent_style", "indent_size"]`
+  - `ci_workflow`: `["name", "on", "jobs"]`
+- When `scan_existing_artifacts()` detects pre-existing source artifacts, the
+  `resolved_artifact_parameters` for those types include an `existing_file_path`
+  field and an `existing_file_checksum` field, enabling downstream consumers to
+  load and reference the existing file content.
+- Inventory entry `existing_source_artifacts` carries `consumption_hint` text:
+  "Load existing file content into design prompt context. Use calibration_hints for
+  output size constraints. Use completeness_markers for post-generation validation."
+
+**Downstream contract (startd8-sdk side — out of scope for implementation):**
+- Plan-ingestion reads source artifact coverage from the artifact manifest and
+  includes existing file references in the context seed.
+- Contractor DESIGN phase reads `expected_output_contracts["dockerfile"]` and uses
+  it as a constraint rather than re-deriving Docker specifications from scratch.
+- When an existing file is fresh, the DESIGN phase receives the file content in its
+  prompt context, reducing LLM work to delta-generation or verification rather than
+  full specification.
+- Estimated savings per pipeline run: ~$1.10 and ~16 minutes for Docker tasks alone
+  (based on Run 1 artisan data).
+
+**Affected files:**
+- `src/contextcore/utils/onboarding.py` (source type calibration + contract entries)
+- `src/contextcore/cli/export_io_ops.py` (existing file path/checksum in resolved params)
+- `src/contextcore/utils/artifact_inventory.py` (consumption hint for source artifacts)
+
+**Source documents:**
+- [GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md](~/Documents/Processes/cap-dev-pipe-test/GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md) — cost impact table and DockerfileModule example
 
 ---
 
@@ -1722,7 +2157,7 @@ requirements document but noted as a follow-on.
 
 ## Non-Requirements
 
-The following are explicitly out of scope (Phase 1 + Phase 2 + Phase 3):
+The following are explicitly out of scope (Phase 1 + Phase 2 + Phase 3 + Phase 4):
 
 1. **New code for pipeline communication.** REQ-CID-004 documents the pattern
    of using existing A2A primitives (Part, ExpectedOutput) within pipelines.
@@ -1763,11 +2198,20 @@ The following are explicitly out of scope (Phase 1 + Phase 2 + Phase 3):
    implemented. Only the 7 implemented contract layers get capability entries
    in this iteration.
 
-9. **Dockerfile or application code as pipeline artifacts.** REQ-CID-013/014
-   explicitly classify Dockerfiles, application source code, and CI/CD configs
-   as plan deliverables (defined in `.contextcore.yaml` strategy.tactics),
-   NOT as pipeline artifacts. The scope boundary makes this distinction
-   programmatically clear.
+9. **Application business logic as pipeline artifacts.** Application source code
+   (service implementations, business logic, test suites) remains out of scope
+   for the artifact type registry. These are plan deliverables that the pipeline
+   orchestrates generation of, but does not characterize with `design_calibration_hints`
+   or `expected_output_contracts`.
+
+   **Amendment (2026-02-18):** Dockerfiles, dependency manifests, proto schemas,
+   editorconfig, and CI/CD workflows are NO LONGER non-scope. Per Gap 15 and the
+   CID-013/CID-018 amendments, these are registered as `source` category artifact
+   types. The pipeline produces calibration and output contracts for them, and
+   detects pre-existing instances in the target project. The original exclusion
+   was based on the assumption that the pipeline only GENERATES artifacts; the
+   amended scope recognizes that the pipeline also CHARACTERIZES artifacts for
+   downstream generation by contractors.
 
 10. **Automated cross-reference graph enforcement at CI time.** REQ-CID-015
     defines the required cross-references but does not mandate a CI check that
@@ -1794,6 +2238,26 @@ The following are explicitly out of scope (Phase 1 + Phase 2 + Phase 3):
     to all 15 Phase 1 capabilities. A more granular approach (some capabilities
     agent-only, some human-only) is not addressed. All non-internal capabilities
     are assumed to be relevant to both audiences.
+
+15. **startd8-sdk design phase consumption.** REQ-CID-024 defines the ContextCore
+    side of the source artifact calibration flow (producing calibration data and
+    existing file references in `onboarding-metadata.json`). The startd8-sdk side
+    (consuming this data in design prompts, implementing `skip_existing` task
+    status, modifying `_task_to_feature_context` to inject existing file content)
+    is documented as a downstream contract but NOT implemented by CID requirements.
+    The startd8-sdk changes are a separate work item.
+
+16. **Runtime artifact type registration.** REQ-CID-022 defines a file-based
+    module-per-type registry (drop a `.py` file to register a type). It does NOT
+    define a runtime API for registering artifact types programmatically (e.g.,
+    `registry.register(MyCustomType())`). All types are discovered at import time
+    via `pkgutil.iter_modules()`.
+
+17. **Project-specific source artifact types.** The initial source types
+    (dockerfile, python_requirements, protobuf_schema, editorconfig, ci_workflow)
+    are general-purpose. Project-specific types (e.g., a custom build system config)
+    are NOT addressed. The modular registry architecture supports future extension
+    for project-specific types but this is not a Phase 4 deliverable.
 
 ---
 
