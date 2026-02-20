@@ -96,4 +96,29 @@ ARTIFACT_OUTPUT_CONVENTIONS: Dict[str, Dict[str, str]] = {
         "description": "Requirements coverage and translation quality gate",
         "schema_url": "https://contextcore.io/schemas/ingestion-traceability/v1",
     },
+    # Source artifacts (Mottainai Gap 15) — advisory path conventions
+    ArtifactType.SOURCE_MODULE.value: {
+        "output_ext": ".py",
+        "output_path": "src/{target}.py",
+        "description": "Source code module",
+        "schema_url": "",
+    },
+    ArtifactType.DOCKERFILE.value: {
+        "output_ext": "",
+        "output_path": "Dockerfile",
+        "description": "Container build specification",
+        "schema_url": "https://docs.docker.com/reference/dockerfile/",
+    },
+    ArtifactType.DEPENDENCY_MANIFEST.value: {
+        "output_ext": ".txt",
+        "output_path": "requirements.txt",
+        "description": "Dependency manifest (requirements, go.mod, package.json, etc.)",
+        "schema_url": "",
+    },
+    ArtifactType.PROTO_CONTRACT.value: {
+        "output_ext": ".proto",
+        "output_path": "proto/{target}.proto",
+        "description": "Protocol Buffers contract definition",
+        "schema_url": "https://protobuf.dev/programming-guides/proto3/",
+    },
 }

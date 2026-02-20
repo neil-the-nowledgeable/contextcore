@@ -25,11 +25,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ArtifactType(str, Enum):
-    """Types of artifacts produced by the ContextCore pipeline.
+    """Types of artifacts in the ContextCore pipeline.
 
     Organized by category:
     - Observability (8): generated from business metadata
     - Onboarding (4): pipeline-innate, produced automatically
+    - Source (4): project input artifacts (code, config, contracts)
     - Integrity (2): pipeline-innate provenance and traceability
 
     See docs/reference/pipeline-requirements-onboarding.md for requirements.
@@ -51,11 +52,21 @@ class ArtifactType(str, Enum):
     MCP_TOOLS = "mcp_tools"
     ONBOARDING_METADATA = "onboarding_metadata"
 
+    # Source (project input artifacts — Mottainai Gap 15)
+    SOURCE_MODULE = "source_module"
+    DOCKERFILE = "dockerfile"
+    DEPENDENCY_MANIFEST = "dependency_manifest"
+    PROTO_CONTRACT = "proto_contract"
+
     # Integrity (pipeline-innate)
     PROVENANCE = "provenance"
     INGESTION_TRACEABILITY = "ingestion-traceability"
 
 
+SOURCE_TYPES = frozenset({
+    ArtifactType.SOURCE_MODULE, ArtifactType.DOCKERFILE,
+    ArtifactType.DEPENDENCY_MANIFEST, ArtifactType.PROTO_CONTRACT,
+})
 OBSERVABILITY_TYPES = frozenset({
     ArtifactType.DASHBOARD, ArtifactType.PROMETHEUS_RULE,
     ArtifactType.LOKI_RULE, ArtifactType.SLO_DEFINITION,
