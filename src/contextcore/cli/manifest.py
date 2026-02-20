@@ -1919,7 +1919,7 @@ def export(
         parsed_service_metadata = None
         if service_metadata:
             try:
-                with open(service_metadata) as _sm_fh:
+                with open(service_metadata, encoding="utf-8") as _sm_fh:
                     parsed_service_metadata = json.load(_sm_fh)
             except (json.JSONDecodeError, OSError) as exc:
                 click.echo(f"Error reading --service-metadata: {exc}", err=True)

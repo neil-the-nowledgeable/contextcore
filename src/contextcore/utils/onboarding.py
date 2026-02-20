@@ -595,7 +595,9 @@ def build_onboarding_metadata(
     # transport protocol and can detect mismatches.
     if service_metadata:
         for svc_name, svc_meta in service_metadata.items():
-            tp = svc_meta.get("transport_protocol", "unknown") if isinstance(svc_meta, dict) else "unknown"
+            if not isinstance(svc_meta, dict):
+                continue
+            tp = svc_meta.get("transport_protocol", "unknown")
             red_flag_hint = (
                 f"Dockerfile uses HTTP health check for gRPC service"
                 if tp == "grpc"

@@ -687,8 +687,10 @@ class PipelineChecker:
         # 5. Protocol mismatch cross-check: calibration hints with transport_protocol
         #    vs service_metadata declarations (REQ-PCG-032 req 6)
         svc_meta = self._metadata.get("service_metadata", {})
-        if svc_meta:
+        if isinstance(svc_meta, dict) and svc_meta:
             for hint_key, hint in hints.items():
+                if not isinstance(hint, dict):
+                    continue
                 hint_protocol = hint.get("transport_protocol")
                 if not hint_protocol:
                     continue

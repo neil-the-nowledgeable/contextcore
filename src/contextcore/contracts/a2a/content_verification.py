@@ -62,7 +62,7 @@ _SOURCE_EXTENSIONS = {".py", ".go", ".js", ".ts", ".java", ".cs", ".proto"}
 
 
 def _iter_source_files(source_dir: Path) -> list[Path]:
-    """Yield source files from a directory tree."""
+    """Collect source files from a directory tree."""
     files: list[Path] = []
     if not source_dir.is_dir():
         return files
@@ -107,7 +107,10 @@ def scan_placeholders(
 
     patterns = list(_PLACEHOLDER_PATTERNS)
     for p in (extra_patterns or []):
-        patterns.append(re.compile(p, re.IGNORECASE))
+        try:
+            patterns.append(re.compile(p, re.IGNORECASE))
+        except re.error as exc:
+            logger.warning("Skipping invalid extra pattern %r: %s", p, exc)
 
     evidence: list[EvidenceItem] = []
     source_path = Path(source_dir)
@@ -115,7 +118,8 @@ def scan_placeholders(
     for fpath in _iter_source_files(source_path):
         try:
             lines = fpath.read_text(encoding="utf-8", errors="replace").splitlines()
-        except OSError:
+        except OSError as exc:
+            logger.debug("Skipping unreadable file %s: %s", fpath, exc)
             continue
         rel = str(fpath.relative_to(source_path))
         for lineno, line in enumerate(lines, start=1):
@@ -259,19 +263,34 @@ def verify_schema_fields(
             checked_at=datetime.now(timezone.utc),
         )
 
-    # Build mapping of wrong variants (camelCase, singular/plural) to correct field
-    wrong_variants: dict[str, str] = {}
+    # Build mapping of wrong variants (camelCase, singular/plural) to correct field,
+    # and pre-compile regexes to avoid recompilation per file.
+    wrong_variants: dict[str, tuple[str, re.Pattern[str], re.Pattern[str]]] = {}
     for field_name in fields:
         # snake_case → camelCase variant
         parts = field_name.split("_")
         if len(parts) > 1:
             camel = parts[0] + "".join(p.capitalize() for p in parts[1:])
-            wrong_variants[camel] = field_name
+            wrong_variants[camel] = (
+                field_name,
+                re.compile(rf"\b{re.escape(camel)}\b"),
+                re.compile(rf"\b{re.escape(field_name)}\b"),
+            )
         # Simple singular/plural: add trailing 's' or strip trailing 's'
         if field_name.endswith("s") and len(field_name) > 2:
-            wrong_variants[field_name[:-1]] = field_name
+            singular = field_name[:-1]
+            wrong_variants[singular] = (
+                field_name,
+                re.compile(rf"\b{re.escape(singular)}\b"),
+                re.compile(rf"\b{re.escape(field_name)}\b"),
+            )
         elif not field_name.endswith("s"):
-            wrong_variants[field_name + "s"] = field_name
+            plural = field_name + "s"
+            wrong_variants[plural] = (
+                field_name,
+                re.compile(rf"\b{re.escape(plural)}\b"),
+                re.compile(rf"\b{re.escape(field_name)}\b"),
+            )
 
     evidence: list[EvidenceItem] = []
     source_path = Path(source_dir)
@@ -281,14 +300,14 @@ def verify_schema_fields(
             continue  # Don't scan proto files against themselves
         try:
             text = fpath.read_text(encoding="utf-8", errors="replace")
-        except OSError:
+        except OSError as exc:
+            logger.debug("Skipping unreadable file %s: %s", fpath, exc)
             continue
         rel = str(fpath.relative_to(source_path))
-        for variant, correct in wrong_variants.items():
-            # Use word boundary to avoid false positives
-            if re.search(rf"\b{re.escape(variant)}\b", text):
+        for variant, (correct, variant_re, correct_re) in wrong_variants.items():
+            if variant_re.search(text):
                 # Only flag if the correct field name is NOT also present
-                if not re.search(rf"\b{re.escape(correct)}\b", text):
+                if not correct_re.search(text):
                     evidence.append(EvidenceItem(
                         type="schema_field_mismatch",
                         ref=f"{rel}",
@@ -336,7 +355,8 @@ def verify_schema_fields(
 # Gate 3: Import consistency
 # ---------------------------------------------------------------------------
 
-# Python standard library modules (subset covering common ones)
+# Python standard library modules (subset covering common ones).
+# Not exhaustive — add modules as needed.
 _PYTHON_STDLIB = frozenset({
     "abc", "argparse", "ast", "asyncio", "base64", "bisect", "builtins",
     "calendar", "cmath", "codecs", "collections", "concurrent", "configparser",
@@ -366,7 +386,8 @@ def _extract_python_imports(source_dir: Path) -> set[str]:
                 m = import_re.match(line)
                 if m:
                     packages.add(m.group(1))
-        except OSError:
+        except OSError as exc:
+            logger.debug("Skipping unreadable file %s: %s", fpath, exc)
             continue
     return packages
 
@@ -404,8 +425,8 @@ def _parse_python_requirements(manifest_path: Path) -> set[str]:
                 # Use mapping if available, otherwise normalize
                 import_name = pypi_to_import.get(pkg, pkg.replace("-", "_"))
                 packages.add(import_name)
-    except OSError:
-        pass
+    except OSError as exc:
+        logger.warning("Failed to read manifest %s: %s", manifest_path, exc)
     return packages
 
 
@@ -443,6 +464,23 @@ def verify_import_consistency(
     manifest_file = Path(manifest_path)
     source_path = Path(source_dir)
 
+    def _stub_import_result(
+        reason: str,
+        severity: GateSeverity = GateSeverity.INFO,
+    ) -> GateResult:
+        return GateResult(
+            gate_id=gate_id,
+            trace_id=trace_id,
+            task_id=task_id,
+            phase=phase,
+            result=GateOutcome.PASS,
+            severity=severity,
+            reason=reason,
+            next_action=f"Proceed to next phase after {phase.value}.",
+            blocking=False,
+            checked_at=datetime.now(timezone.utc),
+        )
+
     # Detect language from manifest filename
     manifest_name = manifest_file.name.lower()
     if manifest_name in ("requirements.in", "requirements.txt"):
@@ -464,45 +502,17 @@ def verify_import_consistency(
 
         missing = third_party - declared
     elif manifest_name in ("go.mod",):
-        # Go stub — return PASS
-        return GateResult(
-            gate_id=gate_id,
-            trace_id=trace_id,
-            task_id=task_id,
-            phase=phase,
-            result=GateOutcome.PASS,
-            severity=GateSeverity.INFO,
-            reason="Import consistency for Go: stub (not yet implemented).",
-            next_action=f"Proceed to next phase after {phase.value}.",
-            blocking=False,
-            checked_at=datetime.now(timezone.utc),
+        return _stub_import_result(
+            "Import consistency for Go: stub (not yet implemented).",
         )
     elif manifest_name in ("package.json",):
-        # Node.js stub
-        return GateResult(
-            gate_id=gate_id,
-            trace_id=trace_id,
-            task_id=task_id,
-            phase=phase,
-            result=GateOutcome.PASS,
-            severity=GateSeverity.INFO,
-            reason="Import consistency for Node.js: stub (not yet implemented).",
-            next_action=f"Proceed to next phase after {phase.value}.",
-            blocking=False,
-            checked_at=datetime.now(timezone.utc),
+        return _stub_import_result(
+            "Import consistency for Node.js: stub (not yet implemented).",
         )
     else:
-        return GateResult(
-            gate_id=gate_id,
-            trace_id=trace_id,
-            task_id=task_id,
-            phase=phase,
-            result=GateOutcome.PASS,
+        return _stub_import_result(
+            f"Unrecognized manifest format: {manifest_name}. Import check skipped.",
             severity=GateSeverity.WARNING,
-            reason=f"Unrecognized manifest format: {manifest_name}. Import check skipped.",
-            next_action="Provide a supported manifest (requirements.in, go.mod, package.json).",
-            blocking=False,
-            checked_at=datetime.now(timezone.utc),
         )
 
     evidence: list[EvidenceItem] = []
@@ -614,10 +624,14 @@ def verify_protocol_coherence(
     is_grpc = transport_protocol in ("grpc", "grpc-web")
     is_http = transport_protocol == "http"
 
+    if not is_grpc and not is_http:
+        logger.debug("Unrecognized transport_protocol %r; skipping coherence check", transport_protocol)
+
     for fpath in scan_files:
         try:
             text = fpath.read_text(encoding="utf-8", errors="replace")
-        except OSError:
+        except OSError as exc:
+            logger.debug("Skipping unreadable file %s: %s", fpath, exc)
             continue
         rel = str(fpath.relative_to(source_path)) if source_path.is_dir() else fpath.name
 
