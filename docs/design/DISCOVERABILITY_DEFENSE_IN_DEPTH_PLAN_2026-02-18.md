@@ -2,11 +2,19 @@
 
 **Date:** 2026-02-18
 **Author:** Claude Opus 4.6 (AI Agent), reviewed by human
-**Status:** Draft — validated against rescan 2026-02-18
+**Status:** Partially implemented — Layer 1 (Data) updated 2026-02-20 (Mottainai Gaps 15 & 16)
 **Companion docs:**
 - [Investigation](DISCOVERABILITY_FAILURE_INVESTIGATION_2026-02-18.md) — root cause analysis
 - [Requirements](requirements/REQ_CAPABILITY_INDEX_DISCOVERABILITY.md) — REQ-CID-013 through REQ-CID-021
 **Last validated:** 2026-02-18 (rescan of all capability-index YAMLs + generated artifacts)
+**Last updated:** 2026-02-20 (Mottainai Gaps 15 & 16 implemented — source artifact types registered, service_metadata auto-derivation added)
+
+> **Implementation Note (2026-02-20):** The Mottainai Gap 15/16 implementation expanded
+> the artifact taxonomy from 14 types across 3 categories to **19 types across 4 categories**
+> (adding Source with 5 CID-018 types: dockerfile, python_requirements, protobuf_schema,
+> editorconfig, ci_workflow). This changes the counts referenced throughout this plan.
+> Layer 1 (Data), Layer 3 (Capability), and Layer 6 (Tests) have been partially addressed.
+> See `docs/design-principles/MOTTAINAI_DESIGN_PRINCIPLE.md` Gaps 15 & 16 for details.
 
 ---
 
@@ -86,14 +94,19 @@ Each layer independently prevents the false ceiling from reforming. An agent enc
 
 ### Changes
 
-1. **Expand `ArtifactType` enum** to include all 14 types with category comments:
+1. **Expand `ArtifactType` enum** to include all 19 types with category comments:
+
+   > **IMPLEMENTED (2026-02-20):** Enum now has 19 types across 4 categories including
+   > Source (5) from CID-018 amendment. See `src/contextcore/models/artifact_manifest.py`.
+
    ```python
    class ArtifactType(str, Enum):
-       """Types of artifacts produced by the ContextCore pipeline.
+       """Types of artifacts produced or characterized by the ContextCore pipeline.
 
        Organized by category:
        - Observability (8): generated from business metadata
        - Onboarding (4): pipeline-innate, produced automatically
+       - Source (5): project input artifacts characterized during export (CID-018)
        - Integrity (2): pipeline-innate provenance and traceability
 
        See docs/reference/pipeline-requirements-onboarding.md for requirements.
@@ -162,9 +175,9 @@ This is the foundation all other layers reference.
 
 ### Verification
 
-- `python3 -c "from contextcore.models.artifact_manifest import ArtifactType; print(len(ArtifactType))"` → 14
+- `python3 -c "from contextcore.models.artifact_manifest import ArtifactType; print(len(ArtifactType))"` → 19
 - All existing tests pass (backward compatible)
-- New test: `test_artifact_type_enum_complete` verifies >= 14 members
+- New test: `test_artifact_type_enum_complete` verifies >= 19 members
 
 ---
 
@@ -218,7 +231,7 @@ JSON Schema file), not the YAML capability descriptions.
 1. **Add `contextcore.meta.artifact_type_registry` capability** (REQ-CID-013):
    - Triggers: "artifact types", "what artifacts", "artifact scope", "artifact categories",
      "pipeline produces", "artifact taxonomy", "beyond observability", "pipeline-innate"
-   - Description lists ALL 14 types across 3 categories
+   - Description lists ALL 19 types across 4 categories (updated 2026-02-20)
    - Cross-references `pipeline-requirements-onboarding.md`
 
 2. **Add `scope_boundaries` section** (REQ-CID-014):
@@ -236,6 +249,11 @@ JSON Schema file), not the YAML capability descriptions.
          description: "Pipeline-innate artifacts produced automatically for every project"
          types: [capability_index, agent_card, mcp_tools, onboarding_metadata]
          source: "docs/reference/pipeline-requirements-onboarding.md REQ-CDP-ONB-*"
+       - category: source
+         count: 5
+         description: "Project input artifacts characterized during export (CID-018)"
+         types: [dockerfile, python_requirements, protobuf_schema, editorconfig, ci_workflow]
+         source: "CID-018 amendment, ArtifactType enum"
        - category: integrity
          count: 2
          description: "Pipeline-innate provenance and traceability artifacts"
@@ -285,7 +303,7 @@ explicitly in the onboarding category.
 ### Verification
 
 - `test_scope_artifact_types_complete` — trigger search finds the registry capability
-- `test_scope_artifact_categories` — scope_boundaries has >= 3 categories
+- `test_scope_artifact_categories` — scope_boundaries has >= 4 categories
 - `test_scope_boundary_present` — scope_boundaries section exists
 
 ---
@@ -414,16 +432,17 @@ registry. This layer ensures connectivity.
        registry = find_capability(manifest, "contextcore.meta.artifact_type_registry")
        assert registry is not None
 
-       # Step 3: Verify description mentions all 3 categories
+       # Step 3: Verify description mentions all 4 categories
        desc = registry.description.agent
        assert "observability" in desc.lower()
        assert "onboarding" in desc.lower()
+       assert "source" in desc.lower()
        assert "integrity" in desc.lower()
 
        # Step 4: Verify scope_boundaries exists and is complete
        boundaries = manifest.get("scope_boundaries", {})
        categories = boundaries.get("artifact_categories", [])
-       assert len(categories) >= 3
+       assert len(categories) >= 4
    ```
 
 ### Why This Layer Matters
@@ -468,10 +487,10 @@ Layer 6 (Tests) ─── validates all layers ─────┘
 
 | Phase | Layers | Est. Changes | Rationale |
 |-------|--------|-------------|-----------|
-| Phase 2a | Layer 1 + Layer 2 | ~135 lines code | Foundation — enum, category sets, 4 onboarding dicts, conventions, and schema must be correct first |
-| Phase 2b | Layer 3 + Layer 4 | ~150 lines YAML | Capability index and benefits depend on Layer 1 |
+| Phase 2a | Layer 1 + Layer 2 | ~135 lines code | Foundation — enum, category sets, 4 onboarding dicts, conventions, and schema must be correct first. **Partially implemented 2026-02-20 (Gaps 15 & 16).** |
+| Phase 2b | Layer 3 + Layer 4 | ~150 lines YAML | Capability index and benefits depend on Layer 1. **Layer 3 partially implemented 2026-02-20 (scope_boundaries, scope_tiers, registry updated).** |
 | Phase 2c | Layer 5 | ~75 lines across 8 files | Cross-references depend on Layers 1-4; includes changelog backfill |
-| Phase 2d | Layer 6 | ~200 lines tests | Tests validate all other layers |
+| Phase 2d | Layer 6 | ~200 lines tests | Tests validate all other layers. **Partially implemented 2026-02-20 (test_capability_discoverability.py, test_artifact_types.py updated).** |
 
 Total estimated: ~460 lines across ~15 files.
 

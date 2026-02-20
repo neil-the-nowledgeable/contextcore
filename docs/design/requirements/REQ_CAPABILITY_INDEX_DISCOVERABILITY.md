@@ -45,12 +45,12 @@ Triggered by [Discoverability Failure Investigation](../DISCOVERABILITY_FAILURE_
 
 | REQ ID | Priority | Status | Summary |
 |--------|----------|--------|---------|
-| REQ-CID-013 | P1 | **Implemented + Amendment pending** | Unified artifact type registry as first-class capability — `contextcore.meta.artifact_type_registry` in `contextcore.agent.yaml`. Amendment: add `source` category (5 types) per Gap 15 |
-| REQ-CID-014 | P1 | **Implemented + Amendment pending** | Scope boundary declaration — `scope_boundaries` section with 4 categories (was 3), 2 scope tiers, 7 stages, narrowed non-scope. Amendment: add `source` category + `scope_tiers` per Gap 15 |
+| REQ-CID-013 | P1 | **Implemented + Amendment applied (2026-02-20)** | Unified artifact type registry as first-class capability — `contextcore.meta.artifact_type_registry` in `contextcore.agent.yaml`. Amendment: `source` category (5 types) added per Gap 15/CID-018 |
+| REQ-CID-014 | P1 | **Implemented + Amendment applied (2026-02-20)** | Scope boundary declaration — `scope_boundaries` section with 4 categories, 2 scope tiers, 7 stages, narrowed non-scope. Amendment: `source` category + `scope_tiers` added per Gap 15 |
 | REQ-CID-015 | P1 | **Implemented** | Cross-reference enforcement — 10+ files reference `pipeline-requirements-onboarding.md`, "Referenced By" section added |
 | REQ-CID-016 | P1 | **Implemented** | Anti-false-ceiling — 3 false ceiling locations fixed in benefits.yaml + user.yaml; docstrings updated |
 | REQ-CID-017 | P1 | **Implemented** | Scope-question discoverability tests — 37 tests in `test_artifact_types.py` + `test_capability_discoverability.py` |
-| REQ-CID-018 | P1 | **Implemented + Amendment pending** | ArtifactType enum expanded 9→14→19 with `OBSERVABILITY_TYPES`, `ONBOARDING_TYPES`, `INTEGRITY_TYPES`, `SOURCE_TYPES` category sets. Amendment: add 5 source types per Gap 15 |
+| REQ-CID-018 | P1 | **Implemented + Amendment applied (2026-02-20)** | ArtifactType enum expanded 9→14→19 with `OBSERVABILITY_TYPES`, `ONBOARDING_TYPES`, `INTEGRITY_TYPES`, `SOURCE_TYPES` category sets. 5 source types (CID-018) implemented |
 
 ### Phase 3 (2026-02-18): MCP/A2A Export Integrity — Requirements Defined
 
@@ -70,7 +70,7 @@ Triggered by [Gap 15: Export Artifact Type Registry Does Not Cover Source Artifa
 
 **Failure class:** Artifact type coverage gap — qualitatively different from Phase 2's scope discovery and Phase 3's export coverage. Phase 4 fixes "the export cannot produce calibration data for artifact types that are not registered, and the registration architecture does not scale."
 
-Phase 4 also subsumes the Phase 2 amendments to CID-013, CID-014, and CID-018 which add the `source` category and `scope_tiers` as an interim step before the modular registry.
+Phase 4 also subsumes the Phase 2 amendments to CID-013, CID-014, and CID-018 which add the `source` category and `scope_tiers` as an interim step before the modular registry. **The CID-013/014/018 amendments were applied on 2026-02-20** (5 source types registered, scope_tiers added, capability index updated to v1.18.0). The remaining Phase 4 work (modular registry architecture) is not yet started.
 
 | REQ ID | Priority | Status | Summary |
 |--------|----------|--------|---------|
@@ -709,7 +709,7 @@ capability entry.
 - After the change, searching triggers for "artifact type", "what artifacts", or
   "source artifacts" matches this capability.
 
-**Amendment (2026-02-18): Source artifact category added**
+**Amendment (2026-02-18): Source artifact category added — IMPLEMENTED 2026-02-20**
 
 The original requirement defined 3 categories (14 types). This amendment adds
 a 4th category — **source** — with 5 initial types. The amendment is driven by
@@ -824,7 +824,7 @@ individual capabilities but cannot determine the system's complete scope.
   exist?", "Does the system produce X?", and "Does the pipeline generate or
   characterize this artifact type?" without searching individual capabilities.
 
-**Amendment (2026-02-18): Source category and scope tiers added**
+**Amendment (2026-02-18): Source category and scope tiers added — IMPLEMENTED 2026-02-20**
 
 The original requirement defined 3 categories and listed Dockerfiles/CI configs in
 `explicit_non_scope`. This amendment:
@@ -1080,11 +1080,19 @@ source of truth that REQ-CID-013 (the capability entry) describes programmatical
 - Tests verify enum completeness against `pipeline-requirements-onboarding.md` definitions
   and source type definitions.
 
-**Amendment (2026-02-18): Source artifact types added**
+**Amendment (2026-02-18): Source artifact types added — IMPLEMENTED 2026-02-20**
 
 The original requirement defined 14 types in 3 categories. This amendment adds
 5 source artifact types in a 4th category. The amendment is driven by
 [Gap 15](~/Documents/Processes/cap-dev-pipe-test/GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md).
+
+> **Implementation status (2026-02-20):** All items in this amendment are now implemented.
+> ArtifactType enum has 19 members across 4 categories. All 4 onboarding dicts, artifact
+> conventions, scan patterns, capability index (v1.18.0), and tests updated. Additionally,
+> Gap 16 (`service_metadata` auto-derivation from manifest) was implemented in the same
+> commit — `_derive_service_metadata_from_manifest()` in `onboarding.py` enables
+> protocol-aware calibration without explicit `--service-metadata` flags.
+> 1517/1517 tests pass.
 
 Key implementation additions beyond the original CID-018 scope:
 - `scan_existing_artifacts()` gains source artifact glob patterns (the original
@@ -1099,15 +1107,21 @@ Key implementation additions beyond the original CID-018 scope:
   be reflected in the calibration data that flows to plan-ingestion and
   contractor stages. The exact consumption mechanism is a startd8-sdk concern
   outside CID scope.
+- `_derive_service_metadata_from_manifest()` (Gap 16) auto-derives transport
+  protocol from PROTOBUF_SCHEMA artifacts when `service_metadata` is not
+  explicitly provided
 
 **Affected files:**
 - `src/contextcore/models/artifact_manifest.py` (enum expansion + docstrings)
 - `src/contextcore/utils/artifact_conventions.py` (add missing types)
-- `src/contextcore/utils/onboarding.py` (add missing entries across 4 dicts)
+- `src/contextcore/utils/onboarding.py` (add missing entries across 4 dicts + Gap 16 auto-derivation)
 - `src/contextcore/utils/pipeline_requirements.py` (validate against enum)
 - `src/contextcore/cli/export_io_ops.py` (source artifact scan patterns)
 - `src/contextcore/cli/export_quality_ops.py` (scan allowlist extension)
 - `tests/test_artifact_types.py` (new — enum completeness tests)
+- `tests/test_capability_discoverability.py` (updated — 19 types, 4 categories)
+- `docs/capability-index/contextcore.agent.yaml` (v1.18.0, source category, scope_tiers)
+- `docs/design-principles/MOTTAINAI_DESIGN_PRINCIPLE.md` (Gap 15/16 status + changelog)
 
 ---
 

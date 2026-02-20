@@ -67,6 +67,11 @@ status:
     - "REQ-CID P1 requirements implemented: 001, 002, 003, 010, 011, 012"
     - "84 new unit tests across capability index tooling modules"
     - "Validated end-to-end with microservices demo dataset (Online Boutique)"
+    - "Mottainai Gap 15 (CID-018): ArtifactType enum expanded 14→19 with 5 source types (dockerfile, python_requirements, protobuf_schema, editorconfig, ci_workflow)"
+    - "Mottainai Gap 16: Auto-derive service_metadata from manifest artifacts (_derive_service_metadata_from_manifest in onboarding.py)"
+    - "Source category added to scope_boundaries with scope_tiers (pipeline-generated vs pipeline-characterized)"
+    - "All 4 onboarding dicts, artifact conventions, scan patterns updated for 5 source types"
+    - "Capability index v1.18.0: 19 types across 4 categories, REQ-CID-013/014/018 amendments applied"
   nextSteps:
     - "Consolidate DEV and TEST environments into single deployment source"
     - "Add runtime GrafanaPluginRequirement to contextcore install verify"

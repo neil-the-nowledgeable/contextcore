@@ -4,7 +4,7 @@
     "name": "ContextCore Agent Capabilities",
     "description": "Agent-focused capabilities for ContextCore SDK.\nTasks as OTel spans, insights as knowledge, handoffs as coordination.\nA2A protocol interoperability for cross-framework agent communication.\n",
     "url": "${CONTEXTCORE_A2A_URL:-https://localhost:8080/contextcore.agent}",
-    "version": "1.17.0",
+    "version": "1.18.0",
     "capabilities": {
       "streaming": false,
       "pushNotifications": false,
@@ -14,7 +14,7 @@
       {
         "id": "contextcore.meta.artifact_type_registry",
         "name": "Artifact Type Registry",
-        "description": "Complete registry of all 14 artifact types across 3 categories (observability, onboarding, integrity)",
+        "description": "Complete registry of all 19 artifact types across 4 categories (observability, onboarding, source, integrity)",
         "tags": [
           "artifact types",
           "what artifacts",
@@ -25,6 +25,8 @@
           "beyond observability",
           "pipeline-innate",
           "how many artifact types",
+          "source artifacts",
+          "CID-018",
           "maturity:stable"
         ],
         "maturity": "stable",
