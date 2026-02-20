@@ -1,6 +1,6 @@
 manifest_id: contextcore.agent
 name: ContextCore Agent Capabilities
-version: 1.17.0
+version: 1.18.0
 description: 'Agent-focused capabilities for ContextCore SDK.
 
   Tasks as OTel spans, insights as knowledge, handoffs as coordination.
@@ -51,6 +51,16 @@ scope_boundaries:
     - mcp_tools
     - onboarding_metadata
     source: docs/reference/pipeline-requirements-onboarding.md REQ-CDP-ONB-*
+  - category: source
+    count: 5
+    description: Project input artifacts characterized during export
+    types:
+    - dockerfile
+    - python_requirements
+    - protobuf_schema
+    - editorconfig
+    - ci_workflow
+    source: CID-018 amendment, ArtifactType enum
   - category: integrity
     count: 2
     description: Pipeline-innate provenance and traceability artifacts
@@ -58,6 +68,11 @@ scope_boundaries:
     - provenance
     - ingestion-traceability
     source: docs/reference/pipeline-requirements-onboarding.md REQ-CDP-INT-*
+  scope_tiers:
+  - tier: pipeline-generated
+    description: Artifacts created by the pipeline (observability, onboarding, integrity)
+  - tier: pipeline-characterized
+    description: Pre-existing artifacts scanned and enriched by the pipeline (source)
   pipeline_stages:
   - stage: init
     produces:
@@ -87,38 +102,42 @@ scope_boundaries:
     produces:
     - plan deliverables
   explicit_non_scope:
-  - category: Plan deliverables
-    description: Application code, Dockerfiles, CI/CD configs, requirements.txt — these are deliverables defined in .contextcore.yaml
-      strategy.tactics, NOT pipeline artifacts
-    note: Plan deliverables are produced by the CONTRACTOR stage from context seeds, not by the pipeline export stage
+  - category: Application code
+    description: Business logic source code (e.g. Python modules, Go packages) — these are deliverables produced by the CONTRACTOR stage
+    note: Source artifacts like Dockerfiles, proto schemas, requirements.txt, editorconfig, and CI workflows are now registered as pipeline-characterized types (CID-018)
 capabilities:
 - capability_id: contextcore.meta.artifact_type_registry
   category: reference
   maturity: stable
-  summary: Complete registry of all 14 artifact types across 3 categories (observability, onboarding, integrity)
+  summary: Complete registry of all 19 artifact types across 4 categories (observability, onboarding, source, integrity)
   audiences:
   - agent
   - human
   description:
     agent: |
-      The ContextCore pipeline produces 14 artifact types in 3 categories:
+      The ContextCore pipeline manages 19 artifact types in 4 categories:
       OBSERVABILITY (8): dashboard, prometheus_rule, loki_rule, slo_definition,
       service_monitor, notification_policy, runbook, alert_template — generated
       from business metadata in .contextcore.yaml.
       ONBOARDING (4): capability_index, agent_card, mcp_tools,
       onboarding_metadata — pipeline-innate, produced automatically.
+      SOURCE (5): dockerfile, python_requirements, protobuf_schema,
+      editorconfig, ci_workflow — pre-existing project artifacts characterized
+      during export (CID-018). Pipeline scans and enriches these; does not generate them.
       INTEGRITY (2): provenance, ingestion-traceability — pipeline-innate
       provenance and traceability artifacts.
       Canonical source: ArtifactType enum in src/contextcore/models/artifact_manifest.py.
-      Category sets: OBSERVABILITY_TYPES, ONBOARDING_TYPES, INTEGRITY_TYPES.
+      Category sets: OBSERVABILITY_TYPES, ONBOARDING_TYPES, SOURCE_TYPES, INTEGRITY_TYPES.
       See docs/reference/pipeline-requirements-onboarding.md for requirements.
     human: |
       ContextCore doesn't just produce observability dashboards and alerts.
-      The pipeline automatically generates 14 artifact types across three
-      categories: observability (dashboards, alerts, SLOs), onboarding
-      (capability index, agent card, MCP tools), and integrity (provenance,
-      traceability). Onboarding and integrity artifacts are produced for
-      every project without manual configuration.
+      The pipeline manages 19 artifact types across four categories:
+      observability (dashboards, alerts, SLOs), onboarding (capability index,
+      agent card, MCP tools), source (Dockerfiles, requirements.txt, proto
+      schemas, editorconfig, CI workflows), and integrity (provenance,
+      traceability). Source artifacts are scanned and characterized — not
+      generated — providing protocol-aware calibration for downstream code
+      generation.
   triggers:
   - artifact types
   - what artifacts
@@ -129,6 +148,8 @@ capabilities:
   - beyond observability
   - pipeline-innate
   - how many artifact types
+  - source artifacts
+  - CID-018
   cross_references:
   - docs/reference/pipeline-requirements-onboarding.md
   - src/contextcore/models/artifact_manifest.py
@@ -3710,6 +3731,16 @@ pivoted_work:
   lesson: Different backends excel at different queries; dual-emit to Tempo AND Loki
   evidence: CONTEXTCORE_EMIT_MODE env var
 changelog:
+- version: 1.18.0
+  date: '2026-02-20'
+  changes:
+  - 'Mottainai Gap 15 (CID-018): ArtifactType enum expanded from 14→19 with 5 source types (dockerfile, python_requirements, protobuf_schema, editorconfig, ci_workflow)'
+  - 'Mottainai Gap 16: Auto-derive service_metadata from manifest artifacts when not explicitly provided'
+  - 'scope_boundaries: added source category (5 types) and scope_tiers (pipeline-generated vs pipeline-characterized)'
+  - 'explicit_non_scope narrowed: source artifacts now registered, only application code remains non-scope'
+  - 'artifact_type_registry: 14→19 types, 3→4 categories, SOURCE_TYPES frozenset added'
+  - 'Onboarding dicts: all 5 source types added to parameter_sources, example_outputs, output_contracts, parameter_schema'
+  - 'Scan patterns: source artifact globs added to export_io_ops.py, allowlist expanded in export_quality_ops.py'
 - version: 1.16.0
   date: '2026-02-18'
   changes:

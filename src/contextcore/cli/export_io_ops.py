@@ -103,6 +103,14 @@ def scan_existing_artifacts(scan_path: Path) -> dict[str, str]:
         ("*-loki-rules.yaml", "loki_rule"),
         ("*-notification*.yaml", "notification_policy"),
         ("*-runbook.md", "runbook"),
+        # Source artifacts (CID-018 / Mottainai Gap 15)
+        ("Dockerfile", "dockerfile"),
+        ("Dockerfile.*", "dockerfile"),
+        ("requirements.in", "python_requirements"),
+        ("requirements.txt", "python_requirements"),
+        ("*.proto", "protobuf_schema"),
+        (".editorconfig", "editorconfig"),
+        (".github/workflows/*.yml", "ci_workflow"),
     ]
 
     for pattern, artifact_type in patterns:
@@ -118,6 +126,7 @@ def scan_existing_artifacts(scan_path: Path) -> dict[str, str]:
                 "-loki-rules",
                 "-notification",
                 "-runbook",
+                # Source artifacts use filename as ID (no suffix stripping)
             ]:
                 if stem.endswith(suffix):
                     service_name = stem[: -len(suffix)]

@@ -99,6 +99,30 @@ ARTIFACT_PARAMETER_SOURCES: Dict[str, Dict[str, str]] = {
         "requirements_mapping": "manifest (derivation rules → requirements)",
         "coverage_metrics": "manifest (coverage summary percentages)",
     },
+    # Source artifact types (CID-018 / Mottainai Gap 15)
+    ArtifactType.DOCKERFILE.value: {
+        "base_image": "manifest.spec.targets + service_metadata",
+        "exposed_ports": "manifest.spec.targets + service_metadata",
+        "entrypoint": "manifest.spec.targets + service_metadata",
+    },
+    ArtifactType.PYTHON_REQUIREMENTS.value: {
+        "packages": "manifest.spec.strategy.tactics",
+        "constraints": "manifest.spec.strategy.tactics",
+    },
+    ArtifactType.PROTOBUF_SCHEMA.value: {
+        "package": "manifest.spec.targets + service_metadata.schema_contract",
+        "services": "manifest.spec.targets + service_metadata.schema_contract",
+        "rpcs": "manifest.spec.targets + service_metadata.schema_contract",
+    },
+    ArtifactType.EDITORCONFIG.value: {
+        "indent_style": "project conventions",
+        "charset": "project conventions",
+    },
+    ArtifactType.CI_WORKFLOW.value: {
+        "triggers": "manifest.spec.strategy.tactics",
+        "jobs": "manifest.spec.strategy.tactics",
+        "runtime": "manifest.spec.strategy.tactics",
+    },
 }
 
 # Example output paths/snippets per artifact type (per R3-F3)
@@ -158,6 +182,27 @@ ARTIFACT_EXAMPLE_OUTPUTS: Dict[str, Dict[str, str]] = {
     ArtifactType.INGESTION_TRACEABILITY.value: {
         "example_output_path": "out/export/ingestion-traceability.json",
         "example_snippet": '{"requirements_coverage_percent":85.0,"satisfied":12,"total":14}',
+    },
+    # Source artifact types (CID-018 / Mottainai Gap 15)
+    ArtifactType.DOCKERFILE.value: {
+        "example_output_path": "Dockerfile",
+        "example_snippet": "FROM python:3.12-slim\nWORKDIR /app\nCOPY requirements.txt .\nRUN pip install -r requirements.txt\nCOPY . .\nEXPOSE 8080\nUSER nonroot\nENTRYPOINT [\"python\", \"server.py\"]",
+    },
+    ArtifactType.PYTHON_REQUIREMENTS.value: {
+        "example_output_path": "requirements.txt",
+        "example_snippet": "# constraints\nflask>=3.0,<4.0\ngrpcio>=1.60\nopentelemetry-api>=1.20",
+    },
+    ArtifactType.PROTOBUF_SCHEMA.value: {
+        "example_output_path": "proto/checkout.proto",
+        "example_snippet": 'syntax = "proto3";\npackage hipstershop;\nservice CheckoutService {\n  rpc PlaceOrder (PlaceOrderRequest) returns (PlaceOrderResponse) {}\n}',
+    },
+    ArtifactType.EDITORCONFIG.value: {
+        "example_output_path": ".editorconfig",
+        "example_snippet": "root = true\n\n[*]\nindent_style = space\nindent_size = 4\ncharset = utf-8\ntrim_trailing_whitespace = true\ninsert_final_newline = true",
+    },
+    ArtifactType.CI_WORKFLOW.value: {
+        "example_output_path": ".github/workflows/ci.yml",
+        "example_snippet": "name: CI\non:\n  push:\n    branches: [main]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4",
     },
 }
 
@@ -271,6 +316,42 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "completeness_markers": ["requirements_coverage_percent"],
         "red_flag": "Calibrated as 'comprehensive' — over-engineering a traceability record",
     },
+    # Source artifact types (CID-018 / Mottainai Gap 15)
+    ArtifactType.DOCKERFILE.value: {
+        "expected_depth": "standard",
+        "max_lines": 50,
+        "max_tokens": 250,
+        "completeness_markers": ["FROM", "COPY", "EXPOSE", "ENTRYPOINT", "USER"],
+        "red_flag": "Calibrated as 'comprehensive' — Dockerfile should be concise, not over-engineered",
+    },
+    ArtifactType.PYTHON_REQUIREMENTS.value: {
+        "expected_depth": "brief",
+        "max_lines": 30,
+        "max_tokens": 150,
+        "completeness_markers": ["# constraints"],
+        "red_flag": "Calibrated as 'comprehensive' — requirements.txt should be a flat dependency list",
+    },
+    ArtifactType.PROTOBUF_SCHEMA.value: {
+        "expected_depth": "standard",
+        "max_lines": 150,
+        "max_tokens": 750,
+        "completeness_markers": ["syntax", "package", "service", "rpc"],
+        "red_flag": "Calibrated as 'brief' — proto schema will lack service definitions",
+    },
+    ArtifactType.EDITORCONFIG.value: {
+        "expected_depth": "brief",
+        "max_lines": 20,
+        "max_tokens": 100,
+        "completeness_markers": ["root = true", "indent_style", "charset"],
+        "red_flag": "Calibrated as 'comprehensive' — .editorconfig should be minimal",
+    },
+    ArtifactType.CI_WORKFLOW.value: {
+        "expected_depth": "standard",
+        "max_lines": 100,
+        "max_tokens": 500,
+        "completeness_markers": ["name:", "on:", "jobs:"],
+        "red_flag": "Calibrated as 'brief' — CI workflow will lack job definitions",
+    },
 }
 
 # Parameter keys per artifact type (for generator validation)
@@ -343,7 +424,73 @@ ARTIFACT_PARAMETER_SCHEMA: Dict[str, List[str]] = {
         "requirements_mapping",
         "coverage_metrics",
     ],
+    # Source artifact types (CID-018 / Mottainai Gap 15)
+    ArtifactType.DOCKERFILE.value: [
+        "base_image",
+        "exposed_ports",
+        "entrypoint",
+    ],
+    ArtifactType.PYTHON_REQUIREMENTS.value: [
+        "packages",
+        "constraints",
+    ],
+    ArtifactType.PROTOBUF_SCHEMA.value: [
+        "package",
+        "services",
+        "rpcs",
+    ],
+    ArtifactType.EDITORCONFIG.value: [
+        "indent_style",
+        "charset",
+    ],
+    ArtifactType.CI_WORKFLOW.value: [
+        "triggers",
+        "jobs",
+        "runtime",
+    ],
 }
+
+
+def _derive_service_metadata_from_manifest(
+    artifact_manifest: ArtifactManifest,
+) -> Optional[Dict[str, Any]]:
+    """Auto-derive service_metadata from artifact manifest when not explicitly provided.
+
+    Scans artifact_manifest.artifacts for protocol indicators per target:
+    - PROTOBUF_SCHEMA artifact → grpc transport, grpc_health_probe healthcheck
+    - Otherwise → http transport, http_get healthcheck (default)
+    Also extracts port hints from artifact parameters.
+
+    Returns:
+        Dict[str, Dict] matching ServiceMetadataEntry schema, or None if no
+        meaningful targets found.
+    """
+    targets: Dict[str, Dict[str, Any]] = {}
+
+    for artifact in artifact_manifest.artifacts:
+        target = artifact.target
+        if not target:
+            continue
+        if target not in targets:
+            targets[target] = {
+                "transport_protocol": "http",
+                "healthcheck_type": "http_get",
+            }
+        if artifact.type == ArtifactType.PROTOBUF_SCHEMA:
+            targets[target]["transport_protocol"] = "grpc"
+            targets[target]["healthcheck_type"] = "grpc_health_probe"
+            # Capture schema_contract from parameters if available
+            schema_path = (artifact.parameters or {}).get("schema_contract")
+            if schema_path:
+                targets[target]["schema_contract"] = schema_path
+        # Extract port hints from artifact parameters
+        port = (artifact.parameters or {}).get("port")
+        if port and "port" not in targets[target]:
+            targets[target]["port"] = port
+
+    if not targets:
+        return None
+    return targets
 
 
 def build_onboarding_metadata(
@@ -379,6 +526,10 @@ def build_onboarding_metadata(
     Returns:
         Dict suitable for JSON serialization
     """
+    # Auto-derive service_metadata from manifest if not explicitly provided (Gap 16)
+    if service_metadata is None:
+        service_metadata = _derive_service_metadata_from_manifest(artifact_manifest)
+
     # Extract coverage gaps (artifacts with status=needed)
     coverage_gaps: List[str] = [
         a.id for a in artifact_manifest.artifacts if a.status.value == "needed"

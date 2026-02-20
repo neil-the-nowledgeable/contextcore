@@ -30,7 +30,7 @@ class ArtifactType(str, Enum):
     Organized by category:
     - Observability (8): generated from business metadata
     - Onboarding (4): pipeline-innate, produced automatically
-    - Source (4): project input artifacts (code, config, contracts)
+    - Source (5): project input artifacts characterized during export (CID-018)
     - Integrity (2): pipeline-innate provenance and traceability
 
     See docs/reference/pipeline-requirements-onboarding.md for requirements.
@@ -52,11 +52,12 @@ class ArtifactType(str, Enum):
     MCP_TOOLS = "mcp_tools"
     ONBOARDING_METADATA = "onboarding_metadata"
 
-    # Source (project input artifacts — Mottainai Gap 15)
-    SOURCE_MODULE = "source_module"
+    # Source (project input artifacts — Mottainai Gap 15 / CID-018)
     DOCKERFILE = "dockerfile"
-    DEPENDENCY_MANIFEST = "dependency_manifest"
-    PROTO_CONTRACT = "proto_contract"
+    PYTHON_REQUIREMENTS = "python_requirements"
+    PROTOBUF_SCHEMA = "protobuf_schema"
+    EDITORCONFIG = "editorconfig"
+    CI_WORKFLOW = "ci_workflow"
 
     # Integrity (pipeline-innate)
     PROVENANCE = "provenance"
@@ -64,8 +65,9 @@ class ArtifactType(str, Enum):
 
 
 SOURCE_TYPES = frozenset({
-    ArtifactType.SOURCE_MODULE, ArtifactType.DOCKERFILE,
-    ArtifactType.DEPENDENCY_MANIFEST, ArtifactType.PROTO_CONTRACT,
+    ArtifactType.DOCKERFILE, ArtifactType.PYTHON_REQUIREMENTS,
+    ArtifactType.PROTOBUF_SCHEMA, ArtifactType.EDITORCONFIG,
+    ArtifactType.CI_WORKFLOW,
 })
 OBSERVABILITY_TYPES = frozenset({
     ArtifactType.DASHBOARD, ArtifactType.PROMETHEUS_RULE,

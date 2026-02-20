@@ -116,15 +116,16 @@ class TestArtifactTypeRegistry:
         agent_desc = registry["description"]["agent"].lower()
         assert "observability" in agent_desc
         assert "onboarding" in agent_desc
+        assert "source" in agent_desc
         assert "integrity" in agent_desc
 
-    def test_registry_description_mentions_14_types(self, capability_manifest: dict) -> None:
+    def test_registry_description_mentions_19_types(self, capability_manifest: dict) -> None:
         registry = next(
             c for c in capability_manifest["capabilities"]
             if c["capability_id"] == "contextcore.meta.artifact_type_registry"
         )
         agent_desc = registry["description"]["agent"].lower()
-        assert "14" in agent_desc
+        assert "19" in agent_desc
 
 
 class TestSchemaDiscoverability:

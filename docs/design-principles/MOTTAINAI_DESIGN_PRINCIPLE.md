@@ -146,13 +146,27 @@ The artisan workflow saves per-task `generation_results` and `design_results` in
 
 ### Gap 15: Source Artifact Types Not Registered — Export → DESIGN / IMPLEMENT
 
+> **Status: PARTIALLY RESOLVED (2026-02-20)** — CID-018 source types registered in `ArtifactType` enum. See below.
+
 The `ArtifactType` registry covers 14 types (8 observability, 4 onboarding, 2 integrity) but no source artifacts (Dockerfiles, requirements.in, proto schemas). The manifest declares these as tactic deliverables (TAC-PLAN-004) but the export cannot produce `design_calibration_hints`, `expected_output_contracts`, or `resolved_artifact_parameters` for unregistered types. The DESIGN phase re-derives Docker specifications from scratch. Additionally, four existing detection fragments (export `scan_existing_artifacts`, capability-index `_discovery_paths.yaml`, artifact inventory, SCAFFOLD `target_path.exists()`) each know something about existing assets but no signal flows end-to-end to prevent regeneration.
 
 **Waste**: $1.43 and 21 minutes for 4 Dockerfile tasks in Run 1 artisan. The DESIGN phase produced 2,178 lines of design documents re-deriving base image selection, multi-stage patterns, SHA256 pinning, and environment variables that plan-ingestion had already computed in the artisan-context-seed.
 
 **Fix**: Modular artifact type registry (`ArtifactTypeModule` ABC) with drop-in source modules under `artifact_types/source/`. Leverage capability-index `_discovery_paths.yaml` for actual filesystem scanning (currently metadata-only). End-to-end signal: discovery → `ArtifactStatus.EXISTS` → `skip_existing` task status → contractor skips generation for fresh existing files.
 
+**Partial fix applied (2026-02-20)**: CID-018 amendment implemented — 5 source artifact types (dockerfile, python_requirements, protobuf_schema, editorconfig, ci_workflow) registered in `ArtifactType` enum with `SOURCE_TYPES` frozenset. All 4 onboarding dicts (parameter_sources, example_outputs, output_contracts, parameter_schema) and artifact conventions updated. Export scan patterns extended to discover source artifacts. Remaining: end-to-end `ArtifactStatus.EXISTS` → `skip_existing` flow for contractor generation bypass.
+
 **Detail**: [GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md](~/Documents/Processes/cap-dev-pipe-test/GAP_15_EXPORT_ARTIFACT_TYPE_COVERAGE.md)
+
+### Gap 16: `service_metadata` Never Auto-Derived — Export → DESIGN / IMPLEMENT
+
+> **Status: RESOLVED (2026-02-20)** — Auto-derivation from manifest artifacts implemented.
+
+When `--service-metadata` is not explicitly provided, downstream validators (AR-144, AR-147, AR-810) silently degrade to no-ops because `service_metadata` is `None`. This causes protocol mismatches (e.g., gRPC-vs-Flask defect DEV-R2-001) to go undetected. The information needed to derive service metadata already exists in the artifact manifest — PROTOBUF_SCHEMA artifacts indicate gRPC transport, and artifact parameters carry port hints.
+
+**Waste**: Protocol mismatch defects discovered only at integration testing. Validators designed to catch these mismatches are silently skipped because the metadata they validate against is absent.
+
+**Fix applied (2026-02-20)**: `_derive_service_metadata_from_manifest()` in `onboarding.py` scans `artifact_manifest.artifacts` for protocol indicators per target. PROTOBUF_SCHEMA artifacts trigger `transport_protocol: "grpc"` and `healthcheck_type: "grpc_health_probe"`; all other targets default to HTTP. Called automatically when `service_metadata is None` in `build_onboarding_metadata()`. Explicit `--service-metadata` CLI flag always takes precedence.
 
 ---
 
@@ -257,3 +271,4 @@ When designing new pipeline stages or modifying existing ones:
 | 2026-02-17 | Prime Contractor audit: added Gaps 9–14 (seed enrichment discarded, onboarding not injected, no architectural context, no design calibration, REFINE suggestions not forwarded, no generation result caching) |
 | 2026-02-18 | Gap 15: source artifact types not registered in export; modular artifact type registry proposed with end-to-end existing-asset detection (detail in separate doc) |
 | 2026-02-19 | Added Observed Failures section: 3 violations from artisan Run 1 retry — batch result detection (fixed `21548e4`), adopted-status rejection (fixed `21548e4`), onboarding data not bridged from export to seed (Gaps 1-7 confirmed with evidence, not yet fixed) |
+| 2026-02-20 | Gap 15 partially resolved: CID-018 source types (5) registered in ArtifactType enum with full onboarding dict coverage. Gap 16 resolved: auto-derive service_metadata from manifest artifacts |

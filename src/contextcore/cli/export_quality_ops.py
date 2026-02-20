@@ -16,6 +16,10 @@ DEFAULT_SCAN_ALLOWLIST = [
     "loki/rules",
     "runbooks",
     "alertmanager",
+    # Source artifact directories (CID-018 / Mottainai Gap 15)
+    "src",
+    "proto",
+    ".github",
 ]
 
 

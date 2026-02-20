@@ -11,6 +11,7 @@ from contextcore.models.artifact_manifest import (
     OBSERVABILITY_TYPES,
     ONBOARDING_TYPES,
     INTEGRITY_TYPES,
+    SOURCE_TYPES,
 )
 from contextcore.utils.artifact_conventions import ARTIFACT_OUTPUT_CONVENTIONS
 from contextcore.utils.onboarding import (
@@ -65,16 +66,22 @@ class TestCategorySets:
     def test_integrity_count(self) -> None:
         assert len(INTEGRITY_TYPES) == 2
 
+    def test_source_count(self) -> None:
+        assert len(SOURCE_TYPES) == 5
+
     def test_categories_cover_all_types(self) -> None:
         """Union of category sets must equal the full enum."""
-        all_categorized = OBSERVABILITY_TYPES | ONBOARDING_TYPES | INTEGRITY_TYPES
+        all_categorized = OBSERVABILITY_TYPES | ONBOARDING_TYPES | INTEGRITY_TYPES | SOURCE_TYPES
         assert all_categorized == set(ArtifactType)
 
     def test_categories_are_disjoint(self) -> None:
         """No type should appear in more than one category."""
         assert not (OBSERVABILITY_TYPES & ONBOARDING_TYPES)
         assert not (OBSERVABILITY_TYPES & INTEGRITY_TYPES)
+        assert not (OBSERVABILITY_TYPES & SOURCE_TYPES)
         assert not (ONBOARDING_TYPES & INTEGRITY_TYPES)
+        assert not (ONBOARDING_TYPES & SOURCE_TYPES)
+        assert not (INTEGRITY_TYPES & SOURCE_TYPES)
 
 
 class TestConventionsCoverage:
