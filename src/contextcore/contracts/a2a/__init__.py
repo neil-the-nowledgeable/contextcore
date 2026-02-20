@@ -72,6 +72,13 @@ from contextcore.contracts.a2a.three_questions import (
     DiagnosticResult,
     QuestionStatus,
 )
+from contextcore.contracts.a2a.content_verification import (
+    ContentVerifier,
+    scan_placeholders,
+    verify_schema_fields,
+    verify_import_consistency,
+    verify_protocol_coherence,
+)
 from contextcore.contracts.a2a.queries import A2AQueries
 
 __all__ = [
@@ -112,6 +119,12 @@ __all__ = [
     "ThreeQuestionsDiagnostic",
     "DiagnosticResult",
     "QuestionStatus",
+    # Content verification (Gate 3)
+    "ContentVerifier",
+    "scan_placeholders",
+    "verify_schema_fields",
+    "verify_import_consistency",
+    "verify_protocol_coherence",
     # Queries
     "A2AQueries",
 ]

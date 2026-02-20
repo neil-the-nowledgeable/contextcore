@@ -775,11 +775,37 @@ only the Q3 checks.
    were not generated.
 5. Every gap from `coverage.gaps` MUST have a corresponding artifact with
    a checksum in the finalize report.
+6. **Content-level verification** — Gate 3 MUST perform the following
+   checks on generated artifact content (not just existence/integrity):
+   a. **Placeholder scan** — all generated files MUST be scanned for
+      common placeholder patterns (`REPLACE_WITH`, `TODO`, `FIXME`,
+      `PLACEHOLDER`, `INSERT_HERE`, `xxx`). Any match MUST produce a
+      BLOCKING gate failure with evidence citing the file, line, and
+      matched pattern.
+   b. **Schema field cross-reference** — when the input context includes
+      `.proto`, OpenAPI, or JSON Schema files, Gate 3 MUST verify that
+      generated source code uses field names consistent with those
+      schemas. Mismatches MUST produce a WARNING gate result with
+      evidence identifying the expected and actual field names.
+   c. **Cross-artifact consistency** — for each service, Gate 3 MUST
+      verify that dependency manifests (`requirements.in`, `go.mod`,
+      `package.json`) declare all packages imported by the service's
+      source files. Missing dependencies MUST produce a BLOCKING gate
+      failure.
+   d. **Protocol coherence** — when `service_metadata` (REQ-PCG-024
+      requirement 7) declares a transport protocol, Gate 3 MUST verify
+      that generated Dockerfiles, client code, and health checks are
+      consistent with that protocol. Protocol mismatches MUST produce
+      a BLOCKING gate failure.
 
 **Acceptance criteria:**
 - All generated artifacts have checksums
 - Missing artifacts are identifiable from the finalize report
 - Provenance chain from `.contextcore.yaml` through finalize is intact
+- No generated artifact contains placeholder/template strings (6a)
+- Generated code field names match input schema field names (6b)
+- Dependency manifests declare all imported packages (6c)
+- Protocol-specific artifacts match declared service protocol (6d)
 
 ---
 
@@ -847,6 +873,39 @@ MUST be governed by explicit contract artifacts.
      `derivation_rules`, `expected_output_contracts`,
      `artifact_dependency_graph`, `resolved_artifact_parameters`,
      `open_questions`, `objectives`, `requirements_hints`
+7. When the project generates executable services, onboarding metadata
+   MUST include a `service_metadata` map keyed by service name. Each
+   entry MUST declare:
+   - `transport_protocol` (REQUIRED): `grpc` | `http` | `grpc-web`.
+     Drives Dockerfile HEALTHCHECK type, client stub generation, and
+     protocol fidelity validation (REQ-PCG-027 requirement 5b).
+   - `schema_contract` (REQUIRED when `transport_protocol` is `grpc`):
+     relative path to the `.proto` file defining the service's RPC
+     interface. Used for schema field validation (REQ-PCG-027
+     requirement 5c).
+   - `base_image` (OPTIONAL): fully qualified base image reference with
+     digest (e.g., `python:3.14.2-alpine@sha256:31da4cb5...`). When
+     provided, MUST be propagated to `resolved_artifact_parameters` so
+     the contractor does not need to resolve digests at generation time.
+   - `healthcheck_type` (OPTIONAL, defaults to `transport_protocol`):
+     override for services where the health check protocol differs from
+     the service protocol.
+
+   Absence of `service_metadata` for a service-generating project MUST
+   produce a Gate 1 warning. Absence of `transport_protocol` for any
+   declared service MUST produce a Gate 1 failure.
+
+   Example:
+   ```yaml
+   service_metadata:
+     recommendationservice:
+       transport_protocol: grpc
+       schema_contract: context/demo.proto
+       base_image: "python:3.14.2-alpine@sha256:31da4cb5..."
+     shoppingassistantservice:
+       transport_protocol: http
+       base_image: "python:3.14.2-slim"
+   ```
 4. The provenance chain MUST accumulate across all ContextCore stages
    (create -> polish -> fix -> export) so that startd8-sdk can verify
    the full history.
@@ -855,11 +914,32 @@ MUST be governed by explicit contract artifacts.
 6. The E2E orchestration runtime environment spanning both ContextCore
    and startd8-sdk is deferred to Phase 2 (containerized or documented
    venv setup required for reproducible execution).
+8. Onboarding enrichment fields (`derivation_rules`,
+   `resolved_artifact_parameters`, `expected_output_contracts`,
+   `design_calibration_hints`, `open_questions`,
+   `artifact_dependency_graph`, `semantic_conventions`) MUST be
+   available for end-to-end propagation when present in
+   `onboarding-metadata.json`. Gate 1 MUST verify that enrichment
+   fields present in the file are structurally valid (correct types,
+   non-empty when populated). Gate 1 MUST emit a WARNING when OPTIONAL
+   enrichment fields are absent from `onboarding-metadata.json` in a
+   project that produces them at export time.
+   **Source:** [Mottainai Design Principle](../../design-principles/MOTTAINAI_DESIGN_PRINCIPLE.md) Failure 3, Gaps 1–7
+9. The provenance chain (`run-provenance.json`) MUST record which
+   onboarding enrichment fields were available at export time, enabling
+   downstream stages to detect when enrichment was available but not
+   forwarded. The record MUST include field names and a boolean
+   presence indicator per field (not field values).
 
 **Acceptance criteria:**
 - Gate 1 passes when handoff artifacts are well-formed
 - Gate 1 fails when any artifact is missing, stale, or has checksum mismatch
 - Plan ingestion can consume the handoff without additional manual steps
+- Enrichment fields present in `onboarding-metadata.json` are readable
+  by plan-ingestion without transformation
+- Gate 1 emits WARNING when enrichment fields are absent but the
+  project's export stage is capable of producing them
+- Provenance chain records enrichment field availability at export time
 
 ---
 
@@ -936,11 +1016,42 @@ executable work items.
    manifest as requirements spec.
 5. EMIT MUST write review config and optionally ContextCore task tracking
    artifacts.
+6. EMIT MUST bridge all onboarding enrichment fields from the export
+   output directory into the context seed:
+   a. Read `onboarding-metadata.json` from the pipeline output directory
+      (i.e., `contextcore_export_dir` — the same directory containing
+      the artifact manifest and provenance), NOT from `context_files`.
+   b. Populate the seed's `onboarding` section with all enrichment
+      fields present in the file (`derivation_rules`,
+      `resolved_artifact_parameters`, `expected_output_contracts`,
+      `design_calibration_hints`, `open_questions`,
+      `artifact_dependency_graph`, `semantic_conventions`).
+   c. Populate per-task `artifact_types_addressed` from target file
+      patterns (extension-based heuristic) or manifest artifact-type
+      mappings. EMIT MUST emit a WARNING when `artifact_types_addressed`
+      is empty for any task.
+   d. Extract REFINE suggestions from the plan document appendix
+      (structured suggestions with area, severity, rationale,
+      validation approach) into the seed's per-task or global
+      `refine_suggestions` field.
+   **Source:** [Mottainai Design Principle](../../design-principles/MOTTAINAI_DESIGN_PRINCIPLE.md) Failure 3, Gaps 1–8
+7. When `onboarding-metadata.json` is absent or unreadable, EMIT MUST
+   log a WARNING and proceed with empty `onboarding` (graceful
+   degradation per Mottainai application rule 3). Silent omission —
+   proceeding without `onboarding` and without logging — is a
+   violation.
 
 **Acceptance criteria:**
 - Every gap becomes a feature (parse coverage = 100%)
 - Complexity score is reasonable (not all 0 or all 100)
 - Routing matches complexity score (or force_route override)
+- Seed `onboarding` section is populated when `onboarding-metadata.json`
+  is present in the export output directory
+- Per-task `artifact_types_addressed` is non-empty when target file
+  patterns allow type inference
+- REFINE suggestions from the plan document appendix appear in the seed
+- Absent `onboarding-metadata.json` produces a WARNING log entry (not
+  silent omission)
 
 ---
 
@@ -958,19 +1069,91 @@ enforcement at every transition.
    `architectural_context`.
 2. SCAFFOLD MUST use `output_path`/`output_ext` from onboarding metadata.
 3. DESIGN MUST assign depth tiers (brief/standard/comprehensive) based
-   on estimated LOC and `design_calibration_hints`.
+   on estimated LOC and `design_calibration_hints`. DESIGN MUST consume
+   `service_metadata` from onboarding metadata (see REQ-PCG-024
+   requirement 7) to correctly classify each service's transport protocol,
+   health check type, and schema contracts.
 4. IMPLEMENT MUST use `parameter_sources` and `resolved_artifact_parameters`
-   from onboarding metadata.
+   from onboarding metadata. IMPLEMENT MUST resolve all parameterized
+   values (e.g., base image digests, version pins) — leaving placeholder
+   or template strings in generated artifacts is a gate failure.
 5. TEST MUST validate generated artifacts against `expected_output_contracts`.
+   In addition to external tool validators (linters, type checkers), TEST
+   MUST perform **self-consistency validation** across the artisan's own
+   outputs:
+   a. **Dependency consistency** — every import statement in generated
+      source files MUST have a corresponding entry in the dependency
+      manifest (`requirements.in`, `go.mod`, `package.json`, etc.).
+      This is a static text cross-reference that requires no external
+      execution environment.
+   b. **Protocol fidelity** — generated client code and Dockerfile
+      health checks MUST use the transport protocol declared in
+      `service_metadata` (see REQ-PCG-024 requirement 7). A gRPC client
+      against an HTTP service, or an HTTP health probe against a gRPC
+      service, is a TEST failure.
+   c. **Schema field validation** — when input context includes schema
+      contracts (`.proto` files, OpenAPI specs, JSON Schema), generated
+      code that references schema-defined fields MUST use the field names
+      as declared in the schema. Singular/plural mismatches, camelCase
+      vs snake_case divergences, and misspellings are TEST failures.
+   d. **Placeholder detection** — all generated files MUST be scanned for
+      unresolved placeholder patterns (`REPLACE_WITH_*`, `TODO:`,
+      `FIXME:`, `PLACEHOLDER`, `xxx`, `<INSERT_*>`). Any match is a
+      TEST failure.
+   e. **Dockerfile/service coherence** — Dockerfile `HEALTHCHECK` type
+      MUST match the service's transport protocol. Base image references
+      MUST contain valid, resolvable digests or tags — not placeholder
+      strings.
 6. REVIEW MUST use multi-agent review via tiered cost model
    (drafter/validator/reviewer).
 7. FINALIZE MUST produce per-artifact SHA-256, status rollup, and cost
    aggregation.
+8. DESIGN MUST adopt prior valid designs instead of regenerating them
+   (implements Mottainai application rule 2: "Forward, don't
+   regenerate"). The DESIGN status check MUST accept both `"designed"`
+   (fresh generation) and `"adopted"` (reused from a prior run) as
+   valid statuses indicating a usable design document exists. See
+   AR-122 for artisan-level implementation detail of the three-way
+   branch.
+   **Source:** [Mottainai Design Principle](../../design-principles/MOTTAINAI_DESIGN_PRINCIPLE.md) Failure 2
+9. DESIGN MUST consume onboarding enrichment fields when present in the
+   context seed. For fields already covered by artisan requirements
+   (`parameter_sources` per AR-303–305, `semantic_conventions` per
+   AR-306, `output_conventions` per AR-307, `calibration_hints` per
+   AR-308, `coverage_gaps` per AR-311), this requirement mandates the
+   same governance for both artisan and prime routes. Additionally,
+   DESIGN MUST consume fields NOT covered by any AR:
+   - `derivation_rules` as deterministic constraints (values MUST NOT
+     be re-derived by LLM when deterministic rules are present)
+   - `open_questions` injected into the DESIGN prompt as flagged
+     uncertainties
+   - `expected_output_contracts` to inform depth tier assignment
+   - REFINE suggestions as advisory constraints in the DESIGN prompt
+   - TRANSFORM plan document architecture and risk register sections
+     when available in the seed
+   When any of these fields are absent, DESIGN MUST fall back to LLM
+   inference with a logged WARNING per absent field.
+   **Source:** [Mottainai Design Principle](../../design-principles/MOTTAINAI_DESIGN_PRINCIPLE.md) Gaps 1–8
+10. IMPLEMENT MUST reuse existing generated artifacts on retry rather
+    than regenerating them. When target files exist on disk, are
+    non-empty, and match a prior generation's checksum (if available),
+    IMPLEMENT MUST skip generation for those files and proceed to the
+    next phase. See AR-134 for artisan-level resume mechanics.
+    **Source:** [Mottainai Design Principle](../../design-principles/MOTTAINAI_DESIGN_PRINCIPLE.md) Gap 14
 
 **Acceptance criteria:**
 - Task count matches gap count
 - Generated artifacts pass schema validation
+- Generated artifacts pass self-consistency validation (5a–5e)
 - Finalize report includes checksums for all generated artifacts
+- No generated artifact contains placeholder/template strings
+- Prior valid designs with status `"adopted"` are reused without
+  regeneration
+- Onboarding enrichment fields present in the seed reach the DESIGN
+  prompt; absent fields produce logged warnings
+- Deterministic fields (`derivation_rules`, `resolved_artifact_parameters`)
+  take precedence over LLM-derived equivalents when both are available
+- Retry runs skip generation for existing non-empty target files
 
 ---
 
@@ -1056,18 +1239,48 @@ The pipeline MUST distinguish between contract objects and span events.
 
 ---
 
-#### REQ-PCG-033: Pipeline Resumption (Explicit Non-Goal)
+#### REQ-PCG-033: Pipeline Resumption (Scoped)
 
-**Priority:** P2
+**Priority:** P1 (contractor resume), P2 (pipeline-level)
+**Source:** [Mottainai Design Principle](../../design-principles/MOTTAINAI_DESIGN_PRINCIPLE.md) Failure 1; commit `21548e4`
+**Cross-ref:** AR-134 (artisan resume), AR-500–511 (artisan recovery)
 
-Checkpoint-based pipeline resumption is an explicit non-goal for the core
-pipeline. See Extension Concern 10 (Checkpoint Recovery) for the deferred
-design.
+Resumption requirements are scoped differently for each pipeline half.
 
-**Rationale:** The sequential pipeline (stages 0–4) has no resume
-mechanism. Any mid-pipeline failure requires a full re-run from Stage 0.
-NFR-CDP-002 (idempotent re-runs) mitigates wasted work by ensuring
-repeated execution is safe.
+**Requirements:**
+
+1. **ContextCore half (stages 0–4):** Checkpoint-based pipeline
+   resumption is a non-goal. The sequential pipeline has no resume
+   mechanism; any mid-pipeline failure requires a full re-run from
+   Stage 0. NFR-CDP-002 (idempotent re-runs) mitigates wasted work by
+   ensuring repeated execution is safe. See Extension Concern 10
+   (Checkpoint Recovery) for the deferred design.
+2. **startd8-sdk half (stages 5–7):** Contractor-level resume MUST be
+   supported:
+   a. `--retry-incomplete` MUST detect complete tasks from both per-task
+      result files AND batch result files (e.g., `workflow-result.json`
+      without task-ID suffix). Detection MUST NOT rely on a single file
+      naming convention.
+   b. Previously generated artifacts (source files, design documents,
+      state files) MUST be preserved across retry invocations and
+      reusable without regeneration.
+   c. State files (e.g., `.prime_contractor_state.json`,
+      `.startd8/state/review_results.json`) MUST persist across retry
+      invocations and MUST be consulted before re-queuing tasks.
+   d. Skip/retry decisions MUST be logged with cost attribution
+      (estimated cost saved by skip, estimated cost of regeneration).
+   See AR-134 and AR-500–511 for artisan-level recovery mechanics.
+3. The distinction between pipeline-level non-goal (requirement 1) and
+   contractor-level requirement (requirement 2) MUST be documented in
+   operator guides to prevent confusion about what `--retry-incomplete`
+   does versus re-running the full pipeline.
+
+**Acceptance criteria:**
+- `--retry-incomplete` correctly identifies completed tasks from both
+  per-task and batch result files
+- Previously generated artifacts are preserved and reused on retry
+- Skip/retry decisions appear in structured logs with cost attribution
+- Operator guide documents the two-tier resumption model
 
 ---
 
@@ -1123,6 +1336,261 @@ assurance the governance system is designed to protect.
 
 ---
 
+### 3.2 Artifact Reuse Requirements (Mottainai Principle)
+
+The following requirements codify the [Mottainai Design Principle](../../design-principles/MOTTAINAI_DESIGN_PRINCIPLE.md)
+into verifiable governance contracts. The principle: **every artifact
+produced by an earlier stage carries invested computation, context, and
+deterministic correctness — discarding it or regenerating it via an
+expensive LLM call when it could be passed forward is mottainai.**
+
+For artisan-specific implementation detail, see the
+[Artisan Contractor Requirements](startd8-sdk: docs/ARTISAN_REQUIREMENTS.md)
+AR-3xx (ContextCore Data Flow) and AR-1xx/5xx (workflow/recovery).
+Requirements below reference AR-xxx where overlap exists and add
+governance for aspects not covered by any AR.
+
+---
+
+#### REQ-PCG-036: Onboarding Enrichment End-to-End Propagation
+
+**Priority:** P1
+**Source:** [Mottainai Design Principle](../../design-principles/MOTTAINAI_DESIGN_PRINCIPLE.md) Gaps 1–8, Failure 3
+**Cross-ref:** AR-303–308 implement artisan-side consumption for 5 of 7 fields
+
+The 7 onboarding enrichment fields produced by ContextCore export MUST
+propagate end-to-end from export through plan-ingestion to contractor
+DESIGN/IMPLEMENT phases.
+
+**Requirements:**
+
+1. The following 7 enrichment fields MUST propagate end-to-end when
+   present in `onboarding-metadata.json`:
+   - `derivation_rules` — deterministic business-to-parameter mappings
+   - `resolved_artifact_parameters` — pre-resolved parameter values
+   - `expected_output_contracts` — per-artifact-type output contracts
+   - `design_calibration_hints` — per-artifact-type depth/complexity hints
+   - `open_questions` — unresolved questions from the manifest
+   - `artifact_dependency_graph` — deterministic artifact dependency ordering
+   - `semantic_conventions` — attribute naming standards per artifact type
+2. Propagation path for each field:
+
+   | Field | Source | Carrier | Consumer | AR Cross-ref |
+   |-------|--------|---------|----------|-------------|
+   | `parameter_sources` | export | seed `onboarding` | DESIGN/IMPLEMENT | AR-303–305 |
+   | `semantic_conventions` | export | seed `onboarding` | DESIGN | AR-306 |
+   | `output_conventions` | export | seed `onboarding` | DESIGN/TEST | AR-307 |
+   | `design_calibration_hints` | export | seed `onboarding` | DESIGN | AR-308 |
+   | `coverage_gaps` | export | seed `onboarding` | PARSE/DESIGN | AR-311 |
+   | `derivation_rules` | export | seed `onboarding` | DESIGN | — (governance only) |
+   | `resolved_artifact_parameters` | export | seed `onboarding` | DESIGN/IMPLEMENT | — (governance only) |
+   | `expected_output_contracts` | export | seed `onboarding` | DESIGN/TEST | — (governance only) |
+   | `open_questions` | export | seed `onboarding` | DESIGN | — (governance only) |
+   | `artifact_dependency_graph` | export | seed `onboarding` | PLAN/IMPLEMENT | — (governance only) |
+
+3. **Gap logging:** When a field is present at the source
+   (`onboarding-metadata.json`) but absent at the consumer (DESIGN
+   context), a structured WARNING MUST be emitted with: field name,
+   source file path, consumer phase, and reason for absence. Prose-only
+   logging is insufficient — the warning MUST be machine-parseable.
+4. **Deterministic precedence:** Deterministic fields
+   (`derivation_rules`, `resolved_artifact_parameters`,
+   `artifact_dependency_graph`) MUST take precedence over LLM-derived
+   equivalents when both are available. The LLM-derived value MAY be
+   logged for comparison but MUST NOT override the deterministic value.
+5. **Per-task `artifact_types_addressed`:** EMIT (REQ-PCG-026
+   requirement 6c) MUST populate this field for each task. DESIGN MUST
+   use `artifact_types_addressed` to select matching enrichment fields
+   per artifact type.
+6. **REFINE suggestion forwarding:** REFINE suggestions extracted during
+   plan-ingestion (REQ-PCG-026 requirement 6d) MUST be available in the
+   seed and forwarded to the DESIGN prompt as advisory constraints.
+7. **TRANSFORM plan document accessibility:** When the TRANSFORM phase
+   produces a structured plan document with architecture, risk register,
+   and verification strategy sections, these MUST be accessible to
+   DESIGN (via the seed or a sidecar reference). DESIGN MUST NOT be
+   required to re-derive architecture and risk analysis from scratch.
+
+**Acceptance criteria:**
+- Pipeline run with enrichment produces a seed with populated
+  `onboarding` section containing all 7 fields
+- DESIGN prompts include deterministic fields when present in seed
+- Gap logging fires when enrichment is present at source but absent at
+  consumer
+- Deterministic fields override LLM-derived values
+- Per-task `artifact_types_addressed` is populated for tasks with
+  inferable artifact types
+- REFINE suggestions appear in DESIGN prompt when present in seed
+
+---
+
+#### REQ-PCG-037: Contractor Resume and Artifact Preservation
+
+**Priority:** P1
+**Source:** [Mottainai Design Principle](../../design-principles/MOTTAINAI_DESIGN_PRINCIPLE.md) Failures 1–2, Gap 14
+**Cross-ref:** AR-122 (adopt prior, artisan), AR-134 (resume, artisan), AR-500–511 (recovery)
+
+Contractor execution MUST preserve and reuse artifacts across retries
+to avoid wasteful regeneration.
+
+**Requirements:**
+
+1. **Multi-format task completion detection:** `--retry-incomplete`
+   MUST detect completed tasks from per-task result files (e.g.,
+   `workflow-result-{task_id}.json`), batch result files (e.g.,
+   `workflow-result.json`), and state files (e.g.,
+   `.startd8/state/review_results.json`). Detection MUST NOT rely on a
+   single file naming convention. This requirement has no AR-xxx
+   overlap — it governs both artisan and prime routes at the
+   orchestration level.
+2. **Design three-way branch with "adopted" acceptance:** The DESIGN
+   phase MUST implement a three-way branch: (a) no prior design →
+   generate fresh, (b) prior design with status `"designed"` → adopt,
+   (c) prior design with status `"adopted"` → adopt. Status `"adopted"`
+   MUST be accepted as equivalent to `"designed"` for adoption purposes.
+   See AR-122 for artisan-level three-way branch implementation. This
+   governance requirement applies to both artisan and prime routes.
+3. **Generated file preservation and reuse on retry:** When target files
+   exist on disk from a prior generation run, are non-empty, and have
+   valid content (verified by checksum when available), they MUST be
+   reused rather than regenerated. See AR-134 for artisan-level resume
+   mechanics.
+4. **Prime contractor generation result caching:** The prime workflow
+   MUST check `FeatureSpec.generated_files` before calling the code
+   generator. If generated files exist on disk and are non-empty,
+   generation MUST be skipped and the workflow MUST proceed to
+   integration. This requirement has no AR-xxx overlap — it is
+   prime-specific.
+5. **Cost attribution by category:** Each skip/adopt/regenerate
+   decision MUST be logged with cost attribution:
+   - `skip`: estimated cost saved (based on prior generation cost or
+     task complexity estimate)
+   - `adopt`: $0 generation cost, design reuse noted
+   - `regenerate`: actual generation cost
+   This requirement has no AR-xxx overlap.
+6. **Structured logging of all skip/adopt decisions:** Every task
+   processed by `--retry-incomplete` MUST produce a structured log
+   entry with: task ID, decision (skip/adopt/regenerate), reason,
+   source file(s) consulted, and estimated cost impact.
+
+**Acceptance criteria:**
+- `--retry-incomplete` identifies completed tasks from per-task, batch,
+  and state files
+- Adopted designs (status `"adopted"`) are reused without regeneration
+- Generated files from prior runs are preserved and reused on retry
+- Prime workflow skips generation when `generated_files` exist on disk
+- Cost report categorizes decisions as skip/adopt/regenerate with cost
+  attribution
+- Structured logs contain task ID, decision, reason, and cost impact
+  for every retry task
+
+---
+
+#### REQ-PCG-038: Prime Contractor Context Parity
+
+**Priority:** P2
+**Source:** [Mottainai Design Principle](../../design-principles/MOTTAINAI_DESIGN_PRINCIPLE.md) Gaps 9–13
+**Cross-ref:** None (no AR-xxx coverage for the prime route)
+
+The prime contractor route MUST have access to the same enrichment
+context as the artisan route, adapted for the prime workflow's
+architecture.
+
+**Requirements:**
+
+1. **FeatureSpec metadata field:** `FeatureSpec` MUST include an
+   optional `metadata: Dict[str, Any]` field.
+   `FeatureQueue.add_features_from_seed()` MUST forward per-task
+   `_enrichment` blocks from the seed into `metadata`. `_generate_code()`
+   MUST check `feature.metadata.get("_enrichment")` before falling back
+   to runtime enrichment (e.g., `DomainChecklist._get_domain_enrichment()`).
+2. **Onboarding injection into code generation context:** The prime
+   workflow MUST load the seed's `onboarding` section and forward
+   relevant fields (`derivation_rules`, `resolved_artifact_parameters`,
+   `semantic_conventions`) into the `LeadContractorCodeGenerator`
+   context so they reach the code generation prompt.
+3. **Lightweight architectural context:** Plan-ingestion MUST compute a
+   lightweight architectural summary for prime seeds containing at
+   minimum: project goals and mentioned files from the parsed plan.
+   This is deterministic extraction — no LLM cost.
+4. **Per-task token budgets from estimated LOC:** The prime workflow
+   MUST compute per-task token budgets from `ParsedFeature.estimated_loc`
+   (already available in the seed) rather than using a flat uniform
+   limit. This is arithmetic — no LLM cost.
+5. **REFINE suggestion forwarding:** REFINE suggestions extracted into
+   the seed (REQ-PCG-036 requirement 6) MUST be forwarded to prime code
+   generation as advisory constraints.
+6. **Domain enrichment reuse from metadata:** The prime workflow MUST
+   check `feature.metadata` for pre-computed domain enrichment before
+   invoking runtime domain classification. Re-classification MUST only
+   occur when metadata is absent or stale.
+
+**Acceptance criteria:**
+- `FeatureSpec.metadata` round-trips through `add_features_from_seed()`
+  and back
+- Prime code generation context includes onboarding enrichment fields
+- Architectural summary (goals + mentioned files) is present in prime
+  seeds
+- Token budgets vary by task based on estimated LOC
+- REFINE suggestions reach prime code generation when present
+- Domain enrichment from metadata is used before runtime re-classification
+
+---
+
+#### REQ-PCG-039: Source Artifact Type Coverage
+
+**Priority:** P2
+**Source:** [Mottainai Design Principle](../../design-principles/MOTTAINAI_DESIGN_PRINCIPLE.md) Gap 15
+**Cross-ref:** None (no AR-xxx coverage)
+
+The artifact type registry MUST support source artifact types to enable
+export-time enrichment and existing-artifact detection for non-observability
+deliverables.
+
+**Requirements:**
+
+1. **Modular artifact type registry:** The `ArtifactType` registry
+   MUST support a modular extension mechanism (e.g., `ArtifactTypeModule`
+   ABC) that allows drop-in registration of new artifact type families
+   without modifying core registry code.
+2. **Source type registration:** The following source artifact types
+   MUST be registrable: source modules (`.py`, `.go`, `.js`, `.java`,
+   `.cs`), Dockerfiles, dependency manifests (`requirements.in`,
+   `go.mod`, `package.json`, etc.), and proto contracts (`.proto`).
+3. **Export output parity:** Once registered, source artifact types
+   MUST receive the same export outputs as observability types:
+   `design_calibration_hints`, `expected_output_contracts`, and
+   `resolved_artifact_parameters`.
+4. **Existing artifact detection:** The pipeline MUST support an
+   `ArtifactStatus` signal with at least three states: `EXISTS` (fresh
+   file on disk), `STALE` (file exists but is outdated per manifest or
+   checksum), and `ABSENT` (no file found). Detection MUST leverage
+   existing discovery mechanisms (capability-index
+   `_discovery_paths.yaml`, export `scan_existing_artifacts`,
+   SCAFFOLD `target_path.exists()`).
+5. **Skip-existing task support:** When a task's target files have
+   `ArtifactStatus.EXISTS` and the operator has not requested
+   regeneration, the contractor MUST support a `skip_existing` mode
+   that bypasses generation for those files with an audit trail
+   recording: task ID, skipped files, status, and reason.
+6. **Detection fragment consolidation:** The four existing detection
+   fragments (export `scan_existing_artifacts`, capability-index
+   `_discovery_paths.yaml`, artifact inventory, SCAFFOLD
+   `target_path.exists()`) MUST be consolidated into a single
+   end-to-end signal that flows from discovery through
+   `ArtifactStatus` to contractor skip decisions.
+
+**Acceptance criteria:**
+- Source artifact types are registered via the modular mechanism
+- Registered source types receive calibration hints and output contracts
+  at export time
+- Existing files are detected with correct `ArtifactStatus`
+- `skip_existing` tasks produce an audit trail
+- The four detection fragments are consolidated into a single signal
+  path
+
+---
+
 #### REQ-PCG-031: OTel Span Event Schema Consistency
 
 **Priority:** P1
@@ -1171,6 +1639,19 @@ artifact depth.
    present.
 5. When generated artifact LOC falls outside the expected range, a warning
    MUST be emitted (non-blocking).
+6. When the project generates executable services,
+   `design_calibration_hints` MUST include per-service entries that
+   reference `service_metadata` (REQ-PCG-024 requirement 7):
+   a. Each service hint MUST declare the service's `transport_protocol`
+      (sourced from `service_metadata`).
+   b. Dockerfile hints MUST specify the expected `healthcheck_type`
+      consistent with the service protocol.
+   c. Client/test hints MUST specify the expected transport library
+      (e.g., `grpc` stubs for gRPC services, `requests`/`urllib` for
+      HTTP services).
+   d. A mismatch between `design_calibration_hints` and
+      `service_metadata` on protocol classification MUST produce a
+      warning-severity gate result.
 
 | Artifact Type | Expected Depth | Red Flag |
 |---|---|---|
@@ -1179,10 +1660,16 @@ artifact depth.
 | Dashboard (Grafana JSON) | Comprehensive (>150 LOC) | Calibrated as "brief" |
 | SLO Definition | Standard | Calibrated as "comprehensive" |
 | Runbook | Standard-Comprehensive | Calibrated as "brief" |
+| Dockerfile (gRPC service) | Standard | HEALTHCHECK uses HTTP probe |
+| Dockerfile (HTTP service) | Standard | HEALTHCHECK uses gRPC probe |
+| Client stub (gRPC service) | Standard | Uses HTTP/REST transport |
+| Client stub (HTTP service) | Brief | Uses gRPC transport |
 
 **Acceptance criteria:**
 - Miscalibration produces a warning-severity gate result
 - Red flags appear in gate evidence
+- Protocol mismatch between calibration hints and service_metadata
+  produces a warning
 
 ---
 
@@ -1364,6 +1851,11 @@ Lifecycle requirements REQ-PCG-008/009/010 apply across all 7 domains:
 | REQ-PCG-030 | Boundary decisions use contracts; diagnostics use events |
 | REQ-PCG-031 | TraceQL queries return expected attributes |
 | REQ-PCG-032 | Miscalibration produces warning gate result |
+| REQ-PCG-033 | Retry test: `--retry-incomplete` identifies incomplete tasks from both batch and per-task result files; previously generated artifacts preserved; cost attribution in structured logs |
+| REQ-PCG-036 | Integration test: pipeline with enrichment produces populated seed `onboarding`; DESIGN prompts include deterministic fields; gap logging fires when enrichment present at source but absent at consumer; AR-303–308 tests cover artisan consumption |
+| REQ-PCG-037 | Retry test: adopted designs (status `"adopted"`) reused without regeneration; generated files preserved across retries; cost report categorizes skip/adopt/regenerate decisions |
+| REQ-PCG-038 | Unit test: `FeatureSpec.metadata` round-trips through `add_features_from_seed()`; prime code generation context includes onboarding enrichment; token budgets vary by estimated LOC |
+| REQ-PCG-039 | Integration test: source artifact types registered via modular mechanism; existing files detected with `ArtifactStatus`; `skip_existing` tasks produce audit trail |
 
 ---
 
@@ -1383,6 +1875,8 @@ Lifecycle requirements REQ-PCG-008/009/010 apply across all 7 domains:
 - [Export Pipeline Analysis Guide](../../guides/EXPORT_PIPELINE_ANALYSIS_GUIDE.md) -- operational reference
 - [Semantic Conventions](../../semantic-conventions.md) -- attribute naming standards
 - [Agent Communication Protocol](../../agent-communication-protocol.md) -- OTel-level agent protocols
+- [Mottainai Design Principle](../../design-principles/MOTTAINAI_DESIGN_PRINCIPLE.md) -- artifact reuse principle, violation inventory, application rules
+- [Artisan Contractor Requirements](startd8-sdk: docs/ARTISAN_REQUIREMENTS.md) -- AR-xxx implementation requirements (Layer 3: ContextCore Data Flow implements artisan-side enrichment consumption)
 
 ### Computer Science Theory
 
@@ -1410,7 +1904,7 @@ This appendix is intentionally **append-only**. New reviewers (human or model) s
 ### Areas Substantially Addressed
 
 - **ambiguity**: 11 suggestions applied (R13-S5, R1-S4, R2-S3, R3-S1, R3-S6, R4-S2, R5-S6, R7-S5, R9-S5, R11-S8, R12-S7)
-- **completeness**: 14 suggestions applied (R13-S2, R14-S2, R1-S2, R1-S3, R1-S8, R5-S3, R5-S9, R6-S5, R7-S3, R7-S9, R8-S4, R9-S3, R10-S4, R11-S6)
+- **completeness**: 22 suggestions applied (R13-S2, R14-S2, R15-S1, R15-S2, R15-S3, R15-S4, R15-S5, R15-S6, R15-S7, R15-S8, R1-S2, R1-S3, R1-S8, R5-S3, R5-S9, R6-S5, R7-S3, R7-S9, R8-S4, R9-S3, R10-S4, R11-S6)
 - **consistency**: 25 suggestions applied (R13-S1, R13-S6, R1-S1, R1-S6, R1-S10, R2-S1, R2-S5, R2-S8, R4-S7, R5-S1, R5-S5, R6-S3, R7-S1, R7-S6, R8-S5, R9-S1, R9-S6, R9-S10, R10-S2, R10-S5, R11-S1, R11-S5, R12-S1, R12-S3, R12-S4)
 - **feasibility**: 22 suggestions applied (R13-S3, R14-S1, R14-S4, R14-S5, R2-S2, R3-S2, R3-S3, R3-S7, R4-S1, R5-S2, R5-S8, R6-S1, R6-S4, R7-S2, R7-S8, R8-S7, R8-S8, R9-S2, R9-S8, R10-S1, R12-S5, R12-S6)
 - **testability**: 15 suggestions applied (R13-S4, R13-S10, R1-S5, R2-S4, R3-S4, R3-S8, R3-S10, R4-S8, R5-S4, R6-S6, R7-S4, R7-S10, R9-S4, R11-S4, R11-S10)
@@ -1627,6 +2121,38 @@ The following Appendix C suggestions were implemented in the document body and c
 **Task 4 — Companion Document Updates:**
 - `REQ_CAPABILITY_DELIVERY_PIPELINE.md`: Gate 1 description updated to 8 checks; filename pattern fixed
 - `MANIFEST_EXPORT_REQUIREMENTS.md`: All gate count references updated from 6 to 8
+
+**Task 5 — Mottainai Violation Coverage (R15):**
+
+Applied R15-S1 through R15-S8 from Review Round R15 (Mottainai Violation Coverage). All 8 suggestions target completeness.
+
+| ID | Category | Applied Change |
+|----|----------|---------------|
+| R15-S1 | Handoff enrichment | REQ-PCG-024 requirements 8–9: enrichment field propagation contract, provenance recording |
+| R15-S2 | EMIT bridging | REQ-PCG-026 requirements 6–7: EMIT bridges onboarding from export dir to seed; WARNING on absent file |
+| R15-S3 | Consumer-side | REQ-PCG-027 requirements 8–10: adopt-prior designs, enrichment consumption (AR cross-refs), IMPLEMENT reuse |
+| R15-S4 | Resumption scope | REQ-PCG-033 refined: ContextCore non-goal, startd8-sdk contractor-level resume MUST (multi-format detection, artifact preservation, cost attribution) |
+| R15-S5 | New requirement | REQ-PCG-036: Onboarding Enrichment End-to-End Propagation (P1, 7 requirements) |
+| R15-S6 | New requirement | REQ-PCG-037: Contractor Resume and Artifact Preservation (P1, 6 requirements) |
+| R15-S7 | New requirement | REQ-PCG-038: Prime Contractor Context Parity (P2, 6 requirements) |
+| R15-S8 | New requirement | REQ-PCG-039: Source Artifact Type Coverage (P2, 6 requirements) |
+
+**Traceability: Every Mottainai Violation Covered**
+
+| Violation | Existing REQ | New REQ | AR Cross-ref |
+|-----------|-------------|---------|-------------|
+| F1: batch result mismatch | REQ-PCG-033 (2.a) | REQ-PCG-037 (1) | — |
+| F2: adopted design rejection | REQ-PCG-027 (8) | REQ-PCG-037 (2) | AR-122 |
+| F3: onboarding not bridged | REQ-PCG-024 (8–9), -026 (6–7) | REQ-PCG-036 | — |
+| G1–G7: enrichment not forwarded | REQ-PCG-027 (9) | REQ-PCG-036 (2,4) | AR-303–308 (5 of 7) |
+| G8: TRANSFORM plan not read | REQ-PCG-027 (9) | REQ-PCG-036 (7) | — |
+| G9: enrichment dropped at queue | — | REQ-PCG-038 (1) | — |
+| G10: onboarding not in prime ctx | — | REQ-PCG-038 (2) | — |
+| G11: no arch context for prime | — | REQ-PCG-038 (3) | — |
+| G12: no calibration for prime | — | REQ-PCG-038 (4) | — |
+| G13: REFINE not forwarded to prime | — | REQ-PCG-038 (5) | — |
+| G14: no gen result caching | — | REQ-PCG-037 (4) | — |
+| G15: source types not registered | — | REQ-PCG-039 | — |
 
 ### Appendix B: Rejected Suggestions (with Rationale)
 
@@ -2082,4 +2608,38 @@ The following Appendix C suggestions were implemented in the document body and c
 | ---- | ---- | ---- | ---- | ---- | ---- |
 | R8-F1 | clarity | medium | REQ-PCG-021 (Gate 2) | Question 1 asks "Is the contract complete?" and checks "Artifact manifest population". However, Gate 1 runs *before* Plan Ingestion (Stage 5), while the Manifest is created in Stage 2. The timeline of when "Manifest" vs "Plan" exists is slightly ambiguous in the gate definitions. | Clarify that Gate 1 checks the *Exported* Manifest (from Stage 4) and Gate 2 checks the *Ingested* Plan (in Stage 5). |
 | R8-F2 | scalability | medium | REQ-PCG-011 | "All contract enforcement actions MUST emit OTel span events". For high-throughput pipelines, this creates massive cardinality. | Add "Telemetry MUST support sampling or aggregation for high-frequency checks to prevent OTel backend saturation." |
+
+#### Review Round R9 — Artisan Run 1 Deviation Analysis (Applied)
+
+- **Reviewer**: human + claude-opus-4-6
+- **Date**: 2026-02-19
+- **Scope**: Post-mortem analysis of 5 production-blocking bugs from Artisan Run 1 (Python services). Mapped each defect to specific requirement gaps and applied amendments.
+- **Source**: [ARTISAN_RUN1_DEVIATION_REPORT.md](../../../Processes/cap-dev-pipe-test/design/ARTISAN_RUN1_DEVIATION_REPORT.md)
+
+| ID | Area | Severity | Applied Change | Rationale |
+| ---- | ---- | ---- | ---- | ---- |
+| R9-S1 | completeness | critical | **REQ-PCG-027.5 amended** — Added 5 self-consistency validation sub-requirements (5a–5e): dependency consistency, protocol fidelity, schema field validation, placeholder detection, Dockerfile/service coherence. | Artisan TEST phase (AR-140) only runs external linters (mypy, ruff, pylint). None catch semantic errors: HTTP client against gRPC service (DEV-001), missing `opentelemetry-exporter-otlp-proto-grpc` in requirements.in (DEV-003), `product_id` vs `product_ids` proto mismatch (DEV-005), gRPC health probe against Flask (DEV-004), placeholder SHA256 digest (DEV-002). All 5 bugs are self-consistency failures within the artisan's own output. |
+| R9-S2 | completeness | critical | **REQ-PCG-022 amended** — Added requirement 6 (content-level verification) with 4 sub-requirements (6a–6d): placeholder scan, schema field cross-reference, cross-artifact consistency, protocol coherence. | Gate 3 (Finalize Verification) checks artifact existence and checksums but not content quality. A Dockerfile with `sha256:REPLACE_WITH_ACTUAL_DIGEST` passes Gate 3 because the file exists and has a valid checksum of its own bytes. Gate 3 is the last line of defense; it must validate content, not just existence. Status was "Partial" — these additions define what "complete" means. |
+| R9-S3 | completeness | high | **REQ-PCG-024 amended** — Added requirement 7: `service_metadata` map in onboarding metadata with `transport_protocol` (REQUIRED), `schema_contract`, `base_image`, and `healthcheck_type` per service. | DEV-001 (HTTP client against gRPC) and DEV-004 (gRPC probe against Flask) both trace to the same root cause: the artisan had no structured signal for service protocol type. It defaulted to gRPC templates for all services. DEV-002 (placeholder digest) traces to missing `base_image` in resolvable parameters. Adding `service_metadata` to the handoff gives the artisan facts it cannot safely infer. |
+| R9-S4 | completeness | medium | **REQ-PCG-032 amended** — Added requirement 6: per-service design calibration hints referencing `service_metadata`, including transport_protocol, healthcheck_type, and transport library. Added protocol-specific rows to the red flag table. | Design calibration hints covered artifact depth (LOC) but not service protocol classification. The artisan DESIGN phase had no structured signal to distinguish gRPC from HTTP services, leading to incorrect Dockerfile and client templates. |
+| R9-S5 | completeness | medium | **REQ-PCG-027.3 amended** — DESIGN MUST consume `service_metadata` for protocol classification. | The DESIGN phase applied gRPC Dockerfile templates to an HTTP service (DEV-004) because it had no protocol classification input. |
+| R9-S6 | completeness | medium | **REQ-PCG-027.4 amended** — IMPLEMENT MUST resolve all parameterized values; placeholder strings are a gate failure. | DEV-002 (placeholder digest) occurred because IMPLEMENT left an unresolved template string rather than failing when it couldn't resolve a parameter. |
+
+#### Review Round R15 — Mottainai Violation Coverage
+
+- **Reviewer**: human + claude-opus-4-6
+- **Date**: 2026-02-19
+- **Scope**: Close the requirements coverage gap for artifact reuse, enrichment propagation, and contractor resume semantics identified by the [Mottainai Design Principle](../../design-principles/MOTTAINAI_DESIGN_PRINCIPLE.md) (15 gaps + 3 observed failures from Artisan Run 1). Cross-references [Artisan Contractor Requirements](startd8-sdk: docs/ARTISAN_REQUIREMENTS.md) AR-xxx for artisan-level implementation detail.
+- **Source**: Mottainai Design Principle document — Gaps 1–15, Failures 1–3; Run 1 evidence ($2.61 wasted on DESIGN re-derivation, 11 design documents overwritten, empty `onboarding` and `artifact_types_addressed: []` in all 17 seed tasks)
+
+| ID | Area | Severity | Applied Change | Rationale |
+| ---- | ---- | ---- | ---- | ---- |
+| R15-S1 | completeness | critical | **REQ-PCG-024 amended** — Added requirements 8–9: onboarding enrichment fields (7 fields) MUST be available for end-to-end propagation; provenance chain MUST record which enrichment fields were available at export time. | Failure 3 root cause: `onboarding-metadata.json` contained 7 enrichment field sets but none reached the seed. Establishes handoff-level propagation contract for Gaps 1–7. |
+| R15-S2 | completeness | critical | **REQ-PCG-026 amended** — Added requirements 6–7: EMIT MUST bridge all onboarding enrichment fields from export output directory into the context seed; absent `onboarding-metadata.json` MUST log WARNING (not silent omission). | Root cause of Failure 3 and Gaps 1–8 on the producer side. EMIT reads `onboarding-metadata.json` from `contextcore_export_dir`, populates seed `onboarding`, populates per-task `artifact_types_addressed`, and extracts REFINE suggestions. |
+| R15-S3 | completeness | critical | **REQ-PCG-027 amended** — Added requirements 8–10: DESIGN MUST adopt prior valid designs (Mottainai rule 2); DESIGN MUST consume onboarding enrichment fields (cross-ref AR-303–308 for 5 of 7 fields, plus 5 fields NOT in AR); IMPLEMENT MUST reuse existing generated artifacts on retry. | Closes Failure 2 (adopted-status rejection), Gaps 1–8 consumer side, and retry regeneration waste. AR cross-refs avoid restating artisan-specific implementation detail. |
+| R15-S4 | completeness | critical | **REQ-PCG-033 refined** — Replaced "Explicit Non-Goal" with scoped resumption: ContextCore half (non-goal, idempotent re-runs mitigate) vs. startd8-sdk half (contractor-level resume MUST be supported with multi-format task detection, artifact preservation, state file persistence, cost attribution logging). | Closes Failure 1 (batch result detection mismatch). Codifies fix from commit `21548e4`. Cross-refs AR-134 and AR-500–511 for artisan-level recovery mechanics. |
+| R15-S5 | completeness | high | **REQ-PCG-036 added** — Onboarding Enrichment End-to-End Propagation (P1): 7 requirements covering field list, propagation path table with AR cross-refs, gap logging, deterministic precedence, per-task `artifact_types_addressed`, REFINE forwarding, TRANSFORM accessibility. | New cross-cutting requirement closing Gaps 1–8. References AR-303–308 for artisan consumption of 5 fields; adds governance for the 5 fields NOT covered by any AR. |
+| R15-S6 | completeness | high | **REQ-PCG-037 added** — Contractor Resume and Artifact Preservation (P1): 6 requirements covering multi-format task detection, design three-way branch with "adopted" acceptance, generated file preservation, prime caching, cost attribution, structured skip/adopt logging. | New cross-cutting requirement closing Failures 1–2 and Gap 14. Governance layer over AR-122 (adopt prior) and AR-134 (resume), plus prime-specific requirements not in any AR. |
+| R15-S7 | completeness | high | **REQ-PCG-038 added** — Prime Contractor Context Parity (P2): 6 requirements covering FeatureSpec metadata field, onboarding injection into code generation context, lightweight architectural context, per-task token budgets, REFINE forwarding, domain enrichment reuse. | New requirement closing Gaps 9–13 (prime-specific violations). No AR-xxx overlap — entirely new coverage for the prime route. |
+| R15-S8 | completeness | medium | **REQ-PCG-039 added** — Source Artifact Type Coverage (P2): 6 requirements covering modular registry extension, source type registration, export output parity, existing artifact detection with ArtifactStatus, skip-existing task support, consolidation of 4 detection fragments. | New requirement closing Gap 15 (source types not registered). No AR-xxx overlap. |
 

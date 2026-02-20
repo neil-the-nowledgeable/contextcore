@@ -1649,6 +1649,12 @@ def analyze_plan_cmd(
     help="Path to JSON file mapping artifact IDs to task IDs (e.g., {\"checkout_api-dashboard\": \"PI-019\"}).",
 )
 @click.option(
+    "--service-metadata",
+    type=click.Path(exists=True),
+    default=None,
+    help="Path to JSON file with per-service metadata (transport_protocol, schema_contract, etc.).",
+)
+@click.option(
     "--emit-quality-report/--no-emit-quality-report",
     default=None,
     help="Write export-quality-report.json with strict-quality gate outcomes",
@@ -1698,6 +1704,7 @@ def export(
     emit_onboarding: bool,
     min_coverage: Optional[float],
     task_mapping: Optional[str],
+    service_metadata: Optional[str],
     emit_quality_report: Optional[bool],
     verify: bool,
     emit_tasks: bool,
@@ -1908,6 +1915,16 @@ def export(
                 click.echo(line, err=True)
             sys.exit(1)
 
+        # Load service metadata if provided
+        parsed_service_metadata = None
+        if service_metadata:
+            try:
+                with open(service_metadata) as _sm_fh:
+                    parsed_service_metadata = json.load(_sm_fh)
+            except (json.JSONDecodeError, OSError) as exc:
+                click.echo(f"Error reading --service-metadata: {exc}", err=True)
+                sys.exit(1)
+
         # Capture provenance if requested
         output_files = [crd_filename]
         artifact_filename = f"{project_name}-artifact-manifest.{output_format}"
@@ -1969,6 +1986,7 @@ def export(
             artifact_task_mapping=artifact_task_mapping,
             output_dir=str(output_path),
             capability_index_dir=_cap_index_dir_str,
+            service_metadata=parsed_service_metadata,
         )
         validation_report = build_validation_report(
             onboarding_metadata=onboarding_metadata,

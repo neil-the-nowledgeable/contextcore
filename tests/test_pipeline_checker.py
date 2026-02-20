@@ -827,3 +827,123 @@ class TestEdgeCases:
         report = checker.run()
 
         assert any("gap-parity" in s for s in report.skipped)
+
+
+# ===========================================================================
+# Tests — Service metadata gate
+# ===========================================================================
+
+
+class TestServiceMetadataGate:
+    """Test the service metadata validation gate (gate 9)."""
+
+    def test_valid_service_metadata_passes(self, tmp_path: Path):
+        out_dir = _write_fixture(
+            tmp_path,
+            service_metadata={
+                "emailservice": {
+                    "transport_protocol": "grpc",
+                    "schema_contract": "demo.proto",
+                },
+            },
+        )
+        checker = PipelineChecker(out_dir)
+        report = checker.run()
+
+        svc_gate = next(
+            (g for g in report.gates if "service-metadata" in g.gate_id), None
+        )
+        assert svc_gate is not None
+        assert svc_gate.result == GateOutcome.PASS
+
+    def test_missing_transport_protocol_fails(self, tmp_path: Path):
+        out_dir = _write_fixture(
+            tmp_path,
+            service_metadata={
+                "emailservice": {"schema_contract": "demo.proto"},
+            },
+        )
+        checker = PipelineChecker(out_dir)
+        report = checker.run()
+
+        svc_gate = next(
+            (g for g in report.gates if "service-metadata" in g.gate_id), None
+        )
+        assert svc_gate is not None
+        assert svc_gate.result == GateOutcome.FAIL
+        assert svc_gate.blocking is True
+
+    def test_absent_service_metadata_warns(self, tmp_path: Path):
+        out_dir = _write_fixture(tmp_path)
+        checker = PipelineChecker(out_dir)
+        report = checker.run()
+
+        # Should be a warning, not a gate
+        assert any("service_metadata" in w for w in report.warnings)
+        assert not any("service-metadata" in g.gate_id for g in report.gates)
+
+
+# ===========================================================================
+# Tests — Protocol calibration cross-check
+# ===========================================================================
+
+
+class TestProtocolCalibrationCrossCheck:
+    """Test the protocol mismatch cross-check in the design calibration gate."""
+
+    def _metadata_with_protocol_hints(self, protocol="grpc") -> dict:
+        """Build calibration hints + service_metadata for cross-check testing."""
+        return {
+            "design_calibration_hints": {
+                "dashboard": {
+                    "expected_depth": "comprehensive",
+                    "expected_loc_range": ">150",
+                    "red_flag": "test",
+                },
+                f"dockerfile_emailservice": {
+                    "expected_depth": "standard",
+                    "expected_loc_range": "<=50",
+                    "red_flag": "test",
+                    "transport_protocol": protocol,
+                },
+                f"client_emailservice": {
+                    "expected_depth": "standard",
+                    "expected_loc_range": "51-300",
+                    "red_flag": "test",
+                    "transport_protocol": protocol,
+                },
+            },
+            "service_metadata": {
+                "emailservice": {
+                    "transport_protocol": protocol,
+                },
+            },
+        }
+
+    def test_matching_protocol_passes(self, tmp_path: Path):
+        overrides = self._metadata_with_protocol_hints("grpc")
+        out_dir = _write_fixture(tmp_path, **overrides)
+        checker = PipelineChecker(out_dir)
+        report = checker.run()
+
+        cal_gate = next(g for g in report.gates if "calibration" in g.gate_id)
+        # Should not have protocol mismatch issues
+        assert not any(
+            e.type == "protocol_calibration_mismatch"
+            for e in (cal_gate.evidence or [])
+        )
+
+    def test_mismatched_protocol_detected(self, tmp_path: Path):
+        overrides = self._metadata_with_protocol_hints("grpc")
+        # Override service_metadata to declare HTTP while hints say gRPC
+        overrides["service_metadata"]["emailservice"]["transport_protocol"] = "http"
+        out_dir = _write_fixture(tmp_path, **overrides)
+        checker = PipelineChecker(out_dir)
+        report = checker.run()
+
+        cal_gate = next(g for g in report.gates if "calibration" in g.gate_id)
+        assert cal_gate.result == GateOutcome.FAIL
+        assert any(
+            e.type == "protocol_calibration_mismatch"
+            for e in (cal_gate.evidence or [])
+        )

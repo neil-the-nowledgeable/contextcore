@@ -11,6 +11,8 @@ export output directory and applies the full gate suite:
 5. **Gap parity** — compares coverage gaps against available feature IDs
 6. **Design calibration** — validates design_calibration_hints cover all artifact types with gaps
 7. **Parameter resolvability** — verifies parameter_sources reference fields that resolve to values
+8. **Artifact inventory** — validates v2 provenance artifact_inventory roles
+9. **Service metadata** — validates transport_protocol and schema_contract declarations
 
 Usage::
 
@@ -682,6 +684,31 @@ class PipelineChecker:
                             ),
                         ))
 
+        # 5. Protocol mismatch cross-check: calibration hints with transport_protocol
+        #    vs service_metadata declarations (REQ-PCG-032 req 6)
+        svc_meta = self._metadata.get("service_metadata", {})
+        if svc_meta:
+            for hint_key, hint in hints.items():
+                hint_protocol = hint.get("transport_protocol")
+                if not hint_protocol:
+                    continue
+                # Extract service name from hint key (e.g. "dockerfile_emailservice" -> "emailservice")
+                for prefix in ("dockerfile_", "client_"):
+                    if hint_key.startswith(prefix):
+                        svc_name = hint_key[len(prefix):]
+                        svc_entry = svc_meta.get(svc_name, {})
+                        declared_protocol = svc_entry.get("transport_protocol", "") if isinstance(svc_entry, dict) else ""
+                        if declared_protocol and declared_protocol != hint_protocol:
+                            problems.append(f"protocol mismatch: {hint_key}")
+                            evidence.append(EvidenceItem(
+                                type="protocol_calibration_mismatch",
+                                ref=hint_key,
+                                description=(
+                                    f"Calibration hint '{hint_key}' declares transport_protocol='{hint_protocol}' "
+                                    f"but service_metadata['{svc_name}'] declares '{declared_protocol}'."
+                                ),
+                            ))
+
         gate_id = f"{self._effective_task_id}-design-calibration"
         if problems:
             return GateResult(
@@ -951,6 +978,113 @@ class PipelineChecker:
             checked_at=datetime.now(timezone.utc),
         )
 
+    # ---- Gate: Service metadata -----------------------------------------------
+
+    def _check_service_metadata(self) -> Optional[GateResult]:
+        """
+        Validate service_metadata section in onboarding metadata.
+
+        Checks:
+        1. ``service_metadata`` exists (WARNING if absent).
+        2. Each service has a ``transport_protocol`` (BLOCKING ERROR if missing).
+        3. gRPC services should have ``schema_contract`` (WARNING if missing).
+
+        Returns ``None`` if ``service_metadata`` is not present (will be warned).
+        """
+        svc_meta = self._metadata.get("service_metadata")
+        if not svc_meta:
+            return None
+
+        evidence: list[EvidenceItem] = []
+        problems: list[str] = []
+
+        for svc_name, entry in svc_meta.items():
+            if not isinstance(entry, dict):
+                problems.append(f"invalid entry: {svc_name}")
+                evidence.append(EvidenceItem(
+                    type="invalid_service_entry",
+                    ref=svc_name,
+                    description=f"Service '{svc_name}' entry is not a dict.",
+                ))
+                continue
+
+            tp = entry.get("transport_protocol")
+            if not tp:
+                problems.append(f"missing transport_protocol: {svc_name}")
+                evidence.append(EvidenceItem(
+                    type="missing_transport_protocol",
+                    ref=svc_name,
+                    description=f"Service '{svc_name}' is missing required transport_protocol.",
+                ))
+                continue
+
+            # gRPC services should declare schema_contract
+            if tp in ("grpc", "grpc-web") and not entry.get("schema_contract"):
+                evidence.append(EvidenceItem(
+                    type="missing_schema_contract",
+                    ref=svc_name,
+                    description=(
+                        f"gRPC service '{svc_name}' is missing schema_contract "
+                        f"(e.g. path to .proto file)."
+                    ),
+                ))
+
+        gate_id = f"{self._effective_task_id}-service-metadata"
+        # Missing transport_protocol is blocking; missing schema_contract is warning
+        has_blocking = any("missing transport_protocol" in p for p in problems)
+
+        if has_blocking:
+            return GateResult(
+                gate_id=gate_id,
+                trace_id=self.trace_id,
+                task_id=self._effective_task_id,
+                phase=Phase.EXPORT_CONTRACT,
+                result=GateOutcome.FAIL,
+                severity=GateSeverity.ERROR,
+                reason=f"Service metadata validation failed: {'; '.join(problems)}.",
+                next_action="Add transport_protocol to all services in --service-metadata.",
+                blocking=True,
+                evidence=evidence,
+                checked_at=datetime.now(timezone.utc),
+            )
+
+        if evidence:
+            # Warnings only (e.g. missing schema_contract)
+            return GateResult(
+                gate_id=gate_id,
+                trace_id=self.trace_id,
+                task_id=self._effective_task_id,
+                phase=Phase.EXPORT_CONTRACT,
+                result=GateOutcome.PASS,
+                severity=GateSeverity.WARNING,
+                reason=(
+                    f"Service metadata valid but with warnings: "
+                    f"{len(evidence)} advisory issue(s)."
+                ),
+                next_action="Consider adding schema_contract for gRPC services.",
+                blocking=False,
+                evidence=evidence,
+                checked_at=datetime.now(timezone.utc),
+            )
+
+        return GateResult(
+            gate_id=gate_id,
+            trace_id=self.trace_id,
+            task_id=self._effective_task_id,
+            phase=Phase.EXPORT_CONTRACT,
+            result=GateOutcome.PASS,
+            severity=GateSeverity.INFO,
+            reason=f"Service metadata verified: {len(svc_meta)} service(s) properly declared.",
+            next_action="Proceed — service metadata is complete.",
+            blocking=False,
+            evidence=[EvidenceItem(
+                type="service_metadata_verified",
+                ref="service_metadata",
+                description=f"All {len(svc_meta)} service(s) have valid transport_protocol.",
+            )],
+            checked_at=datetime.now(timezone.utc),
+        )
+
     # ---- Main runner --------------------------------------------------------
 
     @property
@@ -969,6 +1103,8 @@ class PipelineChecker:
         5. Gap parity (coverage gaps vs artifact features)
         6. Design calibration (depth tiers vs artifact type expectations)
         7. Parameter resolvability (parameter_sources reference valid fields)
+        8. Artifact inventory (provenance v2 role registration)
+        9. Service metadata (transport protocol, schema contract)
         """
         self._load()
 
@@ -1046,6 +1182,17 @@ class PipelineChecker:
             report.skipped.append(
                 "artifact-inventory: no v2 run-provenance.json found"
             )
+
+        # 9. Service metadata
+        svc_check = self._check_service_metadata()
+        if svc_check:
+            report.gates.append(svc_check)
+        else:
+            if not self._metadata.get("service_metadata"):
+                report.warnings.append(
+                    "No service_metadata: transport protocol and schema contract info is missing. "
+                    "Use --service-metadata to provide per-service metadata."
+                )
 
         # --min-coverage enforcement
         if self.min_coverage is not None:

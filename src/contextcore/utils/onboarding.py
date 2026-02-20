@@ -358,6 +358,7 @@ def build_onboarding_metadata(
     artifact_task_mapping: Optional[Dict[str, str]] = None,
     output_dir: Optional[str] = None,
     capability_index_dir: Optional[str] = None,
+    service_metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Build onboarding metadata for programmatic artifact generation.
@@ -372,6 +373,8 @@ def build_onboarding_metadata(
         source_path: Path to source context manifest (for source_checksum when provenance absent)
         artifact_task_mapping: Optional mapping of artifact_id -> plan task ID (e.g., wayfinder_core-dashboard -> PI-019)
         output_dir: Optional output directory; when provided, source_path_relative is computed for portability
+        service_metadata: Optional per-service metadata dict (service_name -> ServiceMetadataEntry-like dict)
+            with transport_protocol, schema_contract, base_image, healthcheck_type
 
     Returns:
         Dict suitable for JSON serialization
@@ -586,6 +589,33 @@ def build_onboarding_metadata(
             "red_flag": red_flag,
         }
 
+    # ── Service-specific calibration hints (REQ-PCG-032 req 6) ──────────
+    # When service_metadata is provided, add per-service Dockerfile and
+    # client calibration hints so downstream contractors know the expected
+    # transport protocol and can detect mismatches.
+    if service_metadata:
+        for svc_name, svc_meta in service_metadata.items():
+            tp = svc_meta.get("transport_protocol", "unknown") if isinstance(svc_meta, dict) else "unknown"
+            red_flag_hint = (
+                f"Dockerfile uses HTTP health check for gRPC service"
+                if tp == "grpc"
+                else f"Dockerfile uses grpc_health_probe for HTTP service"
+                if tp == "http"
+                else ""
+            )
+            design_calibration_hints[f"dockerfile_{svc_name}"] = {
+                "expected_depth": "standard",
+                "expected_loc_range": "<=50",
+                "red_flag": red_flag_hint,
+                "transport_protocol": tp,
+            }
+            design_calibration_hints[f"client_{svc_name}"] = {
+                "expected_depth": "standard",
+                "expected_loc_range": "51-300",
+                "red_flag": f"Client uses wrong transport (expected {tp})",
+                "transport_protocol": tp,
+            }
+
     # Build semantic conventions block
     semantic_conventions: Optional[Dict[str, Any]] = None
     if artifact_manifest.semantic_conventions:
@@ -643,6 +673,7 @@ def build_onboarding_metadata(
                 "derivation_rules",
                 "provenance",
                 "requirements_hints",
+                "service_metadata",
             ],
         },
     }
@@ -679,6 +710,10 @@ def build_onboarding_metadata(
 
     if requirements_hints:
         result["requirements_hints"] = requirements_hints
+
+    # ── Service metadata (REQ-PCG-024 req 7) ──────────────────────────
+    if service_metadata:
+        result["service_metadata"] = service_metadata
 
     # Integrity checksums for validation downstream
     if artifact_manifest_content is not None:
