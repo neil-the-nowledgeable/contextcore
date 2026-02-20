@@ -160,6 +160,140 @@ def validate(path: str, strict: bool, output_format: str):
     sys.exit(0 if is_valid else 1)
 
 
+@manifest.command()
+@click.option(
+    "--path",
+    "-p",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to the manifest file",
+)
+@click.option(
+    "--interactive",
+    is_flag=True,
+    help="Prompt for each open question interactively",
+)
+@click.option(
+    "--answers",
+    type=click.Path(exists=True),
+    help="YAML/JSON file with pre-resolved answers (question_id -> answer)",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Report issues without writing changes",
+)
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    type=click.Choice(["text", "json"]),
+    default="text",
+    help="Output format",
+)
+def fix(path: str, interactive: bool, answers: str, dry_run: bool, output_format: str):
+    """
+    Fix resolvable issues in a context manifest.
+
+    Currently fixes:
+    - Open questions (status=open) by setting status=answered
+
+    Two modes:
+    - --interactive: prompts for each open question
+    - --answers FILE: batch mode using a YAML/JSON answers file
+
+    Without either flag, reports fixable issues and exits.
+
+    Example:
+        contextcore manifest fix --path .contextcore.yaml --answers answers.yaml
+        contextcore manifest fix --path .contextcore.yaml --interactive
+        contextcore manifest fix --path .contextcore.yaml --dry-run
+    """
+    from contextcore.cli.manifest_fix_ops import (
+        apply_manifest_fixes,
+        detect_manifest_issues,
+        resolve_questions_from_file,
+        resolve_questions_interactive,
+    )
+
+    # 1. Detect issues
+    report = detect_manifest_issues(path)
+
+    if report.total_issues == 0:
+        if output_format == "json":
+            click.echo(json.dumps({"status": "nothing_to_fix", "path": path, "issues": 0}))
+        else:
+            click.echo(f"Nothing to fix: {path}")
+        sys.exit(0)
+
+    # 2. Report issues
+    if output_format == "text":
+        click.echo(f"Found {report.total_issues} fixable issue(s) in {path}")
+        if report.open_questions:
+            click.echo(f"\n  Open questions ({len(report.open_questions)}):")
+            for q in report.open_questions:
+                click.echo(f"    [{q['id']}] {q['question'][:60]}...")
+
+    # 3. Resolve
+    resolutions = []
+    if interactive:
+        resolutions = resolve_questions_interactive(report.open_questions)
+    elif answers:
+        resolutions, unmatched = resolve_questions_from_file(report.open_questions, answers)
+        if unmatched and output_format == "text":
+            click.echo(f"\n  Unmatched questions (no answer provided): {', '.join(unmatched)}")
+    else:
+        # Report-only mode
+        if output_format == "json":
+            click.echo(json.dumps({
+                "status": "report_only",
+                "path": path,
+                "open_questions": report.open_questions,
+                "total_issues": report.total_issues,
+            }, indent=2))
+        else:
+            click.echo("\n  Use --interactive or --answers <file> to resolve.")
+        sys.exit(0)
+
+    if not resolutions:
+        if output_format == "text":
+            click.echo("\n  No resolutions provided. Nothing changed.")
+        sys.exit(0)
+
+    # 4. Apply
+    result = apply_manifest_fixes(path, resolutions, dry_run=dry_run)
+
+    # 5. Output results
+    if output_format == "json":
+        click.echo(json.dumps({
+            "status": "dry_run" if dry_run else "applied",
+            "path": path,
+            "fixed": result.fixed_count,
+            "skipped": result.skipped_count,
+            "actions": result.actions,
+        }, indent=2))
+    else:
+        if dry_run:
+            click.echo(f"\n  [DRY RUN] Would fix {result.fixed_count} question(s)")
+        else:
+            click.echo(f"\n  Fixed {result.fixed_count} question(s)")
+        if result.skipped_count > 0:
+            click.echo(f"  Skipped {result.skipped_count} open question(s) (no answer provided)")
+        for action in result.actions:
+            click.echo(f"    {action['question_id']}: {action['old_status']} -> answered ({action['source']})")
+
+    # 6. Post-fix validation (non-blocking)
+    if not dry_run and result.fixed_count > 0:
+        errors, warnings, _ = _validate_manifest(path, strict=False)
+        if errors:
+            if output_format == "text":
+                click.echo(f"\n  Post-fix validation errors:")
+                for e in errors:
+                    click.echo(f"    {e}")
+        elif output_format == "text":
+            click.echo("  Post-fix validation: passed")
+
+
 @manifest.command(name="distill-crd")
 @click.option(
     "--path",
