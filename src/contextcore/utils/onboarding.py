@@ -27,6 +27,8 @@ from contextcore.models.artifact_manifest import (
 from contextcore.utils.artifact_conventions import ARTIFACT_OUTPUT_CONVENTIONS
 from contextcore.utils.provenance import get_content_checksum, get_file_checksum
 
+logger = logging.getLogger(__name__)
+
 
 # Parameter source: which params come from manifest vs CRD (per R1-F1)
 # Keys: parameter name. Values: "manifest.spec.X" or "crd.spec.X" (CRD is distilled from manifest)
@@ -461,10 +463,17 @@ def _derive_service_metadata_from_manifest(
     - Otherwise → http transport, http_get healthcheck (default)
     Also extracts port hints from artifact parameters.
 
+    Note: ArtifactSpec.target is a required Pydantic field (always str),
+    and ArtifactSpec.parameters defaults to dict (never None).
+
     Returns:
         Dict[str, Dict] matching ServiceMetadataEntry schema, or None if no
         meaningful targets found.
     """
+    logger.debug(
+        "Auto-deriving service_metadata from %d manifest artifacts",
+        len(artifact_manifest.artifacts),
+    )
     targets: Dict[str, Dict[str, Any]] = {}
 
     for artifact in artifact_manifest.artifacts:
@@ -479,17 +488,27 @@ def _derive_service_metadata_from_manifest(
         if artifact.type == ArtifactType.PROTOBUF_SCHEMA:
             targets[target]["transport_protocol"] = "grpc"
             targets[target]["healthcheck_type"] = "grpc_health_probe"
-            # Capture schema_contract from parameters if available
-            schema_path = (artifact.parameters or {}).get("schema_contract")
+            schema_path = artifact.parameters.get("schema_contract")
             if schema_path:
                 targets[target]["schema_contract"] = schema_path
-        # Extract port hints from artifact parameters
-        port = (artifact.parameters or {}).get("port")
-        if port and "port" not in targets[target]:
-            targets[target]["port"] = port
+        # Extract port hint; coerce to int for downstream schema compliance (REQ-PI-007)
+        raw_port = artifact.parameters.get("port")
+        if raw_port and "port" not in targets[target]:
+            try:
+                targets[target]["port"] = int(raw_port)
+            except (ValueError, TypeError):
+                logger.debug(
+                    "Ignoring non-numeric port %r for target %s", raw_port, target
+                )
 
     if not targets:
+        logger.debug("No service targets found in manifest — skipping auto-derivation")
         return None
+    logger.debug(
+        "Derived service_metadata for %d target(s): %s",
+        len(targets),
+        list(targets.keys()),
+    )
     return targets
 
 

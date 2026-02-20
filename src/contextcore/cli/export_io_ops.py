@@ -91,7 +91,7 @@ def parse_existing_artifacts(existing: tuple[str, ...]) -> tuple[dict[str, str],
 
 
 def scan_existing_artifacts(scan_path: Path) -> dict[str, str]:
-    """Scan a directory for existing observability artifacts."""
+    """Scan a directory for existing artifacts (observability and source)."""
     existing: dict[str, str] = {}
     patterns = [
         ("*-dashboard.json", "dashboard"),
@@ -126,7 +126,8 @@ def scan_existing_artifacts(scan_path: Path) -> dict[str, str]:
                 "-loki-rules",
                 "-notification",
                 "-runbook",
-                # Source artifacts use filename as ID (no suffix stripping)
+                # Source artifacts (dockerfile, proto, etc.) have no suffix to strip —
+                # they fall through to the else clause, using filename stem as the ID.
             ]:
                 if stem.endswith(suffix):
                     service_name = stem[: -len(suffix)]
