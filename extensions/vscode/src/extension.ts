@@ -9,7 +9,10 @@ import {
   createRefreshCommand,
   createShowImpactCommand,
   createOpenDashboardCommand,
-  createShowRisksCommand
+  createShowRisksCommand,
+  createManifestValidateCommand,
+  createManifestShowCommand,
+  createManifestFixCommand
 } from './commands';
 
 /**
@@ -48,6 +51,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(createShowImpactCommand(contextMapper));
     context.subscriptions.push(createOpenDashboardCommand(contextMapper));
     context.subscriptions.push(createShowRisksCommand(contextMapper));
+    context.subscriptions.push(createManifestValidateCommand());
+    context.subscriptions.push(createManifestShowCommand());
+    context.subscriptions.push(createManifestFixCommand());
 
     // Register show context details command
     context.subscriptions.push(

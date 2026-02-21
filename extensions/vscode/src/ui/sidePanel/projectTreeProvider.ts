@@ -14,6 +14,9 @@ interface FlattenedContext {
     targets?: { metric: string; threshold: string }[];
     description?: string;
   };
+  ecosystem?: {
+    packages?: { name: string; animal: string; purpose: string; status: string }[];
+  };
 }
 
 /**
@@ -132,6 +135,19 @@ export class ProjectTreeProvider implements vscode.TreeDataProvider<ContextTreeI
       ));
     }
 
+    // Expansion Packs section
+    const packages = context.ecosystem?.packages;
+    if (packages && packages.length > 0) {
+      children.push(new ContextTreeItem(
+        'Expansion Packs',
+        vscode.TreeItemCollapsibleState.Collapsed,
+        TreeItemType.Section,
+        packages,
+        undefined,
+        packages.length
+      ));
+    }
+
     return children;
   }
 
@@ -161,6 +177,19 @@ export class ProjectTreeProvider implements vscode.TreeDataProvider<ContextTreeI
           )
         );
       }
+    }
+
+    if (element.label === 'Expansion Packs') {
+      const packages = element.value as { name: string; animal: string; purpose: string; status: string }[];
+      return packages.map((pkg) =>
+        new ContextTreeItem(
+          `${pkg.animal} (${pkg.name})`,
+          vscode.TreeItemCollapsibleState.None,
+          TreeItemType.ExpansionPack,
+          pkg,
+          pkg.status
+        )
+      );
     }
 
     return [];

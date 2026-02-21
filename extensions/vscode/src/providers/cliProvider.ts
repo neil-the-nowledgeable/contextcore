@@ -4,11 +4,11 @@ import { ProjectContext } from '../types';
 
 /**
  * Load project context from ContextCore CLI.
- * Executes 'contextcore context show --format json' command.
+ * Executes 'contextcore manifest show --path .contextcore.yaml --format json' command.
  */
 export async function loadFromCli(workspaceFolder: vscode.WorkspaceFolder): Promise<ProjectContext | undefined> {
     return new Promise<ProjectContext | undefined>((resolve) => {
-        const command = 'contextcore context show --format json';
+        const command = 'contextcore manifest show --path .contextcore.yaml --format json';
         const options = {
             cwd: workspaceFolder.uri.fsPath,
             timeout: 10000 // 10 second timeout

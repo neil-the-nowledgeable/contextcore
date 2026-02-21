@@ -6,7 +6,8 @@ export enum TreeItemType {
   Risk = 'risk',
   Requirement = 'requirement',
   Target = 'target',
-  Property = 'property'
+  Property = 'property',
+  ExpansionPack = 'expansionPack'
 }
 
 /**
@@ -52,6 +53,8 @@ export class ContextTreeItem extends vscode.TreeItem {
         return new vscode.ThemeIcon('target');
       case TreeItemType.Property:
         return new vscode.ThemeIcon('symbol-property');
+      case TreeItemType.ExpansionPack:
+        return new vscode.ThemeIcon('package');
       default:
         return new vscode.ThemeIcon('circle-outline');
     }

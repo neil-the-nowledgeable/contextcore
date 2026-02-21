@@ -1,18 +1,117 @@
-
-### tsconfig.json
-
-
-
-### .vscodeignore
-
-
-
-### .eslintrc.json
-
-
-
-### .gitignore
-
-
-
-### README.md
+{
+  "name": "contextcore",
+  "displayName": "ContextCore",
+  "description": "Project context awareness for VSCode - view project metadata, risks, and requirements inline",
+  "version": "0.2.0",
+  "publisher": "contextcore",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "workspaceContains:.contextcore",
+    "workspaceContains:.contextcore.yaml",
+    "workspaceContains:projectcontext.yaml"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "contextcore.refresh",
+        "title": "ContextCore: Refresh Context"
+      },
+      {
+        "command": "contextcore.showImpact",
+        "title": "ContextCore: Show Impact Analysis"
+      },
+      {
+        "command": "contextcore.openDashboard",
+        "title": "ContextCore: Open Dashboard"
+      },
+      {
+        "command": "contextcore.showRisks",
+        "title": "ContextCore: Show Risks"
+      },
+      {
+        "command": "contextCore.showQuickPick",
+        "title": "ContextCore: Show Quick Pick"
+      },
+      {
+        "command": "contextCore.showContextDetails",
+        "title": "ContextCore: Show Context Details"
+      },
+      {
+        "command": "contextcore.manifestValidate",
+        "title": "ContextCore: Validate Manifest"
+      },
+      {
+        "command": "contextcore.manifestShow",
+        "title": "ContextCore: Show Manifest"
+      },
+      {
+        "command": "contextcore.manifestFix",
+        "title": "ContextCore: Fix Manifest"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "contextcore.projectView",
+          "name": "Project Context"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "ContextCore",
+      "properties": {
+        "contextcore.refreshInterval": {
+          "type": "number",
+          "default": 30000,
+          "description": "Cache refresh interval in milliseconds"
+        },
+        "contextcore.kubeconfig": {
+          "type": "string",
+          "default": "",
+          "description": "Path to kubeconfig file (uses default if not set)"
+        },
+        "contextcore.namespace": {
+          "type": "string",
+          "default": "default",
+          "description": "Default Kubernetes namespace"
+        },
+        "contextcore.showInlineHints": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show inline context hints in the editor"
+        },
+        "contextcore.grafanaUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Grafana dashboard base URL"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.54.0",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "@kubernetes/client-node": "^0.20.0",
+    "yaml": "^2.3.4"
+  }
+}
