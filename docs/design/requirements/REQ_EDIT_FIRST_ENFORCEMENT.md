@@ -1,6 +1,6 @@
 # Requirements: Edit-First Enforcement (REQ-EFE)
 
-**Status:** Partially Implemented
+**Status:** Implemented
 **Date:** 2026-02-22
 **Author:** Force Multiplier Labs
 **Priority Tier:** Tier 1 (pipeline integrity)
@@ -187,63 +187,69 @@ a valid `edit_min_pct` value.
 
 ---
 
-### REQ-EFE-020: Consumer — Size regression gate in `DesignPhaseHandler`
+### REQ-EFE-020: Consumer — Size regression gate in `ImplementPhaseHandler`
 
-**Status:** Not Implemented
+**Status:** Implemented (commit `dddb9c5` in startd8-sdk)
 
-The `DesignPhaseHandler` in startd8-sdk MUST implement a post-generation size
-regression gate. After the LLM generates output for a target file, the handler
+The `ImplementPhaseHandler` in startd8-sdk MUST implement a post-generation size
+regression gate (Gate 5). After the LLM generates output for a target file, the handler
 MUST compare output size to input size (if the file exists) and reject the output
 if `output_size / input_size < edit_min_pct / 100`.
 
-**Consumer location:** `~/Documents/dev/startd8-sdk/src/startd8/contractors/`
-
-**Algorithm:**
-```python
-if target_file.exists():
-    input_size = len(target_file.read_text())
-    output_size = len(generated_content)
-    threshold = calibration_hints[artifact_type].get("edit_min_pct", 80) / 100
-    if output_size / input_size < threshold:
-        # Reject: destructive rewrite detected
-        log.warning(
-            "Size regression: %s shrank from %d to %d chars (%.0f%%, threshold %.0f%%)",
-            target_file, input_size, output_size,
-            100 * output_size / input_size, threshold * 100
-        )
-        raise SizeRegressionError(...)
-```
+**Implementation:**
+- File: `src/startd8/contractors/edit_first_gate.py`
+- Method: `validate_task_size_regression()` — character-count based comparison
+- Integration: `src/startd8/contractors/context_seed_handlers.py` (Gate 5 in IMPLEMENT phase)
+- Exception: `SizeRegressionError` in `src/startd8/exceptions.py`
+- CLI override: `--force-rewrite` flag in `scripts/run_artisan_workflow.py`
+- Results dataclass: `EditFirstResult` (per-file) and `EditFirstGateResult` (aggregate)
 
 **Acceptance criteria:**
 - Gate fires only when target file already exists (new file creation is always allowed)
 - Gate reads `edit_min_pct` from calibration hints or output contracts
 - Gate defaults to 80% if threshold is missing (matches REQ-EFE-011 fallback)
 - Rejection produces a clear log message with file path, sizes, and threshold
-- Gate can be bypassed with an explicit override (e.g., `--force-rewrite`)
+- Gate can be bypassed with `--force-rewrite` override
+- Tests: `TestValidateTaskSizeRegression` (6 tests) in `tests/unit/contractors/test_edit_first_gate.py`
 
 ---
 
 ### REQ-EFE-021: Consumer — Feature detection via schema_features
 
-**Status:** Not Implemented
+**Status:** Implemented (commit `dddb9c5` in startd8-sdk)
 
 Before enforcing the size regression gate, the consumer SHOULD check that
 `"edit_first_enforcement"` is present in `schema_features`. If absent, the
 consumer SHOULD fall back to a default threshold (80%) and emit a warning.
 
+**Implementation:**
+- File: `src/startd8/contractors/edit_first_gate.py`
+- Method: `resolve_threshold()` — checks `schema_features` for feature flag, resolves
+  per-artifact thresholds from `output_contracts`, uses `max()` for multi-artifact tasks
+- Default: `_DEFAULT_EDIT_MIN_PCT = 80` when ContextCore doesn't provide thresholds
+- Warns when feature flag is absent
+
 **Acceptance criteria:**
 - Consumer checks `schema_features` for `"edit_first_enforcement"`
 - When present: uses `edit_min_pct` from calibration hints
-- When absent: uses default 80%, logs a deprecation warning
+- When absent: uses default 80%, logs a warning
+- Tests: `TestResolveThreshold` (5 tests) in `tests/unit/contractors/test_edit_first_gate.py`
 
 ---
 
 ### REQ-EFE-022: Consumer — Rejection telemetry
 
-**Status:** Not Implemented
+**Status:** Implemented (commit `dddb9c5` in startd8-sdk)
 
 When the size regression gate rejects an output, the consumer MUST emit a span
 event recording the rejection. This enables monitoring via TraceQL.
+
+**Implementation:**
+- File: `src/startd8/contractors/edit_first_gate.py`
+- Method: `emit_rejection_telemetry()` — emits span events for rejected files
+- OTel convention: `EDIT_FIRST_SIZE_REGRESSION = "edit_first.size_regression"` in `src/startd8/otel_conventions.py`
+- Only emits for rejected files (skips passed files)
+- Safe null-span handling (no-op when span is None)
 
 **Span event attributes:**
 - `event.name`: `"edit_first.size_regression"`
@@ -263,12 +269,13 @@ event recording the rejection. This enables monitoring via TraceQL.
 - Rejection emits a span event with all listed attributes
 - Force-override also emits the event (with action `"force_overridden"`)
 - Events are queryable via TraceQL
+- Tests: `TestEmitRejectionTelemetry` (2 tests) in `tests/unit/contractors/test_edit_first_gate.py`
 
 ---
 
 ### REQ-EFE-023: Consumer — Re-generation with edit prompt
 
-**Status:** Not Implemented
+**Status:** Implemented (commit `dddb9c5` in startd8-sdk)
 
 When the size regression gate rejects an output, the consumer SHOULD (optionally)
 re-invoke the LLM with an explicit edit-focused prompt that includes:
@@ -279,11 +286,19 @@ re-invoke the LLM with an explicit edit-focused prompt that includes:
 This is a best-effort retry mechanism. If the retry also fails the size regression
 gate, the consumer MUST halt and report the failure.
 
+**Implementation:**
+- File: `src/startd8/contractors/edit_first_gate.py`
+- Method: `build_edit_retry_prompt()` — constructs edit-focused prompt with original content,
+  rejection ratio, threshold, and preservation instructions
+- Integration: `_attempt_edit_first_retry()` in `src/startd8/contractors/context_seed_handlers.py`
+  (lines 5113–5179) — single retry with re-evaluation after retry
+
 **Acceptance criteria:**
 - Retry is configurable (enabled by default, can be disabled)
 - Retry prompt includes original file content and change description
 - Maximum 1 retry (no infinite loops)
 - If retry also fails gate, consumer halts with error
+- Tests: `TestBuildEditRetryPrompt` (1 test) in `tests/unit/contractors/test_edit_first_gate.py`
 
 ---
 
@@ -291,14 +306,14 @@ gate, the consumer MUST halt and report the failure.
 
 | Requirement | Status | Commit | Location |
 |---|---|---|---|
-| REQ-EFE-010 | Implemented | `164b7e3` | `src/contextcore/utils/onboarding.py` |
-| REQ-EFE-011 | Implemented | `164b7e3` | `src/contextcore/utils/onboarding.py` |
-| REQ-EFE-012 | Implemented | `164b7e3` | `src/contextcore/utils/onboarding.py` |
-| REQ-EFE-013 | Implemented | `164b7e3`, `043fcfe` | `src/contextcore/contracts/a2a/pipeline_checker.py` |
-| REQ-EFE-020 | Not Implemented | — | `startd8-sdk` (consumer side) |
-| REQ-EFE-021 | Not Implemented | — | `startd8-sdk` (consumer side) |
-| REQ-EFE-022 | Not Implemented | — | `startd8-sdk` (consumer side) |
-| REQ-EFE-023 | Not Implemented | — | `startd8-sdk` (consumer side) |
+| REQ-EFE-010 | Implemented | `164b7e3` | `contextcore: src/contextcore/utils/onboarding.py` |
+| REQ-EFE-011 | Implemented | `164b7e3` | `contextcore: src/contextcore/utils/onboarding.py` |
+| REQ-EFE-012 | Implemented | `164b7e3` | `contextcore: src/contextcore/utils/onboarding.py` |
+| REQ-EFE-013 | Implemented | `164b7e3`, `043fcfe` | `contextcore: src/contextcore/contracts/a2a/pipeline_checker.py` |
+| REQ-EFE-020 | Implemented | `dddb9c5` | `startd8-sdk: src/startd8/contractors/edit_first_gate.py` |
+| REQ-EFE-021 | Implemented | `dddb9c5` | `startd8-sdk: src/startd8/contractors/edit_first_gate.py` |
+| REQ-EFE-022 | Implemented | `dddb9c5` | `startd8-sdk: src/startd8/contractors/edit_first_gate.py` |
+| REQ-EFE-023 | Implemented | `dddb9c5` | `startd8-sdk: src/startd8/contractors/edit_first_gate.py` |
 
 ---
 
@@ -311,22 +326,28 @@ All producer-side changes (REQ-EFE-010 through REQ-EFE-013) are additive:
 - Pipeline checker gate 10 is non-blocking WARNING; old exports without `edit_min_pct` get a skipped gate or warning
 - `schema_features` list gains one entry; consumers that don't check for it are unaffected
 
-Consumer-side changes (REQ-EFE-020 through REQ-EFE-023) will also be additive:
-- Size regression gate fires only when target file exists
-- Feature detection falls back to default when `schema_features` is absent
-- Telemetry events are new attributes (no breaking changes)
+Consumer-side changes (REQ-EFE-020 through REQ-EFE-023) are also additive:
+- Size regression gate (Gate 5) fires only when target file exists
+- Feature detection falls back to default 80% when `schema_features` is absent
+- Telemetry events are new span event attributes (no breaking changes)
+- `--force-rewrite` CLI override available for bypass
 
 ---
 
 ## Verification
 
 ```bash
-# Producer-side tests (implemented)
+# Producer-side tests (ContextCore)
 python3 -m pytest tests/test_manifest_v2.py -v -k "edit_min_pct or edit_first"
 python3 -m pytest tests/test_pipeline_checker.py -v -k "TestEditFirstCoverage"
 
-# Full test suite (no regressions)
-python3 -m pytest --tb=short
+# Consumer-side tests (startd8-sdk)
+cd ~/Documents/dev/startd8-sdk
+python3 -m pytest tests/unit/contractors/test_edit_first_gate.py -v
+
+# Full test suites (no regressions)
+cd ~/Documents/dev/ContextCore && python3 -m pytest --tb=short
+cd ~/Documents/dev/startd8-sdk && python3 -m pytest --tb=short
 
 # Verify export output includes edit_min_pct
 contextcore manifest export -p .contextcore.yaml -o /tmp/efe-test --dry-run 2>&1 | head -20
@@ -337,6 +358,10 @@ contextcore manifest export -p .contextcore.yaml -o /tmp/efe-test --dry-run 2>&1
 ## Cross-References
 
 - **PCA-5xx/6xx**: Prompt-level edit-first mechanisms (artisan pipeline, not ContextCore)
+- **PCA-600/601/602**: Edit-mode classification, existing files section, output format (startd8-sdk)
 - **REQ-CAP-008**: Capability-aware question generation in init-from-plan
 - **Pipeline checker gates 1–9**: Existing integrity checks in `pipeline_checker.py`
+- **Gate 4 (PCA-604)**: Integration engine size guard (60% threshold, line-count based) in startd8-sdk
+- **artisan-pipeline.contract.yaml**: Context propagation contract defining `edit_first_gate_results` and `onboarding_schema_features` fields
+- **PRIME_EXECUTION_MODES_REQUIREMENTS.md**: Consumer-side design doc in startd8-sdk
 - **Refactor archive**: `/Users/neilyashinsky/Documents/craft/Lessons_Learned/skills/python-code-refactor/archive/2026-02-22-edit-first-enforcement.md`
