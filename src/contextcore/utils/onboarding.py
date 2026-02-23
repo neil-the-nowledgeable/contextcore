@@ -226,6 +226,7 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "max_tokens": 1500,
         "completeness_markers": ["panels", "templating", "title", "datasource"],
         "red_flag": "Calibrated as 'brief' — will produce a skeleton, not a usable dashboard",
+        "edit_min_pct": 85,
     },
     ArtifactType.PROMETHEUS_RULE.value: {
         "expected_depth": "standard",
@@ -233,6 +234,7 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "max_tokens": 750,
         "completeness_markers": ["groups", "rules", "alert", "expr"],
         "red_flag": "Calibrated as 'brief' — likely to produce incomplete alert rules",
+        "edit_min_pct": 80,
     },
     ArtifactType.SLO_DEFINITION.value: {
         "expected_depth": "standard",
@@ -240,6 +242,7 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "max_tokens": 750,
         "completeness_markers": ["target", "timeWindow", "indicator"],
         "red_flag": "Calibrated as 'comprehensive' — over-engineering for a simple spec",
+        "edit_min_pct": 80,
     },
     ArtifactType.SERVICE_MONITOR.value: {
         "expected_depth": "brief",
@@ -247,6 +250,7 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "max_tokens": 250,
         "completeness_markers": ["selector", "endpoints", "interval"],
         "red_flag": "Calibrated as 'comprehensive' — over-engineering a simple YAML",
+        "edit_min_pct": 70,
     },
     ArtifactType.LOKI_RULE.value: {
         "expected_depth": "standard",
@@ -254,6 +258,7 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "max_tokens": 750,
         "completeness_markers": ["groups", "rules", "expr"],
         "red_flag": "Calibrated as 'brief' — likely to produce incomplete recording rules",
+        "edit_min_pct": 80,
     },
     ArtifactType.NOTIFICATION_POLICY.value: {
         "expected_depth": "standard",
@@ -261,6 +266,7 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "max_tokens": 750,
         "completeness_markers": ["receivers", "routes"],
         "red_flag": "Calibrated as 'comprehensive' — over-engineering a routing config",
+        "edit_min_pct": 80,
     },
     ArtifactType.RUNBOOK.value: {
         "expected_depth": "standard-comprehensive",
@@ -268,6 +274,7 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "max_tokens": 1500,
         "completeness_markers": ["Overview", "Risks", "Escalation", "Procedures"],
         "red_flag": "Calibrated as 'brief' — runbook will lack incident procedures",
+        "edit_min_pct": 85,
     },
     ArtifactType.ALERT_TEMPLATE.value: {
         "expected_depth": "standard",
@@ -275,6 +282,7 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "max_tokens": 750,
         "completeness_markers": ["define", "template"],
         "red_flag": "Calibrated as 'comprehensive' — over-engineering a template",
+        "edit_min_pct": 75,
     },
     ArtifactType.CAPABILITY_INDEX.value: {
         "expected_depth": "comprehensive",
@@ -282,6 +290,7 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "max_tokens": 2500,
         "completeness_markers": ["capabilities", "version", "manifest_id"],
         "red_flag": "Calibrated as 'brief' — will produce an incomplete capability index",
+        "edit_min_pct": 90,
     },
     ArtifactType.AGENT_CARD.value: {
         "expected_depth": "standard",
@@ -289,6 +298,7 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "max_tokens": 1000,
         "completeness_markers": ["skills", "name", "version"],
         "red_flag": "Calibrated as 'brief' — agent card will lack skill definitions",
+        "edit_min_pct": 85,
     },
     ArtifactType.MCP_TOOLS.value: {
         "expected_depth": "comprehensive",
@@ -296,6 +306,7 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "max_tokens": 2500,
         "completeness_markers": ["tools", "inputSchema"],
         "red_flag": "Calibrated as 'brief' — MCP tools will lack input schemas",
+        "edit_min_pct": 90,
     },
     ArtifactType.ONBOARDING_METADATA.value: {
         "expected_depth": "standard",
@@ -303,6 +314,7 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "max_tokens": 750,
         "completeness_markers": ["artifact_types", "parameter_sources"],
         "red_flag": "Calibrated as 'brief' — onboarding metadata will be incomplete",
+        "edit_min_pct": 80,
     },
     ArtifactType.PROVENANCE.value: {
         "expected_depth": "brief",
@@ -310,6 +322,7 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "max_tokens": 250,
         "completeness_markers": ["source_checksum", "artifacts"],
         "red_flag": "Calibrated as 'comprehensive' — over-engineering a provenance record",
+        "edit_min_pct": 70,
     },
     ArtifactType.INGESTION_TRACEABILITY.value: {
         "expected_depth": "brief",
@@ -317,6 +330,7 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "max_tokens": 250,
         "completeness_markers": ["requirements_coverage_percent"],
         "red_flag": "Calibrated as 'comprehensive' — over-engineering a traceability record",
+        "edit_min_pct": 70,
     },
     # Source artifact types (CID-018 / Mottainai Gap 15)
     ArtifactType.DOCKERFILE.value: {
@@ -325,6 +339,7 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "max_tokens": 250,
         "completeness_markers": ["FROM", "COPY", "EXPOSE", "ENTRYPOINT", "USER"],
         "red_flag": "Calibrated as 'comprehensive' — Dockerfile should be concise, not over-engineered",
+        "edit_min_pct": 50,
     },
     ArtifactType.PYTHON_REQUIREMENTS.value: {
         "expected_depth": "brief",
@@ -332,6 +347,7 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "max_tokens": 150,
         "completeness_markers": ["# constraints"],
         "red_flag": "Calibrated as 'comprehensive' — requirements.txt should be a flat dependency list",
+        "edit_min_pct": 50,
     },
     ArtifactType.PROTOBUF_SCHEMA.value: {
         "expected_depth": "standard",
@@ -339,6 +355,7 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "max_tokens": 750,
         "completeness_markers": ["syntax", "package", "service", "rpc"],
         "red_flag": "Calibrated as 'brief' — proto schema will lack service definitions",
+        "edit_min_pct": 75,
     },
     ArtifactType.EDITORCONFIG.value: {
         "expected_depth": "brief",
@@ -346,6 +363,7 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "max_tokens": 100,
         "completeness_markers": ["root = true", "indent_style", "charset"],
         "red_flag": "Calibrated as 'comprehensive' — .editorconfig should be minimal",
+        "edit_min_pct": 50,
     },
     ArtifactType.CI_WORKFLOW.value: {
         "expected_depth": "standard",
@@ -353,6 +371,7 @@ EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
         "max_tokens": 500,
         "completeness_markers": ["name:", "on:", "jobs:"],
         "red_flag": "Calibrated as 'brief' — CI workflow will lack job definitions",
+        "edit_min_pct": 70,
     },
 }
 
@@ -757,6 +776,7 @@ def build_onboarding_metadata(
             "expected_depth": expected_depth,
             "expected_loc_range": loc_range,
             "red_flag": red_flag,
+            "edit_min_pct": contract.get("edit_min_pct", 80),
         }
 
     # ── Service-specific calibration hints (REQ-PCG-032 req 6) ──────────
@@ -837,6 +857,7 @@ def build_onboarding_metadata(
                 "design_calibration_hints",
                 "file_ownership",
                 "requirements_hints",
+                "edit_first_enforcement",
             ],
             "optional_sections": [
                 "artifact_task_mapping",

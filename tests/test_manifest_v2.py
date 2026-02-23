@@ -1053,6 +1053,45 @@ def test_enrichment_expected_output_contracts() -> None:
     assert contracts["service_monitor"]["max_lines"] == 50
 
 
+def test_enrichment_edit_min_pct_in_output_contracts() -> None:
+    """REQ-EFE: every expected_output_contract has edit_min_pct as int in 0-100."""
+    meta, _ = _build_enriched_onboarding()
+    contracts = meta["expected_output_contracts"]
+
+    for art_type, contract in contracts.items():
+        pct = contract.get("edit_min_pct")
+        assert pct is not None, f"Missing edit_min_pct for {art_type}"
+        assert isinstance(pct, int), f"edit_min_pct for {art_type} is {type(pct).__name__}, expected int"
+        assert 0 <= pct <= 100, f"edit_min_pct for {art_type} is {pct}, expected 0-100"
+
+    # Spot-check specific values from the plan
+    assert contracts["dashboard"]["edit_min_pct"] == 85
+    assert contracts["capability_index"]["edit_min_pct"] == 90
+
+
+def test_enrichment_edit_min_pct_in_calibration_hints() -> None:
+    """REQ-EFE: every design_calibration_hint has edit_min_pct in 0-100."""
+    meta, _ = _build_enriched_onboarding()
+    hints = meta["design_calibration_hints"]
+
+    # Only check non-service-specific hints (service-specific ones like dockerfile_X are
+    # generated from service_metadata and don't carry edit_min_pct)
+    for art_type, hint in hints.items():
+        if "_" in art_type and art_type.split("_", 1)[0] in ("dockerfile", "client"):
+            continue  # service-specific calibration hint
+        pct = hint.get("edit_min_pct")
+        assert pct is not None, f"Missing edit_min_pct in calibration hint for {art_type}"
+        assert isinstance(pct, (int, float)), f"edit_min_pct for {art_type} is {type(pct).__name__}"
+        assert 0 <= pct <= 100, f"edit_min_pct for {art_type} is {pct}, expected 0-100"
+
+
+def test_schema_features_includes_edit_first() -> None:
+    """REQ-EFE: schema_features announces edit_first_enforcement for feature detection."""
+    meta, _ = _build_enriched_onboarding()
+    schema_features = meta["capabilities"]["schema_features"]
+    assert "edit_first_enforcement" in schema_features
+
+
 def test_enrichment_guidance_includes_questions_export() -> None:
     """Verify the guidance export now includes questions in the raw dump."""
     manifest = _make_enriched_manifest(

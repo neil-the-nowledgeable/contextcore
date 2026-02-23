@@ -947,3 +947,119 @@ class TestProtocolCalibrationCrossCheck:
             e.type == "protocol_calibration_mismatch"
             for e in (cal_gate.evidence or [])
         )
+
+
+# ===========================================================================
+# Tests — Edit-first coverage gate
+# ===========================================================================
+
+
+class TestEditFirstCoverage:
+    """Test the edit-first coverage gate (gate 10)."""
+
+    def _contracts_with_edit_pct(self) -> dict:
+        """Return expected_output_contracts with valid edit_min_pct values."""
+        return {
+            "expected_output_contracts": {
+                "dashboard": {
+                    "expected_depth": "comprehensive",
+                    "max_lines": 300,
+                    "max_tokens": 1500,
+                    "completeness_markers": ["panels"],
+                    "fields": ["criticality"],
+                    "red_flag": "test",
+                    "edit_min_pct": 85,
+                },
+                "prometheus_rule": {
+                    "expected_depth": "standard",
+                    "max_lines": 150,
+                    "max_tokens": 750,
+                    "completeness_markers": ["groups"],
+                    "fields": ["alertSeverity"],
+                    "red_flag": "test",
+                    "edit_min_pct": 80,
+                },
+                "slo_definition": {
+                    "expected_depth": "standard",
+                    "max_lines": 150,
+                    "max_tokens": 750,
+                    "completeness_markers": ["target"],
+                    "fields": ["availability"],
+                    "red_flag": "test",
+                    "edit_min_pct": 80,
+                },
+            }
+        }
+
+    def test_valid_edit_first_passes(self, tmp_path: Path):
+        """All contracts have valid edit_min_pct -> gate PASS."""
+        out_dir = _write_fixture(tmp_path, **self._contracts_with_edit_pct())
+        checker = PipelineChecker(out_dir)
+        report = checker.run()
+
+        efe_gate = next(
+            (g for g in report.gates if "edit-first" in g.gate_id), None
+        )
+        assert efe_gate is not None
+        assert efe_gate.result == GateOutcome.PASS
+        assert "3 output contract(s)" in efe_gate.reason
+
+    def test_missing_edit_min_pct_fails(self, tmp_path: Path):
+        """Remove edit_min_pct from one contract -> gate FAIL with evidence."""
+        overrides = self._contracts_with_edit_pct()
+        del overrides["expected_output_contracts"]["dashboard"]["edit_min_pct"]
+        out_dir = _write_fixture(tmp_path, **overrides)
+        checker = PipelineChecker(out_dir)
+        report = checker.run()
+
+        efe_gate = next(
+            (g for g in report.gates if "edit-first" in g.gate_id), None
+        )
+        assert efe_gate is not None
+        assert efe_gate.result == GateOutcome.FAIL
+        assert "missing edit_min_pct: dashboard" in efe_gate.reason
+        assert any(
+            e.type == "missing_edit_min_pct" and e.ref == "dashboard"
+            for e in (efe_gate.evidence or [])
+        )
+
+    def test_invalid_edit_min_pct_fails(self, tmp_path: Path):
+        """Set edit_min_pct: 150 -> gate FAIL."""
+        overrides = self._contracts_with_edit_pct()
+        overrides["expected_output_contracts"]["dashboard"]["edit_min_pct"] = 150
+        out_dir = _write_fixture(tmp_path, **overrides)
+        checker = PipelineChecker(out_dir)
+        report = checker.run()
+
+        efe_gate = next(
+            (g for g in report.gates if "edit-first" in g.gate_id), None
+        )
+        assert efe_gate is not None
+        assert efe_gate.result == GateOutcome.FAIL
+        assert "invalid edit_min_pct: dashboard=150" in efe_gate.reason
+
+    def test_edit_first_not_blocking(self, tmp_path: Path):
+        """Missing edit_min_pct produces FAIL but blocking=False."""
+        overrides = self._contracts_with_edit_pct()
+        del overrides["expected_output_contracts"]["dashboard"]["edit_min_pct"]
+        out_dir = _write_fixture(tmp_path, **overrides)
+        checker = PipelineChecker(out_dir)
+        report = checker.run()
+
+        efe_gate = next(
+            (g for g in report.gates if "edit-first" in g.gate_id), None
+        )
+        assert efe_gate is not None
+        assert efe_gate.result == GateOutcome.FAIL
+        assert efe_gate.blocking is False
+        # Report should still be healthy (edit-first is non-blocking)
+        assert report.is_healthy is True
+
+    def test_no_output_contracts_skips(self, tmp_path: Path):
+        """No expected_output_contracts in metadata -> gate skipped."""
+        out_dir = _write_fixture(tmp_path)
+        checker = PipelineChecker(out_dir)
+        report = checker.run()
+
+        assert any("edit-first-coverage" in s for s in report.skipped)
+        assert not any("edit-first" in g.gate_id for g in report.gates)

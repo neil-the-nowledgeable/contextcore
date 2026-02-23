@@ -1087,6 +1087,97 @@ class PipelineChecker:
             checked_at=datetime.now(timezone.utc),
         )
 
+    # ---- Gate: Edit-first coverage -------------------------------------------
+
+    def _check_edit_first_coverage(self) -> Optional[GateResult]:
+        """
+        Validate that expected_output_contracts include edit_min_pct thresholds.
+
+        Checks:
+        1. ``expected_output_contracts`` exists.
+        2. Every output contract has an ``edit_min_pct`` field.
+        3. ``edit_min_pct`` values are integers in range 0–100.
+
+        Returns ``None`` if ``expected_output_contracts`` is not present (skipped).
+        Reports as WARNING (non-blocking) — missing edit-first data degrades
+        the size regression gate but does not block the pipeline.
+        """
+        contracts = self._metadata.get("expected_output_contracts")
+        if not contracts:
+            return None
+
+        evidence: list[EvidenceItem] = []
+        problems: list[str] = []
+
+        for art_type, contract in contracts.items():
+            if not isinstance(contract, dict):
+                continue
+            edit_pct = contract.get("edit_min_pct")
+            if edit_pct is None:
+                problems.append(f"missing edit_min_pct: {art_type}")
+                evidence.append(EvidenceItem(
+                    type="missing_edit_min_pct",
+                    ref=art_type,
+                    description=(
+                        f"Output contract for '{art_type}' is missing edit_min_pct. "
+                        f"The size regression gate cannot enforce edit-first for this type."
+                    ),
+                ))
+            elif not isinstance(edit_pct, (int, float)) or edit_pct < 0 or edit_pct > 100:
+                problems.append(f"invalid edit_min_pct: {art_type}={edit_pct}")
+                evidence.append(EvidenceItem(
+                    type="invalid_edit_min_pct",
+                    ref=art_type,
+                    description=(
+                        f"Output contract for '{art_type}' has edit_min_pct={edit_pct} "
+                        f"which is not a number in range 0–100."
+                    ),
+                ))
+
+        gate_id = f"{self._effective_task_id}-edit-first-coverage"
+        if problems:
+            return GateResult(
+                gate_id=gate_id,
+                trace_id=self.trace_id,
+                task_id=self._effective_task_id,
+                phase=Phase.ARTISAN_DESIGN,
+                result=GateOutcome.FAIL,
+                severity=GateSeverity.WARNING,
+                reason=(
+                    f"Edit-first coverage issues: {len(problems)} contract(s) "
+                    f"missing or invalid edit_min_pct — "
+                    f"{'; '.join(problems[:5])}{'...' if len(problems) > 5 else ''}."
+                ),
+                next_action="Re-run export to regenerate output contracts with edit_min_pct thresholds.",
+                blocking=False,
+                evidence=evidence[:10],
+                checked_at=datetime.now(timezone.utc),
+            )
+
+        return GateResult(
+            gate_id=gate_id,
+            trace_id=self.trace_id,
+            task_id=self._effective_task_id,
+            phase=Phase.ARTISAN_DESIGN,
+            result=GateOutcome.PASS,
+            severity=GateSeverity.INFO,
+            reason=(
+                f"Edit-first coverage verified: all {len(contracts)} output contract(s) "
+                f"have valid edit_min_pct thresholds."
+            ),
+            next_action="Proceed — edit-first size regression gate has thresholds for all types.",
+            blocking=False,
+            evidence=[EvidenceItem(
+                type="edit_first_verified",
+                ref="expected_output_contracts",
+                description=(
+                    f"All {len(contracts)} output contract(s) include edit_min_pct "
+                    f"in range 0–100."
+                ),
+            )],
+            checked_at=datetime.now(timezone.utc),
+        )
+
     # ---- Main runner --------------------------------------------------------
 
     @property
@@ -1107,6 +1198,7 @@ class PipelineChecker:
         7. Parameter resolvability (parameter_sources reference valid fields)
         8. Artifact inventory (provenance v2 role registration)
         9. Service metadata (transport protocol, schema contract)
+        10. Edit-first coverage (edit_min_pct thresholds in output contracts)
         """
         self._load()
 
@@ -1195,6 +1287,15 @@ class PipelineChecker:
                     "No service_metadata: transport protocol and schema contract info is missing. "
                     "Use --service-metadata to provide per-service metadata."
                 )
+
+        # 10. Edit-first coverage
+        efe_check = self._check_edit_first_coverage()
+        if efe_check:
+            report.gates.append(efe_check)
+        else:
+            report.skipped.append(
+                "edit-first-coverage: no expected_output_contracts in metadata"
+            )
 
         # --min-coverage enforcement
         if self.min_coverage is not None:
