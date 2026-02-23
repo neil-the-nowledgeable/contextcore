@@ -219,6 +219,7 @@ ARTIFACT_EXAMPLE_OUTPUTS: Dict[str, Dict[str, str]] = {
 #   expected_depth: brief / standard / comprehensive
 #   completeness_markers: structural markers that must be present in generated output
 #   red_flag: calibration mismatch signal
+#   edit_min_pct: minimum output-size-as-%-of-input for the edit-first regression gate (REQ-EFE-010)
 EXPECTED_OUTPUT_CONTRACTS: Dict[str, Dict[str, Any]] = {
     ArtifactType.DASHBOARD.value: {
         "expected_depth": "comprehensive",
@@ -756,7 +757,7 @@ def build_onboarding_metadata(
     # pipeline checker's design calibration gate (Gate 6). This transforms
     # the unified output contracts into the format expected by the gate.
     # Structure: {artifact_type: {expected_depth, expected_loc_range, red_flag}}
-    design_calibration_hints: Dict[str, Dict[str, str]] = {}
+    design_calibration_hints: Dict[str, Dict[str, Any]] = {}
     for art_type, contract in output_contracts.items():
         expected_depth = contract.get("expected_depth", "standard")
         max_lines = contract.get("max_lines", 150)

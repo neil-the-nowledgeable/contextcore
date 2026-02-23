@@ -32,6 +32,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import math
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1123,7 +1124,7 @@ class PipelineChecker:
                         f"The size regression gate cannot enforce edit-first for this type."
                     ),
                 ))
-            elif not isinstance(edit_pct, (int, float)) or edit_pct < 0 or edit_pct > 100:
+            elif not isinstance(edit_pct, (int, float)) or not math.isfinite(edit_pct) or edit_pct < 0 or edit_pct > 100:
                 problems.append(f"invalid edit_min_pct: {art_type}={edit_pct}")
                 evidence.append(EvidenceItem(
                     type="invalid_edit_min_pct",
