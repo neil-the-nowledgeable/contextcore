@@ -191,7 +191,7 @@ def validate(path: str, strict: bool, output_format: str):
     default="text",
     help="Output format",
 )
-def fix(path: str, interactive: bool, answers: str, dry_run: bool, output_format: str):
+def fix(path: str, interactive: bool, answers: Optional[str], dry_run: bool, output_format: str):
     """
     Fix resolvable issues in a context manifest.
 
@@ -216,82 +216,91 @@ def fix(path: str, interactive: bool, answers: str, dry_run: bool, output_format
         resolve_questions_interactive,
     )
 
-    # 1. Detect issues
-    report = detect_manifest_issues(path)
+    try:
+        # 1. Detect issues
+        report = detect_manifest_issues(path)
 
-    if report.total_issues == 0:
-        if output_format == "json":
-            click.echo(json.dumps({"status": "nothing_to_fix", "path": path, "issues": 0}))
+        if report.total_issues == 0:
+            if output_format == "json":
+                click.echo(json.dumps({"status": "nothing_to_fix", "path": path, "issues": 0}))
+            else:
+                click.echo(f"Nothing to fix: {path}")
+            sys.exit(0)
+
+        # 2. Report issues
+        if output_format == "text":
+            click.echo(f"Found {report.total_issues} fixable issue(s) in {path}")
+            if report.open_questions:
+                click.echo(f"\n  Open questions ({len(report.open_questions)}):")
+                for q in report.open_questions:
+                    click.echo(f"    [{q['id']}] {q['question'][:60]}...")
+
+        # 3. Resolve
+        resolutions = []
+        if interactive:
+            resolutions = resolve_questions_interactive(report.open_questions)
+        elif answers:
+            resolutions, unmatched = resolve_questions_from_file(report.open_questions, answers)
+            if unmatched and output_format == "text":
+                click.echo(f"\n  Unmatched questions (no answer provided): {', '.join(unmatched)}")
         else:
-            click.echo(f"Nothing to fix: {path}")
-        sys.exit(0)
+            # Report-only mode
+            if output_format == "json":
+                click.echo(json.dumps({
+                    "status": "report_only",
+                    "path": path,
+                    "open_questions": report.open_questions,
+                    "total_issues": report.total_issues,
+                }, indent=2))
+            else:
+                click.echo("\n  Use --interactive or --answers <file> to resolve.")
+            sys.exit(0)
 
-    # 2. Report issues
-    if output_format == "text":
-        click.echo(f"Found {report.total_issues} fixable issue(s) in {path}")
-        if report.open_questions:
-            click.echo(f"\n  Open questions ({len(report.open_questions)}):")
-            for q in report.open_questions:
-                click.echo(f"    [{q['id']}] {q['question'][:60]}...")
+        if not resolutions:
+            if output_format == "text":
+                click.echo("\n  No resolutions provided. Nothing changed.")
+            sys.exit(0)
 
-    # 3. Resolve
-    resolutions = []
-    if interactive:
-        resolutions = resolve_questions_interactive(report.open_questions)
-    elif answers:
-        resolutions, unmatched = resolve_questions_from_file(report.open_questions, answers)
-        if unmatched and output_format == "text":
-            click.echo(f"\n  Unmatched questions (no answer provided): {', '.join(unmatched)}")
-    else:
-        # Report-only mode
+        # 4. Apply
+        result = apply_manifest_fixes(path, resolutions, dry_run=dry_run)
+
+        # 5. Output results
         if output_format == "json":
             click.echo(json.dumps({
-                "status": "report_only",
+                "status": "dry_run" if dry_run else "applied",
                 "path": path,
-                "open_questions": report.open_questions,
-                "total_issues": report.total_issues,
+                "fixed": result.fixed_count,
+                "skipped": result.skipped_count,
+                "actions": result.actions,
             }, indent=2))
         else:
-            click.echo("\n  Use --interactive or --answers <file> to resolve.")
-        sys.exit(0)
+            if dry_run:
+                click.echo(f"\n  [DRY RUN] Would fix {result.fixed_count} question(s)")
+            else:
+                click.echo(f"\n  Fixed {result.fixed_count} question(s)")
+            if result.skipped_count > 0:
+                click.echo(f"  Skipped {result.skipped_count} open question(s) (no answer provided)")
+            for action in result.actions:
+                click.echo(f"    {action['question_id']}: {action['old_status']} -> answered ({action['source']})")
 
-    if not resolutions:
-        if output_format == "text":
-            click.echo("\n  No resolutions provided. Nothing changed.")
-        sys.exit(0)
+        # 6. Post-fix validation (non-blocking)
+        if not dry_run and result.fixed_count > 0:
+            errors, warnings, _ = _validate_manifest(path, strict=False)
+            if errors:
+                if output_format == "text":
+                    click.echo(f"\n  Post-fix validation errors:")
+                    for e in errors:
+                        click.echo(f"    {e}")
+            else:
+                if output_format == "text":
+                    click.echo("  Post-fix validation: passed")
+                if warnings and output_format == "text":
+                    for w in warnings:
+                        click.echo(f"  Post-fix warning: {w}")
 
-    # 4. Apply
-    result = apply_manifest_fixes(path, resolutions, dry_run=dry_run)
-
-    # 5. Output results
-    if output_format == "json":
-        click.echo(json.dumps({
-            "status": "dry_run" if dry_run else "applied",
-            "path": path,
-            "fixed": result.fixed_count,
-            "skipped": result.skipped_count,
-            "actions": result.actions,
-        }, indent=2))
-    else:
-        if dry_run:
-            click.echo(f"\n  [DRY RUN] Would fix {result.fixed_count} question(s)")
-        else:
-            click.echo(f"\n  Fixed {result.fixed_count} question(s)")
-        if result.skipped_count > 0:
-            click.echo(f"  Skipped {result.skipped_count} open question(s) (no answer provided)")
-        for action in result.actions:
-            click.echo(f"    {action['question_id']}: {action['old_status']} -> answered ({action['source']})")
-
-    # 6. Post-fix validation (non-blocking)
-    if not dry_run and result.fixed_count > 0:
-        errors, warnings, _ = _validate_manifest(path, strict=False)
-        if errors:
-            if output_format == "text":
-                click.echo(f"\n  Post-fix validation errors:")
-                for e in errors:
-                    click.echo(f"    {e}")
-        elif output_format == "text":
-            click.echo("  Post-fix validation: passed")
+    except Exception as e:
+        click.echo(f"✗ Error: {e}", err=True)
+        sys.exit(1)
 
 
 @manifest.command(name="distill-crd")
@@ -1434,11 +1443,16 @@ def init_from_plan(
                 for q in new_questions:
                     prev = resolved.pop(q["id"], None)
                     if prev:
-                        q["status"] = prev["status"]
+                        # Normalize legacy "resolved" → "answered" (QuestionStatus enum)
+                        prev_status = prev["status"]
+                        q["status"] = "answered" if prev_status == "resolved" else prev_status
                         if "answer" in prev:
                             q["answer"] = prev["answer"]
                 # Append resolved questions whose IDs no longer exist in the new set
                 if resolved:
+                    for rq in resolved.values():
+                        if rq.get("status") == "resolved":
+                            rq["status"] = "answered"
                     new_questions.extend(resolved.values())
                 manifest_data.setdefault("guidance", {})["questions"] = new_questions
         except Exception:
@@ -1740,6 +1754,13 @@ def analyze_plan_cmd(
     help="Output format for artifact manifest",
 )
 @click.option(
+    "--profile",
+    "generation_profile",
+    type=click.Choice(["source", "observability", "full"]),
+    default="full",
+    help="Generation profile: 'source' for code generation, 'observability' for monitoring artifacts, 'full' for everything.",
+)
+@click.option(
     "--dry-run",
     is_flag=True,
     help="Preview without writing files",
@@ -1830,6 +1851,7 @@ def export(
     existing: tuple,
     scan_existing: Optional[str],
     output_format: str,
+    generation_profile: str,
     dry_run: bool,
     strict_quality: Optional[bool],
     deterministic_output: Optional[bool],
@@ -2030,6 +2052,20 @@ def export(
             existing_artifacts=existing_artifacts,
             extra_metrics=_extra_metrics,
         )
+
+        # Apply generation profile filter (REQ-GP-100)
+        from contextcore.models.artifact_manifest import (
+            GenerationProfile,
+            filter_artifacts_by_profile,
+        )
+
+        profile_enum = GenerationProfile(generation_profile)
+        artifact_manifest.artifacts = filter_artifacts_by_profile(
+            artifact_manifest.artifacts, profile_enum
+        )
+        # Recalculate coverage from filtered artifact list
+        artifact_manifest.coverage = artifact_manifest.compute_coverage()
+
         if deterministic_output:
             artifact_manifest.artifacts = sorted(
                 artifact_manifest.artifacts, key=lambda a: a.id
@@ -2076,6 +2112,7 @@ def export(
                 "existing": list(existing),
                 "scan_existing": scan_existing,
                 "format": output_format,
+                "generation_profile": generation_profile,
                 "dry_run": dry_run,
                 "emit_provenance": emit_provenance,
                 "embed_provenance": embed_provenance,
@@ -2094,6 +2131,7 @@ def export(
                 cli_options=cli_options,
                 start_time=start_time,
             )
+            provenance.generation_profile = generation_profile
 
             if embed_provenance:
                 artifact_manifest.metadata.provenance = provenance
@@ -2121,6 +2159,7 @@ def export(
             output_dir=str(output_path),
             capability_index_dir=_cap_index_dir_str,
             service_metadata=parsed_service_metadata,
+            generation_profile=generation_profile,
         )
         validation_report = build_validation_report(
             onboarding_metadata=onboarding_metadata,

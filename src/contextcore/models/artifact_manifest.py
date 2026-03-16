@@ -84,6 +84,35 @@ INTEGRITY_TYPES = frozenset({
 })
 
 
+class GenerationProfile(str, Enum):
+    """Generation profile controlling which artifact types are included in export."""
+
+    SOURCE = "source"
+    OBSERVABILITY = "observability"
+    FULL = "full"
+
+
+PROFILE_INCLUDED_TYPES = {
+    GenerationProfile.SOURCE: SOURCE_TYPES | ONBOARDING_TYPES | INTEGRITY_TYPES,
+    GenerationProfile.OBSERVABILITY: OBSERVABILITY_TYPES | ONBOARDING_TYPES | INTEGRITY_TYPES,
+    GenerationProfile.FULL: SOURCE_TYPES | OBSERVABILITY_TYPES | ONBOARDING_TYPES | INTEGRITY_TYPES,
+}
+
+
+def filter_artifacts_by_profile(
+    artifacts: List["ArtifactSpec"],
+    profile: GenerationProfile,
+) -> List["ArtifactSpec"]:
+    """Filter artifact list to only types included in the given profile.
+
+    Returns artifacts unchanged for 'full' profile.
+    """
+    if profile == GenerationProfile.FULL:
+        return artifacts
+    allowed = PROFILE_INCLUDED_TYPES[profile]
+    return [a for a in artifacts if a.type in allowed]
+
+
 class ArtifactPriority(str, Enum):
     """Priority for artifact generation."""
 
@@ -488,6 +517,13 @@ class ExportProvenance(BaseModel):
     )
     output_files: Optional[List[str]] = Field(
         None, alias="outputFiles", description="List of files generated"
+    )
+
+    # Generation profile
+    generation_profile: Optional[str] = Field(
+        None,
+        alias="generationProfile",
+        description="Generation profile used: source, observability, or full",
     )
 
     model_config = ConfigDict(populate_by_name=True)

@@ -545,6 +545,7 @@ def build_onboarding_metadata(
     output_dir: Optional[str] = None,
     capability_index_dir: Optional[str] = None,
     service_metadata: Optional[Dict[str, Any]] = None,
+    generation_profile: str = "full",
 ) -> Dict[str, Any]:
     """
     Build onboarding metadata for programmatic artifact generation.
@@ -828,9 +829,12 @@ def build_onboarding_metadata(
     )
     coverage_dict["gaps"] = coverage_gaps
 
+    _schema_version = "1.1.0" if generation_profile != "full" else SCHEMA_VERSION
+
     result: Dict[str, Any] = {
-        "version": SCHEMA_VERSION,
-        "schema_version": SCHEMA_VERSION,
+        "version": _schema_version,
+        "schema_version": _schema_version,
+        "generation_profile": generation_profile,
         "schema": "contextcore.io/onboarding-metadata/v1",
         "project_id": artifact_manifest.metadata.project_id,
         "artifact_manifest_path": artifact_manifest_path,
@@ -873,34 +877,54 @@ def build_onboarding_metadata(
     }
 
     # ── Enrichment fields (Export Enrichment Plan Changes 1-5 + Guide §6) ──
-    if derivation_rules:
-        result["derivation_rules"] = derivation_rules
+    # Some sections are omitted for non-full profiles to reduce noise.
+    _omitted_marker = {"_omitted": f"profile={generation_profile}"}
+    _include_observability_sections = generation_profile != "source"
+
+    if _include_observability_sections:
+        if derivation_rules:
+            result["derivation_rules"] = derivation_rules
+    else:
+        result["derivation_rules"] = _omitted_marker
 
     if objectives_export:
         result["objectives"] = objectives_export
 
-    if artifact_deps:
-        result["artifact_dependency_graph"] = artifact_deps
+    if _include_observability_sections:
+        if artifact_deps:
+            result["artifact_dependency_graph"] = artifact_deps
+    else:
+        result["artifact_dependency_graph"] = _omitted_marker
 
     if resolved_params:
         result["resolved_artifact_parameters"] = resolved_params
 
-    if parameter_resolvability:
-        result["parameter_resolvability"] = parameter_resolvability
-        result["parameter_resolvability_summary"] = {
-            "resolved": resolved_count,
-            "unresolved": unresolved_count,
-            "total": resolved_count + unresolved_count,
-        }
+    if _include_observability_sections:
+        if parameter_resolvability:
+            result["parameter_resolvability"] = parameter_resolvability
+            result["parameter_resolvability_summary"] = {
+                "resolved": resolved_count,
+                "unresolved": unresolved_count,
+                "total": resolved_count + unresolved_count,
+            }
+    else:
+        result["parameter_resolvability"] = _omitted_marker
+        result["parameter_resolvability_summary"] = _omitted_marker
 
     if open_questions:
         result["open_questions"] = open_questions
 
-    if output_contracts:
-        result["expected_output_contracts"] = output_contracts
+    if _include_observability_sections:
+        if output_contracts:
+            result["expected_output_contracts"] = output_contracts
+    else:
+        result["expected_output_contracts"] = _omitted_marker
 
-    if design_calibration_hints:
-        result["design_calibration_hints"] = design_calibration_hints
+    if _include_observability_sections:
+        if design_calibration_hints:
+            result["design_calibration_hints"] = design_calibration_hints
+    else:
+        result["design_calibration_hints"] = _omitted_marker
 
     if requirements_hints:
         result["requirements_hints"] = requirements_hints
