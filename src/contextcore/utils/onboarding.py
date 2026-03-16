@@ -570,6 +570,32 @@ def _derive_service_metadata_from_manifest(
     return targets
 
 
+def _derive_service_metadata_from_graph(
+    comm_graph: Dict[str, Any],
+) -> Dict[str, Dict[str, Any]]:
+    """Derive service metadata from a service communication graph (REQ-GP-301).
+
+    For each service in the graph, extracts transport protocol, computes
+    healthcheck type, and carries imports and rpc_dependencies.
+    """
+    result: Dict[str, Dict[str, Any]] = {}
+    services = comm_graph.get("services", {})
+    for svc_name, svc_data in services.items():
+        protocol = svc_data.get("protocol", "http")
+        healthcheck = "grpc_health_probe" if protocol == "grpc" else "http_get"
+        entry: Dict[str, Any] = {
+            "transport_protocol": protocol,
+            "healthcheck_type": healthcheck,
+        }
+        if svc_data.get("imports"):
+            entry["imports"] = svc_data["imports"]
+        rpc_calls = svc_data.get("rpc_calls", [])
+        if rpc_calls:
+            entry["rpc_dependencies"] = rpc_calls
+        result[svc_name] = entry
+    return result
+
+
 def build_onboarding_metadata(
     artifact_manifest: ArtifactManifest,
     artifact_manifest_path: str,
@@ -584,6 +610,7 @@ def build_onboarding_metadata(
     capability_index_dir: Optional[str] = None,
     service_metadata: Optional[Dict[str, Any]] = None,
     generation_profile: str = "full",
+    service_communication_graph: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Build onboarding metadata for programmatic artifact generation.
@@ -610,6 +637,24 @@ def build_onboarding_metadata(
     # Auto-derive service_metadata from manifest if not explicitly provided (Gap 16)
     if service_metadata is None:
         service_metadata = _derive_service_metadata_from_manifest(artifact_manifest)
+
+    # REQ-GP-301: When source profile + communication graph, derive from graph
+    if generation_profile == "source" and service_communication_graph:
+        graph_derived = _derive_service_metadata_from_graph(service_communication_graph)
+        if graph_derived:
+            if service_metadata is None:
+                service_metadata = graph_derived
+            else:
+                # Graph-derived takes precedence for transport protocol
+                for svc_name, svc_data in graph_derived.items():
+                    if svc_name not in service_metadata:
+                        service_metadata[svc_name] = svc_data
+                    else:
+                        service_metadata[svc_name].update(svc_data)
+            logger.debug(
+                "Enriched source profile with %d service(s) from communication graph",
+                len(graph_derived),
+            )
 
     # REQ-GP-500: Enrich from prior source-profile output when running observability profile
     _prior_source_output: Optional[Dict[str, Any]] = None
@@ -988,6 +1033,10 @@ def build_onboarding_metadata(
     # ── Service metadata (REQ-PCG-024 req 7) ──────────────────────────
     if service_metadata:
         result["service_metadata"] = service_metadata
+
+    # ── Service communication graph (REQ-CCL-104, REQ-SIG-104) ───────
+    if service_communication_graph:
+        result["service_communication_graph"] = service_communication_graph
 
     # Integrity checksums for validation downstream
     if artifact_manifest_content is not None:

@@ -30,6 +30,8 @@ class NodeType(Enum):
     RISK = "risk"
     REQUIREMENT = "requirement"
     INSIGHT = "insight"
+    SERVICE = "service"
+    MODULE = "module"
 
 
 class EdgeType(Enum):
@@ -43,6 +45,9 @@ class EdgeType(Enum):
     HAS_REQUIREMENT = "has_requirement"  # Project -> Requirement
     GENERATED = "generated"          # Project -> Insight
     CALLS = "calls"                 # Resource -> Resource (from traces)
+    IMPORTS = "imports"             # Service -> Module
+    CALLS_RPC = "calls_rpc"         # Service -> Service (via RPC)
+    SHARED_BY = "shared_by"         # Module -> Service
 
 
 @dataclass(frozen=True)

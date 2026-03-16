@@ -13,7 +13,7 @@ Addresses:
 from __future__ import annotations
 
 from enum import Enum
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -24,6 +24,18 @@ class TransportProtocol(str, Enum):
     GRPC = "grpc"
     HTTP = "http"
     GRPC_WEB = "grpc-web"
+
+
+class RPCDependency(BaseModel):
+    """A single RPC dependency from one service to another (REQ-CCL-500)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    target_service: str = Field(..., description="Name of the service being called.")
+    method: str = Field(..., description="RPC method name (e.g. ListProducts).")
+    proto_module: Optional[str] = Field(
+        None, description="Proto-generated module providing the stub (e.g. demo_pb2_grpc)."
+    )
 
 
 class ServiceMetadataEntry(BaseModel):
@@ -48,6 +60,15 @@ class ServiceMetadataEntry(BaseModel):
         None,
         min_length=1,
         description="Healthcheck mechanism (e.g. grpc_health_probe, http_get).",
+    )
+    imports: Optional[List[str]] = Field(
+        None, description="Modules imported by this service (e.g. demo_pb2, demo_pb2_grpc)."
+    )
+    rpc_dependencies: Optional[List[RPCDependency]] = Field(
+        None, description="RPC calls this service makes to other services."
+    )
+    exposes_rpcs: Optional[List[str]] = Field(
+        None, description="RPC methods this service exposes."
     )
 
     @property

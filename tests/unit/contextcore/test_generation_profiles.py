@@ -436,3 +436,107 @@ class TestProfileIndependence:
             result = self._call_build(prof, output_dir=str(tmp_path))
             missing = required_keys - set(result.keys())
             assert not missing, f"Profile {prof} missing keys: {missing}"
+
+
+# ---------------------------------------------------------------------------
+# Phase 2: Source profile + communication graph (REQ-GP-301)
+# ---------------------------------------------------------------------------
+
+class TestSourceProfileCommunicationGraph:
+    """REQ-GP-301: Source profile derives service_metadata from communication graph."""
+
+    _SAMPLE_GRAPH = {
+        "services": {
+            "emailservice": {
+                "imports": ["demo_pb2", "demo_pb2_grpc"],
+                "rpc_calls": [],
+                "protocol": "grpc",
+            },
+            "frontend": {
+                "imports": ["demo_pb2"],
+                "rpc_calls": [{"target_service": "emailservice", "method": "SendEmail"}],
+                "protocol": "http",
+            },
+        },
+        "shared_modules": {
+            "demo_pb2": {"type": "proto_stub", "used_by": ["emailservice", "frontend"]},
+        },
+        "proto_schemas": ["protos/demo.proto"],
+    }
+
+    def _build_minimal_manifest(self) -> ArtifactManifest:
+        return ArtifactManifest(
+            metadata=ArtifactManifestMetadata(
+                generated_from="test.yaml",
+                project_id="test-project",
+            ),
+            artifacts=[_make_artifact(ArtifactType.DOCKERFILE)],
+            coverage=CoverageSummary(),
+        )
+
+    def test_source_profile_with_graph_derives_grpc(self):
+        from contextcore.utils.onboarding import build_onboarding_metadata
+
+        result = build_onboarding_metadata(
+            artifact_manifest=self._build_minimal_manifest(),
+            artifact_manifest_path="test.yaml",
+            project_context_path="test-crd.yaml",
+            generation_profile="source",
+            service_communication_graph=self._SAMPLE_GRAPH,
+        )
+        svc = result.get("service_metadata", {})
+        assert svc["emailservice"]["transport_protocol"] == "grpc"
+        assert svc["emailservice"]["healthcheck_type"] == "grpc_health_probe"
+        assert svc["frontend"]["transport_protocol"] == "http"
+
+    def test_source_profile_without_graph_falls_back(self):
+        from contextcore.utils.onboarding import build_onboarding_metadata
+
+        result = build_onboarding_metadata(
+            artifact_manifest=self._build_minimal_manifest(),
+            artifact_manifest_path="test.yaml",
+            project_context_path="test-crd.yaml",
+            generation_profile="source",
+        )
+        # Falls back to manifest-based derivation (http for DOCKERFILE)
+        svc = result.get("service_metadata", {})
+        assert svc  # should still have auto-derived metadata
+
+    def test_full_profile_ignores_graph_derivation(self):
+        from contextcore.utils.onboarding import build_onboarding_metadata
+
+        result = build_onboarding_metadata(
+            artifact_manifest=self._build_minimal_manifest(),
+            artifact_manifest_path="test.yaml",
+            project_context_path="test-crd.yaml",
+            generation_profile="full",
+            service_communication_graph=self._SAMPLE_GRAPH,
+        )
+        # Graph should be present but NOT override service_metadata derivation path
+        assert "service_communication_graph" in result
+
+    def test_graph_derived_metadata_includes_imports(self):
+        from contextcore.utils.onboarding import build_onboarding_metadata
+
+        result = build_onboarding_metadata(
+            artifact_manifest=self._build_minimal_manifest(),
+            artifact_manifest_path="test.yaml",
+            project_context_path="test-crd.yaml",
+            generation_profile="source",
+            service_communication_graph=self._SAMPLE_GRAPH,
+        )
+        svc = result.get("service_metadata", {})
+        assert "demo_pb2" in svc["emailservice"].get("imports", [])
+
+    def test_graph_included_in_onboarding_output(self):
+        from contextcore.utils.onboarding import build_onboarding_metadata
+
+        result = build_onboarding_metadata(
+            artifact_manifest=self._build_minimal_manifest(),
+            artifact_manifest_path="test.yaml",
+            project_context_path="test-crd.yaml",
+            generation_profile="source",
+            service_communication_graph=self._SAMPLE_GRAPH,
+        )
+        assert "service_communication_graph" in result
+        assert result["service_communication_graph"]["services"]["emailservice"]["protocol"] == "grpc"

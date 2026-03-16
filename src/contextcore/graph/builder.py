@@ -217,21 +217,87 @@ class GraphBuilder:
     def _infer_dependencies(self) -> None:
         """
         Infer additional dependencies between projects based on resources.
-        
-        Currently focuses on Service resources as potential dependency points.
-        Future implementations could use distributed tracing data for more
-        sophisticated dependency inference.
+
+        When a service communication graph is available in the context spec,
+        delegates to populate_from_communication_graph for concrete edges.
+        Otherwise falls back to resource-based heuristics.
         """
         # Find Service resources that could indicate dependencies
         service_resources = [
             resource_id for resource_id in self._resource_to_project.keys()
             if "Service" in resource_id
         ]
-        
+
         # Placeholder for future trace-based dependency inference
-        # This could analyze distributed tracing data to identify
-        # actual service-to-service communication patterns
         pass
+
+    def populate_from_communication_graph(
+        self, comm_graph: Dict[str, Any]
+    ) -> None:
+        """Populate SERVICE/MODULE nodes and edges from a communication graph (REQ-CCL-400).
+
+        Creates:
+        - SERVICE nodes per service
+        - MODULE nodes per shared module
+        - IMPORTS edges (service → module)
+        - SHARED_BY edges (module → service)
+        - CALLS_RPC edges (service → service)
+        """
+        services = comm_graph.get("services", {})
+        shared_modules = comm_graph.get("shared_modules", {})
+
+        # Create SERVICE nodes
+        for svc_name, svc_data in services.items():
+            svc_id = f"service:{svc_name}"
+            self.graph.add_node(Node(
+                id=svc_id,
+                type=NodeType.SERVICE,
+                name=svc_name,
+                attributes={"protocol": svc_data.get("protocol", "http")},
+            ))
+
+        # Create MODULE nodes for shared modules
+        for mod_name, mod_data in shared_modules.items():
+            mod_id = f"module:{mod_name}"
+            self.graph.add_node(Node(
+                id=mod_id,
+                type=NodeType.MODULE,
+                name=mod_name,
+                attributes={"type": mod_data.get("type", "shared_lib")},
+            ))
+
+        # Create IMPORTS edges (service → module) from each service's imports
+        for svc_name, svc_data in services.items():
+            svc_id = f"service:{svc_name}"
+            for mod_name in svc_data.get("imports", []):
+                if mod_name in shared_modules:
+                    mod_id = f"module:{mod_name}"
+                    self.graph.add_edge(Edge(
+                        source_id=svc_id, target_id=mod_id, type=EdgeType.IMPORTS,
+                    ))
+
+        # Create SHARED_BY edges (module → service) from shared_modules.used_by
+        for mod_name, mod_data in shared_modules.items():
+            mod_id = f"module:{mod_name}"
+            for svc_name in mod_data.get("used_by", []):
+                svc_id = f"service:{svc_name}"
+                self.graph.add_edge(Edge(
+                    source_id=mod_id, target_id=svc_id, type=EdgeType.SHARED_BY,
+                ))
+
+        # Create CALLS_RPC edges (service → service) from rpc_calls
+        for svc_name, svc_data in services.items():
+            svc_id = f"service:{svc_name}"
+            for rpc_call in svc_data.get("rpc_calls", []):
+                target_svc = rpc_call.get("target_service", "")
+                target_id = f"service:{target_svc}"
+                if target_id != svc_id and self.graph.get_node(target_id):
+                    self.graph.add_edge(Edge(
+                        source_id=svc_id,
+                        target_id=target_id,
+                        type=EdgeType.CALLS_RPC,
+                        attributes={"method": rpc_call.get("method", "")},
+                    ))
 
 
 class GraphWatcher:

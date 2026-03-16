@@ -2146,6 +2146,9 @@ def export(
         _cap_index_dir = Path(path).resolve().parent / "docs" / "capability-index"
         _cap_index_dir_str = str(_cap_index_dir) if _cap_index_dir.is_dir() else None
 
+        # Extract service communication graph from loaded manifest spec
+        _comm_graph = (raw_data.get("spec") or {}).get("service_communication_graph")
+
         onboarding_metadata = build_onboarding_metadata(
             artifact_manifest=artifact_manifest,
             artifact_manifest_path=artifact_filename,
@@ -2159,6 +2162,7 @@ def export(
             capability_index_dir=_cap_index_dir_str,
             service_metadata=parsed_service_metadata,
             generation_profile=generation_profile,
+            service_communication_graph=_comm_graph,
         )
         validation_report = build_validation_report(
             onboarding_metadata=onboarding_metadata,

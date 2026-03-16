@@ -35,6 +35,135 @@ _DELIVERABLES_PATTERN = re.compile(r'\*{0,2}Deliverables?:?\*{0,2}\s*(.*)', re.I
 _CHECKLIST_PATTERN = re.compile(r'-\s*\[([x ])\]\s*`?([^`\n]+)`?', re.IGNORECASE)
 _VALIDATION_PATTERN = re.compile(r'\*{0,2}Validation:?\*{0,2}\s*(.*)', re.IGNORECASE)
 
+# ── Service communication graph extraction patterns (REQ-CCL-100–201) ──────
+_SERVICE_HEADING_PATTERN = re.compile(
+    r'^#{2,3}\s+(?:F-\d+\w?:\s*)?(.+?)(?:\s*[—–-]\s*(gRPC|HTTP|REST)\b.*)?$',
+    re.IGNORECASE,
+)
+_TARGET_DIR_PATTERN = re.compile(r'\bsrc/([a-z][a-z0-9_-]*?)/', re.IGNORECASE)
+_IMPORTS_LINE_PATTERN = re.compile(r'\bImports?:\s*(.*)', re.IGNORECASE)
+_MODULE_NAME_PATTERN = re.compile(r'`([a-zA-Z_][a-zA-Z0-9_]*)`')
+_CALLS_PATTERN = re.compile(r'(\w+)_stub\.(\w+)\(\)', re.IGNORECASE)
+_GRPC_SIGNAL_PATTERNS = [
+    re.compile(r'\b_pb2\b'),
+    re.compile(r'\b_pb2_grpc\b'),
+    re.compile(r'\bgrpc\b', re.IGNORECASE),
+    re.compile(r'\.proto\b'),
+    re.compile(r'\bprotobuf\b', re.IGNORECASE),
+]
+_PROTO_FILE_PATTERN = re.compile(r'((?:protos?/)?[\w/.-]+\.proto)\b')
+
+
+def _extract_service_communication_graph(
+    plan_text: str,
+    requirements_text: str,
+) -> Dict[str, Any]:
+    """Extract a service communication graph from plan/requirements text.
+
+    Scans headings, target directories, import lines, and RPC call patterns
+    to build a per-service view of imports, RPC dependencies, and transport
+    protocol.  Also identifies shared modules (used by 2+ services) and
+    proto schema file references.
+
+    Returns a dict with ``services``, ``shared_modules``, and ``proto_schemas``.
+    """
+    combined = "\n".join([plan_text, requirements_text])
+    sections = re.split(r'^(#{2,3}\s+.+)$', combined, flags=re.MULTILINE)
+
+    services: Dict[str, Dict[str, Any]] = {}
+    proto_schemas: List[str] = []
+    current_service: Optional[str] = None
+
+    for i, section in enumerate(sections):
+        # Detect service name from heading
+        heading_match = _SERVICE_HEADING_PATTERN.match(section.strip())
+        if heading_match:
+            heading_text = heading_match.group(1).strip()
+            protocol_hint = heading_match.group(2)
+            # Try to extract service name from next section body via target dir
+            body = sections[i + 1] if i + 1 < len(sections) else ""
+            dir_match = _TARGET_DIR_PATTERN.search(body)
+            if dir_match:
+                current_service = dir_match.group(1).lower().rstrip("/")
+            elif protocol_hint or re.search(r'\b(?:service|server|client)\b', heading_text, re.IGNORECASE):
+                # Only derive from heading if it mentions service/server/client or has protocol hint
+                name_candidate = re.sub(r'[^a-z0-9]+', '', heading_text.lower())
+                if len(name_candidate) >= 3:
+                    current_service = name_candidate
+                else:
+                    current_service = None
+                    continue
+            else:
+                current_service = None
+                continue
+
+            if current_service and current_service not in services:
+                services[current_service] = {
+                    "imports": [],
+                    "rpc_calls": [],
+                    "protocol": protocol_hint.lower() if protocol_hint else "http",
+                }
+            elif current_service and protocol_hint:
+                services[current_service]["protocol"] = protocol_hint.lower()
+            continue
+
+        if current_service is None:
+            # Still scan for target dirs in non-heading sections
+            for dir_m in _TARGET_DIR_PATTERN.finditer(section):
+                svc = dir_m.group(1).lower().rstrip("/")
+                if svc not in services:
+                    services[svc] = {"imports": [], "rpc_calls": [], "protocol": "http"}
+
+        # Extract imports
+        for imp_match in _IMPORTS_LINE_PATTERN.finditer(section):
+            modules = _MODULE_NAME_PATTERN.findall(imp_match.group(1))
+            if modules and current_service and current_service in services:
+                services[current_service]["imports"].extend(modules)
+
+        # Extract RPC calls
+        for call_match in _CALLS_PATTERN.finditer(section):
+            target_service = call_match.group(1).lower()
+            method = call_match.group(2)
+            if current_service and current_service in services:
+                services[current_service]["rpc_calls"].append({
+                    "target_service": target_service,
+                    "method": method,
+                })
+
+        # Detect gRPC signals
+        if current_service and current_service in services:
+            grpc_hits = sum(1 for p in _GRPC_SIGNAL_PATTERNS if p.search(section))
+            if grpc_hits >= 2:
+                services[current_service]["protocol"] = "grpc"
+
+        # Collect proto file references
+        for proto_match in _PROTO_FILE_PATTERN.finditer(section):
+            proto_path = proto_match.group(1)
+            if proto_path not in proto_schemas:
+                proto_schemas.append(proto_path)
+
+    # Deduplicate imports per service
+    for svc_data in services.values():
+        svc_data["imports"] = sorted(set(svc_data["imports"]))
+
+    # Compute shared modules (modules imported by 2+ services)
+    module_usage: Dict[str, List[str]] = {}
+    for svc_name, svc_data in services.items():
+        for mod in svc_data["imports"]:
+            module_usage.setdefault(mod, []).append(svc_name)
+
+    shared_modules: Dict[str, Dict[str, Any]] = {}
+    for mod, users in module_usage.items():
+        if len(users) >= 2:
+            mod_type = "proto_stub" if mod.endswith(("_pb2", "_pb2_grpc")) else "shared_lib"
+            shared_modules[mod] = {"type": mod_type, "used_by": sorted(users)}
+
+    return {
+        "services": services,
+        "shared_modules": shared_modules,
+        "proto_schemas": proto_schemas,
+    }
+
 
 def build_v2_manifest_template(name: str) -> Dict[str, Any]:
     """Build a baseline v2 manifest payload."""
@@ -731,6 +860,30 @@ def infer_init_from_plan(
             "plan+requirements:url_extraction",
             0.7,
         )
+
+    # ── Service communication graph extraction (REQ-CCL-100–201) ────
+    comm_graph = _extract_service_communication_graph(plan_text, requirements_text)
+    if comm_graph.get("services"):
+        manifest_data["spec"]["service_communication_graph"] = comm_graph
+        add_inference(
+            "spec.service_communication_graph",
+            {
+                "service_count": len(comm_graph["services"]),
+                "shared_module_count": len(comm_graph.get("shared_modules", {})),
+                "proto_schema_count": len(comm_graph.get("proto_schemas", [])),
+            },
+            "plan:service_graph_extraction",
+            0.85,
+        )
+        # Set transport protocol per service in graph
+        for svc_name, svc_data in comm_graph["services"].items():
+            if svc_data.get("protocol") == "grpc":
+                add_inference(
+                    f"spec.service_communication_graph.services.{svc_name}.protocol",
+                    "grpc",
+                    "plan:grpc_signal_detection",
+                    0.85,
+                )
 
     # ── Capability index matching (REQ-CAP-003) ────────────────────
     matched_caps: List[str] = []
