@@ -14,6 +14,7 @@ Used by: contextcore manifest export --emit-onboarding
 Consumed by: Plan ingestion workflows, artisan context seed enrichment
 """
 
+import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -28,6 +29,38 @@ from contextcore.utils.artifact_conventions import ARTIFACT_OUTPUT_CONVENTIONS
 from contextcore.utils.provenance import get_content_checksum, get_file_checksum
 
 logger = logging.getLogger(__name__)
+
+
+def load_prior_profile_output(
+    output_dir: Optional[str],
+    expected_profile: str = "source",
+) -> Optional[Dict[str, Any]]:
+    """Load prior onboarding metadata from a previous profile run (REQ-GP-500).
+
+    Looks for ``onboarding-metadata.json`` in *output_dir* and returns its
+    parsed contents only when its ``generation_profile`` matches
+    *expected_profile*.  Returns ``None`` when the file is absent, unreadable,
+    or produced by a different profile.
+    """
+    if not output_dir:
+        return None
+    onboarding_path = Path(output_dir) / "onboarding-metadata.json"
+    if not onboarding_path.is_file():
+        return None
+    try:
+        data = json.loads(onboarding_path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return None
+        if data.get("generation_profile") != expected_profile:
+            return None
+        logger.debug(
+            "Loaded prior %s-profile onboarding metadata from %s",
+            expected_profile,
+            onboarding_path,
+        )
+        return data
+    except (json.JSONDecodeError, OSError):
+        return None
 
 
 # Parameter source: which params come from manifest vs CRD (per R1-F1)
@@ -570,6 +603,29 @@ def build_onboarding_metadata(
     if service_metadata is None:
         service_metadata = _derive_service_metadata_from_manifest(artifact_manifest)
 
+    # REQ-GP-500: Enrich from prior source-profile output when running observability profile
+    _prior_source_output: Optional[Dict[str, Any]] = None
+    if generation_profile == "observability" and output_dir:
+        _prior_source_output = load_prior_profile_output(output_dir, expected_profile="source")
+        if _prior_source_output:
+            # Enrich service_metadata with richer source-profile data
+            prior_svc_meta = _prior_source_output.get("service_metadata")
+            if isinstance(prior_svc_meta, dict) and prior_svc_meta:
+                if service_metadata is None:
+                    service_metadata = prior_svc_meta
+                else:
+                    # Merge: prior source data fills gaps in current metadata
+                    for svc_name, svc_data in prior_svc_meta.items():
+                        if svc_name not in service_metadata:
+                            service_metadata[svc_name] = svc_data
+                        elif isinstance(svc_data, dict) and isinstance(service_metadata[svc_name], dict):
+                            for k, v in svc_data.items():
+                                if k not in service_metadata[svc_name]:
+                                    service_metadata[svc_name][k] = v
+            logger.info(
+                "Enriched observability profile from prior source-profile output"
+            )
+
     # Extract coverage gaps (artifacts with status=needed)
     coverage_gaps: List[str] = [
         a.id for a in artifact_manifest.artifacts if a.status.value == "needed"
@@ -1060,6 +1116,14 @@ def build_onboarding_metadata(
                     ]
         except Exception:
             _logger.debug("Capability index not available for export enrichment")
+
+    # REQ-GP-500: Record enrichment source for traceability
+    if _prior_source_output is not None:
+        result["_enriched_from"] = {
+            "profile": "source",
+            "project_id": _prior_source_output.get("project_id"),
+            "schema_version": _prior_source_output.get("schema_version"),
+        }
 
     # Relative source path for portability (avoid absolute paths in seeds/handoffs)
     # Assumption: output_dir is a subdirectory of project root (e.g. out/ or ./output).

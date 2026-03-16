@@ -243,3 +243,199 @@ class TestOnboardingProfileScoping:
         for prof in ("source", "observability", "full"):
             result = self._call_build(prof)
             assert result["generation_profile"] == prof
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 tests (REQ-GP-500, REQ-GP-501)
+# ---------------------------------------------------------------------------
+
+class TestLoadPriorProfileOutput:
+    """Tests for load_prior_profile_output()."""
+
+    def test_returns_none_when_no_output_dir(self):
+        from contextcore.utils.onboarding import load_prior_profile_output
+
+        assert load_prior_profile_output(None) is None
+
+    def test_returns_none_when_file_missing(self, tmp_path):
+        from contextcore.utils.onboarding import load_prior_profile_output
+
+        assert load_prior_profile_output(str(tmp_path)) is None
+
+    def test_returns_none_when_wrong_profile(self, tmp_path):
+        from contextcore.utils.onboarding import load_prior_profile_output
+        import json
+
+        (tmp_path / "onboarding-metadata.json").write_text(
+            json.dumps({"generation_profile": "full", "project_id": "test"})
+        )
+        assert load_prior_profile_output(str(tmp_path), expected_profile="source") is None
+
+    def test_returns_data_when_profile_matches(self, tmp_path):
+        from contextcore.utils.onboarding import load_prior_profile_output
+        import json
+
+        prior_data = {
+            "generation_profile": "source",
+            "project_id": "test",
+            "service_metadata": {"svc1": {"transport_protocol": "grpc"}},
+        }
+        (tmp_path / "onboarding-metadata.json").write_text(json.dumps(prior_data))
+        result = load_prior_profile_output(str(tmp_path), expected_profile="source")
+        assert result is not None
+        assert result["project_id"] == "test"
+
+    def test_returns_none_on_invalid_json(self, tmp_path):
+        from contextcore.utils.onboarding import load_prior_profile_output
+
+        (tmp_path / "onboarding-metadata.json").write_text("not json{{{")
+        assert load_prior_profile_output(str(tmp_path)) is None
+
+
+class TestObservabilityEnrichmentFromSource:
+    """REQ-GP-500: Observability profile reads source profile output."""
+
+    def _build_minimal_manifest(self) -> ArtifactManifest:
+        return ArtifactManifest(
+            metadata=ArtifactManifestMetadata(
+                generated_from="test.yaml",
+                project_id="test-project",
+            ),
+            artifacts=[
+                _make_artifact(ArtifactType.DASHBOARD),
+            ],
+            coverage=CoverageSummary(),
+        )
+
+    def test_observability_enriches_service_metadata_from_prior_source(self, tmp_path):
+        """When prior source output exists, observability profile picks up its service_metadata."""
+        import json
+        from contextcore.utils.onboarding import build_onboarding_metadata
+
+        # Write prior source-profile output
+        prior = {
+            "generation_profile": "source",
+            "project_id": "test-project",
+            "schema_version": "1.1.0",
+            "service_metadata": {
+                "emailservice": {"transport_protocol": "grpc", "port": 8080},
+            },
+        }
+        (tmp_path / "onboarding-metadata.json").write_text(json.dumps(prior))
+
+        manifest = self._build_minimal_manifest()
+        result = build_onboarding_metadata(
+            artifact_manifest=manifest,
+            artifact_manifest_path="test.yaml",
+            project_context_path="test-crd.yaml",
+            generation_profile="observability",
+            output_dir=str(tmp_path),
+        )
+
+        # service_metadata should include the enriched data from prior source
+        svc = result.get("service_metadata", {})
+        assert "emailservice" in svc
+        assert svc["emailservice"]["transport_protocol"] == "grpc"
+
+        # Enrichment source recorded
+        enriched = result.get("_enriched_from")
+        assert enriched is not None
+        assert enriched["profile"] == "source"
+
+    def test_observability_merges_not_overwrites_explicit_service_metadata(self, tmp_path):
+        """Explicit service_metadata takes precedence; prior fills gaps."""
+        import json
+        from contextcore.utils.onboarding import build_onboarding_metadata
+
+        prior = {
+            "generation_profile": "source",
+            "project_id": "test-project",
+            "schema_version": "1.1.0",
+            "service_metadata": {
+                "emailservice": {"transport_protocol": "grpc", "port": 8080},
+                "cartservice": {"transport_protocol": "http"},
+            },
+        }
+        (tmp_path / "onboarding-metadata.json").write_text(json.dumps(prior))
+
+        manifest = self._build_minimal_manifest()
+        result = build_onboarding_metadata(
+            artifact_manifest=manifest,
+            artifact_manifest_path="test.yaml",
+            project_context_path="test-crd.yaml",
+            generation_profile="observability",
+            output_dir=str(tmp_path),
+            # Explicit metadata for emailservice — should take precedence
+            service_metadata={"emailservice": {"transport_protocol": "http"}},
+        )
+
+        svc = result.get("service_metadata", {})
+        # Explicit value wins
+        assert svc["emailservice"]["transport_protocol"] == "http"
+        # But port from prior fills gap
+        assert svc["emailservice"]["port"] == 8080
+        # cartservice added from prior
+        assert svc["cartservice"]["transport_protocol"] == "http"
+
+
+class TestProfileIndependence:
+    """REQ-GP-501: Each profile produces valid output independently."""
+
+    def _build_minimal_manifest(self) -> ArtifactManifest:
+        return ArtifactManifest(
+            metadata=ArtifactManifestMetadata(
+                generated_from="test.yaml",
+                project_id="test-project",
+            ),
+            artifacts=[
+                _make_artifact(ArtifactType.DASHBOARD),
+                _make_artifact(ArtifactType.DOCKERFILE),
+                _make_artifact(ArtifactType.CAPABILITY_INDEX),
+            ],
+            coverage=CoverageSummary(),
+        )
+
+    def _call_build(self, profile: str, output_dir: str | None = None) -> dict:
+        from contextcore.utils.onboarding import build_onboarding_metadata
+
+        manifest = self._build_minimal_manifest()
+        return build_onboarding_metadata(
+            artifact_manifest=manifest,
+            artifact_manifest_path="test.yaml",
+            project_context_path="test-crd.yaml",
+            generation_profile=profile,
+            output_dir=output_dir,
+        )
+
+    def test_observability_without_prior_source_produces_valid_output(self, tmp_path):
+        """Observability profile in empty dir works without prior source output."""
+        result = self._call_build("observability", output_dir=str(tmp_path))
+        assert result["generation_profile"] == "observability"
+        assert result["schema_version"] == "1.1.0"
+        assert "artifact_types" in result
+        assert "_enriched_from" not in result
+
+    def test_source_produces_valid_output_independently(self, tmp_path):
+        result = self._call_build("source", output_dir=str(tmp_path))
+        assert result["generation_profile"] == "source"
+        assert result["schema_version"] == "1.1.0"
+        assert "artifact_types" in result
+        assert "_enriched_from" not in result
+
+    def test_full_produces_valid_output_independently(self, tmp_path):
+        result = self._call_build("full", output_dir=str(tmp_path))
+        assert result["generation_profile"] == "full"
+        assert result["schema_version"] == "1.0.0"
+        assert "_enriched_from" not in result
+
+    def test_each_profile_has_required_keys(self, tmp_path):
+        """All profiles produce the minimum required keys."""
+        required_keys = {
+            "schema_version", "generation_profile", "project_id",
+            "artifact_manifest_path", "project_context_path",
+            "artifact_types", "coverage",
+        }
+        for prof in ("source", "observability", "full"):
+            result = self._call_build(prof, output_dir=str(tmp_path))
+            missing = required_keys - set(result.keys())
+            assert not missing, f"Profile {prof} missing keys: {missing}"
