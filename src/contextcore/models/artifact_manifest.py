@@ -105,7 +105,13 @@ def filter_artifacts_by_profile(
 ) -> List["ArtifactSpec"]:
     """Filter artifact list to only types included in the given profile.
 
-    Returns artifacts unchanged for 'full' profile.
+    Args:
+        artifacts: List of artifact specs to filter.
+        profile: Generation profile determining which artifact types to retain.
+
+    Returns:
+        The original list (identity) for ``FULL`` profile, or a filtered
+        copy containing only types in ``PROFILE_INCLUDED_TYPES[profile]``.
     """
     if profile == GenerationProfile.FULL:
         return artifacts

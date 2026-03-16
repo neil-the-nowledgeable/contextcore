@@ -52,6 +52,10 @@ from contextcore.cli.init_from_plan_ops import (
     enrich_template_from_capability_index,
     infer_init_from_plan,
 )
+from contextcore.models.artifact_manifest import (
+    GenerationProfile,
+    filter_artifacts_by_profile,
+)
 
 
 @click.group()
@@ -2054,11 +2058,6 @@ def export(
         )
 
         # Apply generation profile filter (REQ-GP-100)
-        from contextcore.models.artifact_manifest import (
-            GenerationProfile,
-            filter_artifacts_by_profile,
-        )
-
         profile_enum = GenerationProfile(generation_profile)
         artifact_manifest.artifacts = filter_artifacts_by_profile(
             artifact_manifest.artifacts, profile_enum

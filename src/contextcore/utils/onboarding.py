@@ -59,7 +59,12 @@ def load_prior_profile_output(
             onboarding_path,
         )
         return data
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.debug(
+            "Could not load prior profile output from %s: %s",
+            onboarding_path,
+            exc,
+        )
         return None
 
 
@@ -595,6 +600,9 @@ def build_onboarding_metadata(
         output_dir: Optional output directory; when provided, source_path_relative is computed for portability
         service_metadata: Optional per-service metadata dict (service_name -> ServiceMetadataEntry-like dict)
             with transport_protocol, schema_contract, base_image, healthcheck_type
+        generation_profile: Profile controlling which sections are emitted.
+            "source" omits observability-specific sections, "observability" enriches
+            from prior source output when available, "full" emits everything (default).
 
     Returns:
         Dict suitable for JSON serialization
@@ -622,9 +630,10 @@ def build_onboarding_metadata(
                             for k, v in svc_data.items():
                                 if k not in service_metadata[svc_name]:
                                     service_metadata[svc_name][k] = v
-            logger.info(
-                "Enriched observability profile from prior source-profile output"
-            )
+                logger.debug(
+                    "Enriched observability profile with %d service(s) from prior source-profile output",
+                    len(prior_svc_meta),
+                )
 
     # Extract coverage gaps (artifacts with status=needed)
     coverage_gaps: List[str] = [
@@ -937,20 +946,20 @@ def build_onboarding_metadata(
     _omitted_marker = {"_omitted": f"profile={generation_profile}"}
     _include_observability_sections = generation_profile != "source"
 
-    if _include_observability_sections:
-        if derivation_rules:
-            result["derivation_rules"] = derivation_rules
-    else:
-        result["derivation_rules"] = _omitted_marker
+    def _set_or_omit(key: str, value: Any) -> None:
+        """Set *key* in result when observability sections are included, else mark omitted."""
+        if _include_observability_sections:
+            if value:
+                result[key] = value
+        else:
+            result[key] = _omitted_marker
+
+    _set_or_omit("derivation_rules", derivation_rules)
 
     if objectives_export:
         result["objectives"] = objectives_export
 
-    if _include_observability_sections:
-        if artifact_deps:
-            result["artifact_dependency_graph"] = artifact_deps
-    else:
-        result["artifact_dependency_graph"] = _omitted_marker
+    _set_or_omit("artifact_dependency_graph", artifact_deps)
 
     if resolved_params:
         result["resolved_artifact_parameters"] = resolved_params
@@ -970,17 +979,8 @@ def build_onboarding_metadata(
     if open_questions:
         result["open_questions"] = open_questions
 
-    if _include_observability_sections:
-        if output_contracts:
-            result["expected_output_contracts"] = output_contracts
-    else:
-        result["expected_output_contracts"] = _omitted_marker
-
-    if _include_observability_sections:
-        if design_calibration_hints:
-            result["design_calibration_hints"] = design_calibration_hints
-    else:
-        result["design_calibration_hints"] = _omitted_marker
+    _set_or_omit("expected_output_contracts", output_contracts)
+    _set_or_omit("design_calibration_hints", design_calibration_hints)
 
     if requirements_hints:
         result["requirements_hints"] = requirements_hints
