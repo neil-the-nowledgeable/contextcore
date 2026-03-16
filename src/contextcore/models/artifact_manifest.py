@@ -27,24 +27,38 @@ from pydantic import BaseModel, ConfigDict, Field
 class ArtifactType(str, Enum):
     """Types of artifacts in the ContextCore pipeline.
 
-    Organized by category:
-    - Observability (8): generated from business metadata
+    Organized by category and primary audience:
+
+    - Source (5): project input artifacts, developer/machine audience
+    - Monitoring (3): machine-consumed automation rules
+    - Operator (3): human-consumed incident response artifacts
+    - Stakeholder (2): multi-audience dashboards and SLO definitions
     - Onboarding (4): pipeline-innate, produced automatically
-    - Source (5): project input artifacts characterized during export (CID-018)
     - Integrity (2): pipeline-innate provenance and traceability
+
+    The audience spectrum: machine → operator → sponsor → practitioner.
+    Monitoring artifacts are pure automation. Operator artifacts embed business
+    context so SREs triage by impact, not frequency. Stakeholder artifacts
+    (dashboards, SLOs) serve all human roles — the ``parameters.audience`` and
+    ``parameters.dashboard_pattern`` fields control which variant is generated
+    (operational, business_health, or portal).
 
     See docs/reference/pipeline-requirements-onboarding.md for requirements.
     """
 
-    # Observability
-    DASHBOARD = "dashboard"
+    # Monitoring (machine-consumed automation rules)
     PROMETHEUS_RULE = "prometheus_rule"
     LOKI_RULE = "loki_rule"
-    SLO_DEFINITION = "slo_definition"
     SERVICE_MONITOR = "service_monitor"
+
+    # Operator (human-consumed incident response, business-context-enriched)
     NOTIFICATION_POLICY = "notification_policy"
     RUNBOOK = "runbook"
     ALERT_TEMPLATE = "alert_template"
+
+    # Stakeholder (multi-audience: operator, sponsor, practitioner)
+    DASHBOARD = "dashboard"
+    SLO_DEFINITION = "slo_definition"
 
     # Onboarding (pipeline-innate)
     CAPABILITY_INDEX = "capability_index"
@@ -64,17 +78,44 @@ class ArtifactType(str, Enum):
     INGESTION_TRACEABILITY = "ingestion-traceability"
 
 
+class AudienceRole(str, Enum):
+    """Primary audience for generated artifacts.
+
+    Used in ``ArtifactSpec.parameters["audience"]`` to control which variant
+    of a stakeholder artifact (dashboard, SLO) is generated:
+
+    - operator: technical dashboards, SLO burn rates, trace links
+    - sponsor: business health, objective progress, revenue impact
+    - practitioner: portal pages, plain-language orientation, guided navigation
+    """
+
+    OPERATOR = "operator"
+    SPONSOR = "sponsor"
+    PRACTITIONER = "practitioner"
+
+
 SOURCE_TYPES = frozenset({
     ArtifactType.DOCKERFILE, ArtifactType.PYTHON_REQUIREMENTS,
     ArtifactType.PROTOBUF_SCHEMA, ArtifactType.EDITORCONFIG,
     ArtifactType.CI_WORKFLOW,
 })
-OBSERVABILITY_TYPES = frozenset({
-    ArtifactType.DASHBOARD, ArtifactType.PROMETHEUS_RULE,
-    ArtifactType.LOKI_RULE, ArtifactType.SLO_DEFINITION,
-    ArtifactType.SERVICE_MONITOR, ArtifactType.NOTIFICATION_POLICY,
-    ArtifactType.RUNBOOK, ArtifactType.ALERT_TEMPLATE,
+
+# Audience-aware observability subcategories
+MONITORING_TYPES = frozenset({
+    ArtifactType.PROMETHEUS_RULE, ArtifactType.LOKI_RULE,
+    ArtifactType.SERVICE_MONITOR,
 })
+OPERATOR_TYPES = frozenset({
+    ArtifactType.RUNBOOK, ArtifactType.ALERT_TEMPLATE,
+    ArtifactType.NOTIFICATION_POLICY,
+})
+STAKEHOLDER_TYPES = frozenset({
+    ArtifactType.DASHBOARD, ArtifactType.SLO_DEFINITION,
+})
+
+# Backward-compatible union — "observability" always meant all three
+OBSERVABILITY_TYPES = MONITORING_TYPES | OPERATOR_TYPES | STAKEHOLDER_TYPES
+
 ONBOARDING_TYPES = frozenset({
     ArtifactType.CAPABILITY_INDEX, ArtifactType.AGENT_CARD,
     ArtifactType.MCP_TOOLS, ArtifactType.ONBOARDING_METADATA,
@@ -83,19 +124,41 @@ INTEGRITY_TYPES = frozenset({
     ArtifactType.PROVENANCE, ArtifactType.INGESTION_TRACEABILITY,
 })
 
+# Infrastructure sets — always included, never profile-gated
+_ALWAYS_INCLUDED = ONBOARDING_TYPES | INTEGRITY_TYPES
+
 
 class GenerationProfile(str, Enum):
-    """Generation profile controlling which artifact types are included in export."""
+    """Generation profile controlling which artifact types are included in export.
+
+    Profiles compose from audience-aware artifact sets:
+
+    - source: code generation (developer/machine audience)
+    - monitoring: machine-consumed automation rules only
+    - operator: monitoring + incident response + stakeholder artifacts
+    - sponsor: stakeholder artifacts (dashboards, SLOs) for business health
+    - practitioner: stakeholder artifacts as portal/orientation pages
+    - observability: all observability artifacts (monitoring + operator + stakeholder)
+    - full: everything (default, backward compatible)
+    """
 
     SOURCE = "source"
+    MONITORING = "monitoring"
+    OPERATOR = "operator"
+    SPONSOR = "sponsor"
+    PRACTITIONER = "practitioner"
     OBSERVABILITY = "observability"
     FULL = "full"
 
 
 PROFILE_INCLUDED_TYPES = {
-    GenerationProfile.SOURCE: SOURCE_TYPES | ONBOARDING_TYPES | INTEGRITY_TYPES,
-    GenerationProfile.OBSERVABILITY: OBSERVABILITY_TYPES | ONBOARDING_TYPES | INTEGRITY_TYPES,
-    GenerationProfile.FULL: SOURCE_TYPES | OBSERVABILITY_TYPES | ONBOARDING_TYPES | INTEGRITY_TYPES,
+    GenerationProfile.SOURCE:         SOURCE_TYPES | _ALWAYS_INCLUDED,
+    GenerationProfile.MONITORING:     MONITORING_TYPES | _ALWAYS_INCLUDED,
+    GenerationProfile.OPERATOR:       MONITORING_TYPES | OPERATOR_TYPES | STAKEHOLDER_TYPES | _ALWAYS_INCLUDED,
+    GenerationProfile.SPONSOR:        STAKEHOLDER_TYPES | _ALWAYS_INCLUDED,
+    GenerationProfile.PRACTITIONER:   STAKEHOLDER_TYPES | _ALWAYS_INCLUDED,
+    GenerationProfile.OBSERVABILITY:  OBSERVABILITY_TYPES | _ALWAYS_INCLUDED,
+    GenerationProfile.FULL:           SOURCE_TYPES | OBSERVABILITY_TYPES | _ALWAYS_INCLUDED,
 }
 
 

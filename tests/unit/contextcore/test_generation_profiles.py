@@ -1,4 +1,4 @@
-"""Tests for generation profile filtering (REQ-GP-100 through REQ-GP-401)."""
+"""Tests for generation profile filtering and audience-aware artifact model."""
 
 from __future__ import annotations
 
@@ -11,14 +11,19 @@ from contextcore.models.artifact_manifest import (
     ArtifactSpec,
     ArtifactStatus,
     ArtifactType,
+    AudienceRole,
     CoverageSummary,
     ExportProvenance,
     GenerationProfile,
     INTEGRITY_TYPES,
+    MONITORING_TYPES,
     OBSERVABILITY_TYPES,
     ONBOARDING_TYPES,
+    OPERATOR_TYPES,
     PROFILE_INCLUDED_TYPES,
     SOURCE_TYPES,
+    STAKEHOLDER_TYPES,
+    _ALWAYS_INCLUDED,
     filter_artifacts_by_profile,
 )
 
@@ -39,10 +44,11 @@ def _make_artifact(art_type: ArtifactType, art_id: str | None = None) -> Artifac
 
 
 def _make_mixed_artifacts() -> list[ArtifactSpec]:
-    """One artifact from each category."""
+    """One artifact from each subcategory."""
     return [
-        _make_artifact(ArtifactType.DASHBOARD),            # observability
-        _make_artifact(ArtifactType.PROMETHEUS_RULE),       # observability
+        _make_artifact(ArtifactType.DASHBOARD),            # stakeholder
+        _make_artifact(ArtifactType.PROMETHEUS_RULE),       # monitoring
+        _make_artifact(ArtifactType.RUNBOOK),               # operator
         _make_artifact(ArtifactType.DOCKERFILE),            # source
         _make_artifact(ArtifactType.CI_WORKFLOW),           # source
         _make_artifact(ArtifactType.CAPABILITY_INDEX),      # onboarding
@@ -58,14 +64,18 @@ class TestGenerationProfileEnum:
     def test_profile_enum_values(self):
         assert set(GenerationProfile) == {
             GenerationProfile.SOURCE,
+            GenerationProfile.MONITORING,
+            GenerationProfile.OPERATOR,
+            GenerationProfile.SPONSOR,
+            GenerationProfile.PRACTITIONER,
             GenerationProfile.OBSERVABILITY,
             GenerationProfile.FULL,
         }
 
     def test_profile_from_string(self):
-        assert GenerationProfile("source") == GenerationProfile.SOURCE
-        assert GenerationProfile("observability") == GenerationProfile.OBSERVABILITY
-        assert GenerationProfile("full") == GenerationProfile.FULL
+        for val in ("source", "monitoring", "operator", "sponsor",
+                     "practitioner", "observability", "full"):
+            assert GenerationProfile(val).value == val
 
 
 class TestFilterArtifactsByProfile:
@@ -73,19 +83,20 @@ class TestFilterArtifactsByProfile:
         artifacts = _make_mixed_artifacts()
         result = filter_artifacts_by_profile(artifacts, GenerationProfile.FULL)
         assert result is artifacts  # identity — no copy for full
-        assert len(result) == 6
+        assert len(result) == 7
 
     def test_source_profile_excludes_observability(self):
         artifacts = _make_mixed_artifacts()
         result = filter_artifacts_by_profile(artifacts, GenerationProfile.SOURCE)
         result_types = {a.type for a in result}
-        # Should have source + onboarding + integrity, NOT observability
+        # Should have source + always-included, NOT observability
         assert ArtifactType.DOCKERFILE in result_types
         assert ArtifactType.CI_WORKFLOW in result_types
         assert ArtifactType.CAPABILITY_INDEX in result_types
         assert ArtifactType.PROVENANCE in result_types
         assert ArtifactType.DASHBOARD not in result_types
         assert ArtifactType.PROMETHEUS_RULE not in result_types
+        assert ArtifactType.RUNBOOK not in result_types
         assert len(result) == 4
 
     def test_observability_profile_excludes_source(self):
@@ -94,19 +105,100 @@ class TestFilterArtifactsByProfile:
         result_types = {a.type for a in result}
         assert ArtifactType.DASHBOARD in result_types
         assert ArtifactType.PROMETHEUS_RULE in result_types
+        assert ArtifactType.RUNBOOK in result_types
         assert ArtifactType.CAPABILITY_INDEX in result_types
         assert ArtifactType.PROVENANCE in result_types
         assert ArtifactType.DOCKERFILE not in result_types
         assert ArtifactType.CI_WORKFLOW not in result_types
-        assert len(result) == 4
+        assert len(result) == 5
 
     def test_empty_list(self):
         assert filter_artifacts_by_profile([], GenerationProfile.SOURCE) == []
 
     def test_profile_included_types_completeness(self):
         """FULL profile includes all known types."""
-        all_types = SOURCE_TYPES | OBSERVABILITY_TYPES | ONBOARDING_TYPES | INTEGRITY_TYPES
+        all_types = SOURCE_TYPES | OBSERVABILITY_TYPES | _ALWAYS_INCLUDED
         assert PROFILE_INCLUDED_TYPES[GenerationProfile.FULL] == all_types
+
+    def test_monitoring_profile_excludes_human_artifacts(self):
+        artifacts = _make_mixed_artifacts()
+        result = filter_artifacts_by_profile(artifacts, GenerationProfile.MONITORING)
+        result_types = {a.type for a in result}
+        # Only monitoring rules + always-included
+        assert ArtifactType.PROMETHEUS_RULE in result_types
+        assert ArtifactType.DASHBOARD not in result_types
+        assert ArtifactType.RUNBOOK not in result_types
+        assert ArtifactType.DOCKERFILE not in result_types
+
+    def test_operator_profile_includes_monitoring_and_incident(self):
+        artifacts = _make_mixed_artifacts()
+        result = filter_artifacts_by_profile(artifacts, GenerationProfile.OPERATOR)
+        result_types = {a.type for a in result}
+        assert ArtifactType.PROMETHEUS_RULE in result_types
+        assert ArtifactType.DASHBOARD in result_types
+        assert ArtifactType.CAPABILITY_INDEX in result_types
+        assert ArtifactType.DOCKERFILE not in result_types
+
+    def test_sponsor_profile_only_stakeholder_artifacts(self):
+        artifacts = _make_mixed_artifacts()
+        result = filter_artifacts_by_profile(artifacts, GenerationProfile.SPONSOR)
+        result_types = {a.type for a in result}
+        assert ArtifactType.DASHBOARD in result_types
+        assert ArtifactType.PROMETHEUS_RULE not in result_types
+        assert ArtifactType.RUNBOOK not in result_types
+        assert ArtifactType.DOCKERFILE not in result_types
+
+    def test_practitioner_profile_same_types_as_sponsor(self):
+        """Sponsor and practitioner include the same artifact types;
+        the difference is in parameters.dashboard_pattern, not type filtering."""
+        assert (
+            PROFILE_INCLUDED_TYPES[GenerationProfile.SPONSOR]
+            == PROFILE_INCLUDED_TYPES[GenerationProfile.PRACTITIONER]
+        )
+
+
+class TestAudienceModel:
+    """Tests for the audience-aware artifact subcategories."""
+
+    def test_audience_role_enum(self):
+        assert set(AudienceRole) == {
+            AudienceRole.OPERATOR,
+            AudienceRole.SPONSOR,
+            AudienceRole.PRACTITIONER,
+        }
+
+    def test_observability_is_union_of_subcategories(self):
+        assert OBSERVABILITY_TYPES == MONITORING_TYPES | OPERATOR_TYPES | STAKEHOLDER_TYPES
+
+    def test_subcategories_are_disjoint(self):
+        assert not (MONITORING_TYPES & OPERATOR_TYPES)
+        assert not (MONITORING_TYPES & STAKEHOLDER_TYPES)
+        assert not (OPERATOR_TYPES & STAKEHOLDER_TYPES)
+
+    def test_always_included_in_every_profile(self):
+        for profile in GenerationProfile:
+            included = PROFILE_INCLUDED_TYPES[profile]
+            assert _ALWAYS_INCLUDED <= included, (
+                f"Profile {profile.value} missing always-included types"
+            )
+
+    def test_dashboard_pattern_via_parameters(self):
+        """Dashboard variant is controlled by parameters, not type."""
+        portal = _make_artifact(ArtifactType.DASHBOARD, "checkout-portal")
+        portal.parameters = {
+            "audience": "practitioner",
+            "dashboard_pattern": "portal",
+        }
+        operational = _make_artifact(ArtifactType.DASHBOARD, "checkout-ops")
+        operational.parameters = {
+            "audience": "operator",
+            "dashboard_pattern": "operational",
+        }
+        # Both are DASHBOARD type — profile filtering treats them the same
+        assert portal.type == operational.type == ArtifactType.DASHBOARD
+        # The difference is in parameters
+        assert portal.parameters["dashboard_pattern"] == "portal"
+        assert operational.parameters["audience"] == "operator"
 
 
 class TestProvenanceRecordsProfile:
@@ -237,9 +329,37 @@ class TestOnboardingProfileScoping:
         assert result["schema_version"] == "1.0.0"
 
     def test_profile_indicator_present(self):
-        for prof in ("source", "observability", "full"):
+        for prof in ("source", "monitoring", "operator", "sponsor",
+                     "practitioner", "observability", "full"):
             result = self._call_build(prof)
             assert result["generation_profile"] == prof
+
+    def test_monitoring_profile_includes_derivation_rules(self):
+        """Monitoring profile is an observability profile — derivation_rules are included."""
+        result = self._call_build("monitoring")
+        # derivation_rules is included (not omitted) for monitoring
+        val = result.get("derivation_rules")
+        assert val is None or "_omitted" not in val
+
+    def test_sponsor_profile_includes_contracts_and_calibration(self):
+        """Sponsor needs output contracts and calibration for dashboard generation."""
+        result = self._call_build("sponsor")
+        # These should NOT be omitted for sponsor
+        for key in ["expected_output_contracts", "design_calibration_hints"]:
+            val = result.get(key)
+            if val is not None:
+                assert "_omitted" not in val, f"{key} should not be omitted for sponsor"
+        # But derivation_rules should be omitted (observability-only)
+        assert "_omitted" in result.get("derivation_rules", {})
+
+    def test_operator_profile_includes_all_observability_sections(self):
+        """Operator gets everything observability gets."""
+        result = self._call_build("operator")
+        for key in ["derivation_rules", "artifact_dependency_graph",
+                     "expected_output_contracts", "design_calibration_hints"]:
+            val = result.get(key)
+            if val is not None:
+                assert "_omitted" not in val, f"{key} should not be omitted for operator"
 
 
 # ---------------------------------------------------------------------------
@@ -432,7 +552,8 @@ class TestProfileIndependence:
             "artifact_manifest_path", "project_context_path",
             "artifact_types", "coverage",
         }
-        for prof in ("source", "observability", "full"):
+        for prof in ("source", "monitoring", "operator", "sponsor",
+                     "practitioner", "observability", "full"):
             result = self._call_build(prof, output_dir=str(tmp_path))
             missing = required_keys - set(result.keys())
             assert not missing, f"Profile {prof} missing keys: {missing}"

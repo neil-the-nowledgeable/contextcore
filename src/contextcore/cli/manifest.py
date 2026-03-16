@@ -1760,9 +1760,18 @@ def analyze_plan_cmd(
 @click.option(
     "--profile",
     "generation_profile",
-    type=click.Choice(["source", "observability", "full"]),
+    type=click.Choice(["source", "monitoring", "operator", "sponsor", "practitioner", "observability", "full"]),
     default="full",
-    help="Generation profile: 'source' for code generation, 'observability' for monitoring artifacts, 'full' for everything.",
+    help=(
+        "Generation profile scoping artifact output by audience. "
+        "'source': code generation. "
+        "'monitoring': machine-consumed rules only. "
+        "'operator': monitoring + incident response + dashboards. "
+        "'sponsor': business health dashboards and SLOs. "
+        "'practitioner': portal/orientation dashboards. "
+        "'observability': all monitoring + operator + stakeholder. "
+        "'full': everything (default)."
+    ),
 )
 @click.option(
     "--dry-run",

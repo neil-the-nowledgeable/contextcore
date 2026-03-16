@@ -987,29 +987,50 @@ def build_onboarding_metadata(
     }
 
     # ── Enrichment fields (Export Enrichment Plan Changes 1-5 + Guide §6) ──
-    # Some sections are omitted for non-full profiles to reduce noise.
+    # Each section declares which profiles include it.  Sections not included
+    # for the active profile are replaced with an _omitted marker so downstream
+    # consumers can distinguish "intentionally excluded" from "genuinely absent."
     _omitted_marker = {"_omitted": f"profile={generation_profile}"}
-    _include_observability_sections = generation_profile != "source"
 
-    def _set_or_omit(key: str, value: Any) -> None:
-        """Set *key* in result when observability sections are included, else mark omitted."""
-        if _include_observability_sections:
-            if value:
-                result[key] = value
+    _ALL_PROFILES = {"source", "monitoring", "operator", "sponsor", "practitioner", "observability", "full"}
+    _OBSERVABILITY_PROFILES = {"monitoring", "operator", "observability", "full"}
+    _HUMAN_PROFILES = {"operator", "sponsor", "practitioner", "observability", "full"}
+
+    _SECTION_PROFILES: Dict[str, set] = {
+        "derivation_rules":           _OBSERVABILITY_PROFILES,
+        "artifact_dependency_graph":  _OBSERVABILITY_PROFILES,
+        "parameter_resolvability":    _OBSERVABILITY_PROFILES,
+        "expected_output_contracts":  _OBSERVABILITY_PROFILES | {"sponsor", "practitioner"},
+        "design_calibration_hints":   _OBSERVABILITY_PROFILES | {"sponsor", "practitioner"},
+        "objectives":                 _ALL_PROFILES,
+        "open_questions":             _ALL_PROFILES,
+        "resolved_artifact_parameters": _ALL_PROFILES,
+    }
+
+    def _include_section(key: str) -> bool:
+        return generation_profile in _SECTION_PROFILES.get(key, {"full"})
+
+    # Gated enrichment sections
+    _gated_sections = {
+        "derivation_rules": derivation_rules,
+        "artifact_dependency_graph": artifact_deps,
+        "expected_output_contracts": output_contracts,
+        "design_calibration_hints": design_calibration_hints,
+    }
+    for _key, _val in _gated_sections.items():
+        if _include_section(_key):
+            if _val:
+                result[_key] = _val
         else:
-            result[key] = _omitted_marker
-
-    _set_or_omit("derivation_rules", derivation_rules)
+            result[_key] = _omitted_marker
 
     if objectives_export:
         result["objectives"] = objectives_export
 
-    _set_or_omit("artifact_dependency_graph", artifact_deps)
-
     if resolved_params:
         result["resolved_artifact_parameters"] = resolved_params
 
-    if _include_observability_sections:
+    if _include_section("parameter_resolvability"):
         if parameter_resolvability:
             result["parameter_resolvability"] = parameter_resolvability
             result["parameter_resolvability_summary"] = {
@@ -1023,9 +1044,6 @@ def build_onboarding_metadata(
 
     if open_questions:
         result["open_questions"] = open_questions
-
-    _set_or_omit("expected_output_contracts", output_contracts)
-    _set_or_omit("design_calibration_hints", design_calibration_hints)
 
     if requirements_hints:
         result["requirements_hints"] = requirements_hints
