@@ -1,5 +1,6 @@
 """Tests for contextcore manifest fix — resolve open questions in manifests."""
 
+import copy
 import json
 
 import pytest
@@ -50,7 +51,7 @@ MINIMAL_V2_MANIFEST = {
 
 def _make_manifest(tmp_path, questions=None):
     """Create a v2 manifest with optional questions."""
-    data = json.loads(json.dumps(MINIMAL_V2_MANIFEST))  # deep copy
+    data = copy.deepcopy(MINIMAL_V2_MANIFEST)
     if questions:
         data["guidance"]["questions"] = questions
     path = tmp_path / ".contextcore.yaml"
@@ -332,6 +333,24 @@ class TestAnswersFileFormats:
             {"id": "Q-002", "answer": "Grafana Cloud"},
         ]
         path = tmp_path / "list-answers.yaml"
+        path.write_text(yaml.dump(answers))
+
+        result = runner.invoke(
+            manifest,
+            ["fix", "--path", str(manifest_with_open_questions), "--answers", str(path)],
+        )
+        assert result.exit_code == 0, result.output
+        assert "Fixed 2 question(s)" in result.output
+
+    def test_wrapped_questions_format_answers_file(self, runner, manifest_with_open_questions, tmp_path):
+        """Answers file with { questions: [...] } envelope (real pipeline format)."""
+        answers = {
+            "questions": [
+                {"id": "Q-001", "answer": "Kubernetes"},
+                {"id": "Q-002", "answer": "Grafana Cloud"},
+            ]
+        }
+        path = tmp_path / "wrapped-answers.yaml"
         path.write_text(yaml.dump(answers))
 
         result = runner.invoke(

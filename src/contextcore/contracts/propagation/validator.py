@@ -141,6 +141,45 @@ def _resolve_field(context: dict[str, Any], field_path: str) -> tuple[bool, Any]
 # Quality metric extractors
 # ---------------------------------------------------------------------------
 
+def _extract_success_rate(v: Any) -> float:
+    """Extract success rate from a dict of per-task integration results.
+
+    Expects ``{task_id: {success: bool, ...}, ...}``.  Returns the fraction
+    of entries where ``success`` is truthy (0.0–1.0).  Non-dict entries
+    count toward the total (denominator) but never toward success, which
+    lowers the reported rate.
+    """
+    if not isinstance(v, dict) or not v:
+        if v is not None and not isinstance(v, dict):
+            logger.debug(
+                "success_rate extractor received non-dict type: %s",
+                type(v).__name__,
+            )
+        return 0.0
+    succeeded = sum(
+        1 for entry in v.values()
+        if isinstance(entry, dict) and entry.get("success")
+    )
+    return float(succeeded / len(v))
+
+
+def _extract_total_passed(v: Any) -> float:
+    """Extract ``total_passed`` from a phase results dict.
+
+    Looks for a ``total_passed`` key first (TEST/REVIEW results), then falls
+    back to counting ``passed=True`` entries in a ``per_task`` sub-dict.
+    """
+    if not isinstance(v, dict):
+        return 0.0
+    if "total_passed" in v:
+        val = v["total_passed"]
+        return float(val) if isinstance(val, (int, float)) else 0.0
+    per_task = v.get("per_task")
+    if isinstance(per_task, dict):
+        return float(sum(1 for e in per_task.values() if isinstance(e, dict) and e.get("passed") is True))
+    return 0.0
+
+
 _QUALITY_EXTRACTORS: dict[str, Callable[[Any], float]] = {
     "line_count": lambda v: float(len(str(v).strip().splitlines())) if v else 0.0,
     "char_count": lambda v: float(len(str(v).strip())) if v else 0.0,
@@ -148,6 +187,8 @@ _QUALITY_EXTRACTORS: dict[str, Callable[[Any], float]] = {
         sum(1 for line in str(v).splitlines() if line.strip().startswith("##"))
     ) if v else 0.0,
     "length": lambda v: float(len(v)) if isinstance(v, (list, dict, str)) else 0.0,
+    "success_rate": _extract_success_rate,
+    "total_passed": _extract_total_passed,
 }
 
 
@@ -224,7 +265,7 @@ def _validate_field(
                         status = PropagationStatus.PARTIAL
                     message = violation.message
         else:
-            logger.debug(
+            logger.warning(
                 "Unknown quality metric '%s' for field '%s', skipping",
                 spec.quality.metric,
                 spec.name,

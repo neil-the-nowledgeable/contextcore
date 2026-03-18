@@ -10,7 +10,6 @@ and validate --strict (which fails on them) by providing a proper Stage 2.5.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -71,6 +70,11 @@ def detect_manifest_issues(manifest_path: str) -> ManifestFixReport:
 
     Returns:
         ManifestFixReport with details of fixable issues.
+
+    Raises:
+        FileNotFoundError: If the manifest file does not exist.
+        ValueError: If the manifest fails schema validation.
+        yaml.YAMLError: If the manifest contains invalid YAML.
     """
     from contextcore.models.manifest_loader import load_manifest
     from contextcore.models.manifest_v2 import ContextManifestV2
@@ -138,11 +142,13 @@ def resolve_questions_from_file(
 ) -> Tuple[List[ResolvedAnswer], List[str]]:
     """Load answers from a YAML/JSON file and match to open questions.
 
-    The answers file should be a mapping of question_id -> answer text:
+    The answers file should be a mapping of question_id -> answer text::
+
         Q-001: "The answer"
         Q-CAP-1: "Another answer"
 
-    Or a list of dicts with id/answer keys:
+    Or a list of dicts with id/answer keys::
+
         - id: Q-001
           answer: "The answer"
 
@@ -152,15 +158,30 @@ def resolve_questions_from_file(
 
     Returns:
         Tuple of (resolved answers, unmatched question IDs).
+
+    Raises:
+        ValueError: If the answers file is empty or contains invalid YAML.
+        OSError: If the answers file cannot be read.
     """
     path = Path(answers_path)
     raw = path.read_text(encoding="utf-8")
 
-    # Try YAML first (covers JSON too since JSON is valid YAML)
-    answers_data = yaml.safe_load(raw)
+    try:
+        answers_data = yaml.safe_load(raw)
+    except yaml.YAMLError as exc:
+        raise ValueError(f"Invalid YAML in answers file {answers_path}: {exc}") from exc
 
     # Normalize to dict[question_id -> answer]
+    # Supported formats:
+    #   1. Flat dict:   { "Q-001": "answer", "Q-002": "answer" }
+    #   2. List:        [ { id: Q-001, answer: "..." }, ... ]
+    #   3. Wrapped:     { questions: [ { id: Q-001, answer: "..." }, ... ] }
     answers_map: Dict[str, str] = {}
+
+    # Unwrap { questions: [...] } envelope
+    if isinstance(answers_data, dict) and "questions" in answers_data:
+        answers_data = answers_data["questions"]
+
     if isinstance(answers_data, dict):
         for k, v in answers_data.items():
             answers_map[str(k)] = str(v)
@@ -168,8 +189,8 @@ def resolve_questions_from_file(
         for item in answers_data:
             if isinstance(item, dict) and "id" in item and "answer" in item:
                 answers_map[str(item["id"])] = str(item["answer"])
+    # answers_data is None (empty file) or unexpected type — answers_map stays empty
 
-    question_ids = {q["id"] for q in questions}
     resolutions: List[ResolvedAnswer] = []
     unmatched: List[str] = []
 
@@ -210,13 +231,20 @@ def apply_manifest_fixes(
 
     Returns:
         ManifestFixResult with counts and action details.
+
+    Raises:
+        yaml.YAMLError: If the manifest contains invalid YAML.
+        OSError: If the manifest file cannot be read or written.
     """
     path = Path(manifest_path)
     raw_data = yaml.safe_load(path.read_text(encoding="utf-8"))
 
     result = ManifestFixResult(path=manifest_path)
 
-    # Build resolution lookup
+    if not isinstance(raw_data, dict):
+        return result
+
+    # Build resolution lookup for O(1) matching
     resolution_map = {r.question_id: r for r in resolutions}
 
     questions = (raw_data.get("guidance") or {}).get("questions") or []

@@ -243,6 +243,129 @@ class TestQualityValidation:
         assert result.passed is True
         assert result.field_results[0].quality_violations == []
 
+    def test_quality_success_rate_on_dict(self, validator):
+        """success_rate extractor computes fraction of entries with success=True."""
+        contract = _make_contract([
+            FieldSpec(
+                name="integration_results",
+                quality=QualitySpec(metric="success_rate", threshold=0.5),
+            ),
+        ])
+        context = {
+            "integration_results": {
+                "T1": {"success": True, "files": ["a.py"]},
+                "T2": {"success": True, "files": ["b.py"]},
+                "T3": {"success": False, "errors": ["lint"]},
+            },
+        }
+        result = validator.validate_entry("implement", context, contract)
+        assert result.passed is True
+        assert result.field_results[0].quality_violations == []
+
+    def test_quality_success_rate_below_threshold(self, validator):
+        """success_rate below threshold produces a violation."""
+        contract = _make_contract([
+            FieldSpec(
+                name="integration_results",
+                quality=QualitySpec(
+                    metric="success_rate",
+                    threshold=0.5,
+                    on_below=ConstraintSeverity.WARNING,
+                ),
+            ),
+        ])
+        context = {
+            "integration_results": {
+                "T1": {"success": False},
+                "T2": {"success": False},
+                "T3": {"success": True},
+            },
+        }
+        result = validator.validate_entry("implement", context, contract)
+        assert result.passed is True  # WARNING severity
+        violations = [v for v in result.quality_violations if v.metric == "success_rate"]
+        assert len(violations) == 1
+        assert violations[0].actual < 0.5
+
+    def test_quality_success_rate_on_non_dict(self, validator):
+        """success_rate returns 0.0 for non-dict values."""
+        contract = _make_contract([
+            FieldSpec(
+                name="results",
+                quality=QualitySpec(
+                    metric="success_rate",
+                    threshold=0.5,
+                    on_below=ConstraintSeverity.WARNING,
+                ),
+            ),
+        ])
+        context = {"results": "not a dict"}
+        result = validator.validate_entry("implement", context, contract)
+        violations = [v for v in result.quality_violations if v.metric == "success_rate"]
+        assert len(violations) == 1
+        assert violations[0].actual == 0.0
+
+    def test_quality_total_passed_from_total_passed_key(self, validator):
+        """total_passed extractor reads total_passed key from dict."""
+        contract = _make_contract([
+            FieldSpec(
+                name="test_results",
+                quality=QualitySpec(metric="total_passed", threshold=1.0),
+            ),
+        ])
+        context = {
+            "test_results": {
+                "total_passed": 3,
+                "total_failed": 1,
+                "per_task": {"T1": {"passed": True}, "T2": {"passed": True}},
+            },
+        }
+        result = validator.validate_entry("implement", context, contract)
+        assert result.passed is True
+        assert result.field_results[0].quality_violations == []
+
+    def test_quality_total_passed_from_per_task(self, validator):
+        """total_passed extractor falls back to counting per_task.*.passed."""
+        contract = _make_contract([
+            FieldSpec(
+                name="review_results",
+                quality=QualitySpec(metric="total_passed", threshold=1.0),
+            ),
+        ])
+        context = {
+            "review_results": {
+                "per_task": {
+                    "T1": {"passed": True, "score": 85},
+                    "T2": {"passed": False, "score": 30},
+                },
+            },
+        }
+        result = validator.validate_entry("implement", context, contract)
+        assert result.passed is True
+
+    def test_quality_total_passed_below_threshold(self, validator):
+        """total_passed below threshold produces a violation."""
+        contract = _make_contract([
+            FieldSpec(
+                name="test_results",
+                quality=QualitySpec(
+                    metric="total_passed",
+                    threshold=1.0,
+                    on_below=ConstraintSeverity.WARNING,
+                ),
+            ),
+        ])
+        context = {
+            "test_results": {
+                "total_passed": 0,
+                "per_task": {},
+            },
+        }
+        result = validator.validate_entry("implement", context, contract)
+        violations = [v for v in result.quality_violations if v.metric == "total_passed"]
+        assert len(violations) == 1
+        assert violations[0].actual == 0.0
+
 
 # ===========================================================================
 # Evaluation gate tests
