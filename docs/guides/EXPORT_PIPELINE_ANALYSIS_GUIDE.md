@@ -2,11 +2,11 @@
 
 **File**: `docs/EXPORT_PIPELINE_ANALYSIS_GUIDE.md`
 
-**Description**: A technical reference guide for plan ingestion and artisan workflow developers that explains the 7-step A2A governance-aware flow — ContextCore install init, ContextCore export, A2A pipeline checker (Gate 1), startd8-sdk plan ingestion, A2A diagnostic (Gate 2), contractor execution, and finalize verification (Gate 3) — as a single data flow, then layers defense-in-depth principles on top for issue analysis. Covers pre-pipeline steps (`create` for project context, `polish` for plan quality, `manifest init` / `validate` / `export`), what `init` validates and seeds, the six export output files plus enrichment fields, the 5-phase plan ingestion pipeline with complexity-score routing, the 7-phase artisan workflow with design calibration, A2A governance gates and contract types, a symptom-based troubleshooting matrix, and six defense-in-depth principles (boundary validation, adversarial thinking, checksum circuit breakers, backward failure tracing, calibration guards, and the "Three Questions" diagnostic ordering). Cross-references formal requirements documents for each pipeline step.
+**Description**: A technical reference guide for plan ingestion and artisan workflow developers that explains the 7-step A2A governance-aware flow — ContextCore install init, ContextCore export, A2A pipeline checker (Gate 1), startd8-sdk plan ingestion, A2A diagnostic (Gate 2), contractor execution, and finalize verification (Gate 3) — as a single data flow, then layers defense-in-depth principles on top for issue analysis. Covers pre-pipeline steps (`create` for project context, `polish` for plan quality, `manifest init` / `validate` / `export`), what `init` validates and seeds, the six export output files plus enrichment fields, the 5-phase plan ingestion pipeline with complexity-score routing, the 8-phase artisan workflow with design calibration and integration validation, A2A governance gates and contract types, a symptom-based troubleshooting matrix, and six defense-in-depth principles (boundary validation, adversarial thinking, checksum circuit breakers, backward failure tracing, calibration guards, and the "Three Questions" diagnostic ordering). Cross-references formal requirements documents for each pipeline step.
 
 ---
 
-How `contextcore install init` and `contextcore manifest export` feed the Plan Ingester and the Artisan Workflow — and how to apply defense-in-depth when diagnosing problems across the full 7-step A2A governance-aware pipeline.
+How `contextcore install init` and `contextcore manifest export` feed the Plan Ingester and the Artisan Workflow — and how to apply defense-in-depth when diagnosing problems across the full 7-step A2A governance-aware pipeline. (Note: the pipeline itself has 7 governance steps; the artisan workflow within Step 6 has 8 phases.)
 
 **Audience**: Plan ingestion workflow developers, artisan workflow developers, SDK integrators.
 
@@ -213,7 +213,7 @@ An LLM scores 7 complexity dimensions (0–100) for the set of artifacts. This i
 ### Phase 3 — TRANSFORM (routing decision)
 
 - **Complexity score ≤ 40** → route to **PrimeContractor** (sequential feature-by-feature integration)
-- **Complexity score > 40** → route to **Artisan Workflow** (structured 7-phase orchestration with design review)
+- **Complexity score > 40** → route to **Artisan Workflow** (structured 8-phase orchestration with design review and integration validation)
 
 The `force_route` config can override this. The `artifact_task_mapping` from onboarding metadata maps artifact IDs to task IDs (e.g., `checkout-api-dashboard` → `PI-019`) so downstream work items are traceable.
 
@@ -261,7 +261,7 @@ Optionally writes ContextCore task tracking artifacts (epic/story/task state fil
 
 ## 4. How the Artisan Workflow Consumes the Export
 
-When plan ingestion routes to the artisan path, the `ArtisanContractorWorkflow` (`startd8.workflow.contractor.artisan_orchestrator`) receives the plan as an **enriched context seed**. The export data flows through its **7 phases**:
+When plan ingestion routes to the artisan path, the `ArtisanContractorWorkflow` (`startd8.workflow.contractor.artisan_orchestrator`) receives the plan as an **enriched context seed**. The export data flows through its **8 phases**:
 
 ### Phase 1 — PLAN
 
@@ -283,17 +283,21 @@ The artifact manifest's derivation rules (how business criticality maps to alert
 
 ### Phase 4 — IMPLEMENT
 
-The `ImplementPhaseHandler` wired to `LeadContractorCodeGenerator` reads existing files (60KB cap) and dependency outputs as context. The `parameter_sources` from onboarding metadata *are available to* tell the generator which manifest or CRD fields to read for each parameter (consumption not yet implemented in startd8-sdk).
+The `ImplementPhaseHandler` wired to `LeadContractorCodeGenerator` reads existing files (60KB cap) and dependency outputs as context. Generated code is written to a staging directory (`.startd8/staging/`). The `parameter_sources` from onboarding metadata *are available to* tell the generator which manifest or CRD fields to read for each parameter (consumption not yet implemented in startd8-sdk).
 
-### Phase 5 — TEST
+### Phase 5 — INTEGRATE
+
+The `IntegratePhaseHandler` merges staged files from IMPLEMENT into the project root using `IntegrationEngine`. Per-task integration includes snapshot/restore, truncation detection, dirty-file protection, merge strategy execution, and checkpoint validation with automatic rollback on failure. This phase makes no LLM calls (zero token cost).
+
+### Phase 6 — TEST
 
 Validates generated artifacts.
 
-### Phase 6 — REVIEW
+### Phase 7 — REVIEW
 
 Multi-agent review via the 3-tier cost model (Haiku drafter, Sonnet validator, Opus reviewer).
 
-### Phase 7 — FINALIZE
+### Phase 8 — FINALIZE
 
 Produces the final report with sha256 checksums per artifact, per-task status rollup, and cost aggregation. 
 
@@ -309,7 +313,7 @@ Produces the final report with sha256 checksums per artifact, per-task status ro
 > has known Mottainai violations documented in
 > [`MOTTAINAI_DESIGN_PRINCIPLE.md`](../design-principles/MOTTAINAI_DESIGN_PRINCIPLE.md).
 
-When plan ingestion routes to the prime path (complexity score ≤ 40), the `PrimeContractorWorkflow` (`startd8.contractors.prime_contractor`) receives tasks from the **prime-context-seed.json** via `FeatureQueue.add_features_from_seed()`. Unlike the artisan 7-phase pipeline, the prime workflow processes features **sequentially** with immediate integration:
+When plan ingestion routes to the prime path (complexity score ≤ 40), the `PrimeContractorWorkflow` (`startd8.contractors.prime_contractor`) receives tasks from the **prime-context-seed.json** via `FeatureQueue.add_features_from_seed()`. Unlike the artisan 8-phase pipeline, the prime workflow processes features **sequentially** with immediate integration:
 
 ### Feature Loop (per feature)
 
@@ -337,7 +341,7 @@ When plan ingestion routes to the prime path (complexity score ≤ 40), the `Pri
 
 | Aspect | Artisan | Prime |
 |--------|---------|-------|
-| Phases | 7 (PLAN→SCAFFOLD→DESIGN→IMPLEMENT→TEST→REVIEW→FINALIZE) | 1 loop (generate→integrate→checkpoint) |
+| Phases | 8 (PLAN→SCAFFOLD→DESIGN→IMPLEMENT→INTEGRATE→TEST→REVIEW→FINALIZE) | 1 loop (generate→integrate→checkpoint) |
 | Design review | Full LLM-powered design document per task | None — goes straight to code generation |
 | Architectural context | Forwarded via seed `architectural_context` | Not forwarded (set to `None` in seed) |
 | Design calibration | Per-task depth tiers (brief/standard/comprehensive) | Flat LOC-based estimation |
@@ -553,7 +557,7 @@ contextcore contract a2a-diagnose ./output --ingestion-dir ./out
 contextcore contract a2a-diagnose ./output --ingestion-dir ./out --fail-on-issue  # CI mode
 
 # Step 6: contractor execution (these scripts live in startd8-sdk, not ContextCore)
-# Artisan route (7-phase orchestrated workflow):
+# Artisan route (8-phase orchestrated workflow):
 python3 scripts/run_artisan_workflow.py --seed seed.json --output-dir out/ --cost-budget 10
 python3 scripts/run_artisan_design_only.py --seed seed.json --output-dir out/  # design review
 python3 scripts/run_artisan_implement_only.py --handoff out/design-handoff.json  # from handoff

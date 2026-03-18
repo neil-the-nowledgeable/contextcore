@@ -12,7 +12,7 @@
 
 **Objectives:** Phases 1-2 are ContextCore-only (establish the registry).
 
-Seven work packages across three repos, ordered by dependency. Phases 1-2 are ContextCore-only (establish the registry). Phase 3 aligns StartD8 SDK. Phase 4 aligns Wayfinder. Phase 5 adds cross-repo CI. Phases 6-7 are cleanup and documentation.
+Seven work packages across three repos, ordered by dependency. Phases 1-2 are ContextCore-only (establish the registry). Phase 3 aligns StartD8 SDK. Phase 4 reconciles HandoffStatus. Phase 5 aligns Wayfinder. Phase 6 adds cross-repo CI. Phase 7 is documentation and policy cleanup.
 
 **Estimated scope:** ~49 files modified/created, no LLM calls, no runtime behavior changes.
 
@@ -28,6 +28,7 @@ Seven work packages across three repos, ordered by dependency. Phases 1-2 are Co
 - Complete wayfinder registry reference (wayfinder)
 - Register all 7 contract domain layers (propagation, schema_compat, semconv, boundary, capability, budget, lineage)
 - Publish pipeline gate manifest (REQ-11)
+- Implement REQ-8 MVP (change detection + SpanState task emission) and defer advanced routing checks
 - Acknowledge edit-first enforcement cross-repo contract (REQ-9)
 
 ## Functional Requirements
@@ -41,7 +42,7 @@ Seven work packages across three repos, ordered by dependency. Phases 1-2 are Co
 | REQ-5 | Phase 5: Wayfinder Registry Reference (Wayfinder) |
 | REQ-6 | Phase 6: Cross-Repo CI (ContextCore + StartD8 SDK) |
 | REQ-7 | Phase 3: Align StartD8 Emitter (StartD8 SDK) |
-| REQ-8 | Phase 7: Documentation — multi-project discovery + telemetry schema change notification |
+| REQ-8 | Phase 6.5: REQ-8 MVP rollout (AC1-AC3) + Phase 7 follow-up design (AC4-AC5) |
 | REQ-9 | Phase 7: Edit-First Enforcement acknowledgment (already implemented) |
 | REQ-10 | Phase 2: Contract Domain Layer Registry Coverage |
 | REQ-11 | Phase 1: Pipeline Gate Manifest |
@@ -550,11 +551,29 @@ Note the following Weaver capabilities for future consideration (not blocking fo
 **Deliverables:** 1 script created (validate_enum_consistency.py), CI workflows updated in both repos, capabilities documented
 **Validation:** CI passes in both repos; attribute allowlist is authoritative; all 27 enums validated
 
+### 6.5 REQ-8 Delivery Decision (MVP Now, Advanced Later)
+
+**Decision:** Deliver REQ-8 in two stages.
+
+- **MVP now (in-scope, this plan):** implement REQ-8 AC1-AC3
+  - Producer CI detects telemetry schema changes
+  - Each producer maintains `telemetry-schema.yaml`
+  - CI emits SpanState v2 notification tasks on schema change
+- **Follow-up later (deferred):** implement REQ-8 AC4-AC5
+  - Multi-project upstream scanning in `ContextCoreTaskSource`
+  - Dashboard-as-code validation wiring in consumer repos
+
+**Why this split:** AC1-AC3 can be delivered with low coupling and immediate risk reduction. AC4-AC5 require cross-repo runtime/tooling integration and should be tracked as a dedicated follow-up once MVP signal quality is validated.
+
+**Owner split:**
+- ContextCore + StartD8 SDK own MVP implementation
+- Wayfinder owns dashboard-validation integration in the follow-up stage
+
 ---
 
 ## Phase 7: Documentation Refresh
 
-**Satisfies:** Cleanup + REQ-8 + REQ-9
+**Satisfies:** Cleanup + REQ-9 + REQ-8 follow-up design
 **Repos:** All three
 **Depends on:** Phases 1-6
 
@@ -678,53 +697,67 @@ This appendix is intentionally **append-only**. New reviewers (human or model) s
 - **When validating**: For each suggestion, append a row to Appendix A (if applied) or Appendix B (if rejected) referencing the suggestion ID. Endorsement counts inform priority but do not auto-apply suggestions.
 - **If rejecting**: Record **why** (specific rationale) so future models don't re-propose the same idea.
 
+### Areas Substantially Addressed
+
+(No areas have reached the threshold of 3 accepted suggestions yet.)
+
 ### Areas Needing Further Review
 
-- **architecture**: 2 accepted (R2-S3, R2-S5) — needs 1 more to reach threshold of 3
-- **clarity**: no accepted suggestions yet — needs 3 to reach threshold
-- **completeness**: no accepted suggestions yet — needs 3 to reach threshold
-- **maintainability**: no accepted suggestions yet — needs 3 to reach threshold
-- **scalability**: no accepted suggestions yet — needs 3 to reach threshold
-- **security**: no accepted suggestions yet — needs 3 to reach threshold
-- **testability**: no accepted suggestions yet — needs 3 to reach threshold
+- **Architecture**: 2/3 suggestions accepted (R2-S3, R2-S5; need 1 more)
+- **Interfaces**: 0/3 suggestions accepted (need 3 more)
+- **Data**: 1/3 suggestions accepted (R2-S6; need 2 more)
+- **Risks**: 0/3 suggestions accepted (need 3 more)
+- **Validation**: 2/3 suggestions accepted (R2-S4, R2-S7; need 1 more)
+- **Ops**: 0/3 suggestions accepted (need 3 more)
+- **Security**: 0/3 suggestions accepted (need 3 more)
 
 ### Appendix A: Applied Suggestions
 
 | ID | Suggestion | Source | Implementation / Validation Notes | Date |
 |----|------------|--------|----------------------------------|------|
-| R2-S3 | Add a formal deprecation lifecycle policy documenting timelines for removal and breaking change communication. | gemini-2.5 (gemini-2.5-pro) | Phase 2 introduces deprecated attributes with no mechanism for eventual removal, guaranteeing unbounded schema growth. A lightweight deprecation policy document is low effort and essential for long-term maintainability of the registry. Without it, deprecated attributes will accumulate indefinitely. | 2026-02-14 21:57:14 UTC |
-| R2-S4 | Define semantic equivalence comparison semantics for the round-trip test in Phase 3.2 instead of relying on literal diff. | gemini-2.5 (gemini-2.5-pro) | Endorsed by a reviewer. The current description 'verify all attributes survive' is ambiguous and a naive diff will produce false failures due to key ordering, timestamp precision, or null handling. Specifying semantic comparison makes the test robust and actually useful. This is a low-cost clarification with high impact on test reliability. Applied in Phase 3.2 with explicit comparison rules: ignore key ordering, tolerate timestamp precision to millisecond, handle null/default equivalence. | 2026-02-14 21:57:14 UTC |
-| R2-S5 | Start the registry at version 0.1.0 instead of 1.0.0 to signal instability. | gemini-2.5 (gemini-2.5-pro) | The registry is brand new with many opt_in fields and the plan itself acknowledges potential changes. Following semantic versioning conventions, 0.x correctly communicates to consumers that breaking changes may occur. Starting at 1.0.0 prematurely signals stability guarantees the project cannot yet deliver. This is a trivial change with meaningful signaling value. Applied in Phase 1.1 manifest.yaml (version: 0.1.0). | 2026-02-14 21:57:14 UTC |
-| R2-S6 | Add documentation in Phase 1 explicitly defining the behavioral contract for opt_in attributes (producers MAY emit, consumers MUST tolerate absence). | gemini-2.5 (gemini-2.5-pro) | The term 'opt_in' is used throughout the plan across three repos but its precise contract is never explicitly stated. This is a low-effort documentation task that prevents misinterpretation by developers, especially in a multi-repo context where implicit assumptions are dangerous. It can be combined with R2-S3's deprecation policy in the same README. Applied as Section 1.6: semconv/README.md with RequirementLevel table and deprecation policy. | 2026-02-14 21:57:14 UTC |
-| R2-S7 | Scope the enum consistency script in Phase 6.3 to validate all shared enums, not just HandoffStatus. | gemini-2.5 (gemini-2.5-pro) | The plan fixes HandoffStatus drift as a specific instance but the CI check should prevent drift in all enums (TaskStatus, TaskType, Priority, etc.). Scoping the script comprehensively is marginal additional effort during initial implementation but prevents the same class of bug from recurring in other enums. This is a straightforward improvement to the validation coverage. Applied in Phase 6.3 with `--scope all` flag validating all 27 enums. | 2026-02-14 21:57:14 UTC |
-| R1-F8 / R2-S7 / R3-F7 | `opt_in` formally defined via RequirementLevel enum. | Multiple reviewers | `RequirementLevel` enum (required, recommended, opt_in) added to `contracts/types.py` as Section 3.21 in WEAVER_REGISTRY_REQUIREMENTS.md. This provides machine-readable definition of the `opt_in` semantics. Referenced in Section 1.6 README.md. | 2026-02-28 |
+| R2-S3 | [Architecture] Add a formal deprecation lifecycle policy documenting timelines for removal and breaking change communication. | gemini-2.5 (gemini-2.5-pro) | Implemented in Phase 1.6/Phase 2 policy notes. | 2026-02-14 21:57:14 UTC |
+| R2-S4 | [Validation] Define semantic equivalence comparison semantics for the round-trip test in Phase 3.2 instead of relying on literal diff. | gemini-2.5 (gemini-2.5-pro) | Applied in Phase 3.2 with explicit semantic comparison rules. | 2026-02-14 21:57:14 UTC |
+| R2-S5 | [Architecture] Start the registry at version 0.1.0 instead of 1.0.0 to signal instability. | gemini-2.5 (gemini-2.5-pro) | Applied in Phase 1.1 manifest (`version: 0.1.0`). | 2026-02-14 21:57:14 UTC |
+| R2-S6 | [Data] Add documentation in Phase 1 explicitly defining the behavioral contract for opt_in attributes (producers MAY emit, consumers MUST tolerate absence). | gemini-2.5 (gemini-2.5-pro) | Applied in Phase 1.6 requirement-level table. | 2026-02-14 21:57:14 UTC |
+| R2-S7 | [Validation] Scope the enum consistency script in Phase 6.3 to validate all shared enums, not just HandoffStatus. | gemini-2.5 (gemini-2.5-pro) | Applied with `--scope all` in Phase 6.3. | 2026-02-14 21:57:14 UTC |
 
 ### Appendix B: Rejected Suggestions (with Rationale)
 
 | ID | Suggestion | Source | Rejection Rationale | Date |
 |----|------------|--------|---------------------|------|
-| R2-S1 | Mandate Option B (automated schema distribution) and remove Option A from Phase 6.2. | gemini-2.5 (gemini-2.5-pro) | The plan explicitly acknowledges Option B as the long-term goal and recommends Option A as an intentional stepping stone. Mandating Option B before cross-repo CI infrastructure exists adds complexity and risk to an already multi-repo effort. The pragmatic phased approach (Option A now, Option B later) is sound engineering. The plan already mitigates drift via CI checks and tests within each repo. | 2026-02-14 21:57:14 UTC |
-| R2-S2 | Add a work package to Phase 5 to update Wayfinder's runtime consumers to use new opt_in attributes. | gemini-2.5 (gemini-2.5-pro) | The plan's stated scope is alignment and drift prevention with 'no runtime behavior changes.' Updating downstream consumers like Grafana dashboards and Python scripts is valuable but represents a separate feature/enhancement effort that should be tracked independently. Including runtime consumer changes would expand scope significantly and conflate schema alignment with feature delivery. | 2026-02-14 21:57:14 UTC |
+| R2-S1 | Mandate Option B (automated schema distribution) and remove Option A from Phase 6.2. | gemini-2.5 (gemini-2.5-pro) | Full mandate was rejected for this iteration; phased rollout is retained to reduce execution risk. | 2026-02-14 21:57:14 UTC |
+| R2-S2 | Add a work package to Phase 5 to update Wayfinder runtime consumers to use new opt_in attributes. | gemini-2.5 (gemini-2.5-pro) | Rejected for current scope because it introduces runtime behavior changes; tracked as a separate follow-up. | 2026-02-14 21:57:14 UTC |
 
 ### Appendix C: Incoming Suggestions (Untriaged, append-only)
 
 #### Review Round R2
+
 - **Reviewer**: gemini-2.5 (gemini-2.5-pro)
 - **Date**: 2026-02-14 21:55:05 UTC
 - **Scope**: Architecture-focused review
 
 | ID | Area | Severity | Suggestion | Rationale | Proposed Placement | Validation Approach |
-|---|---|---|---|---|---|---|
-| R2-S1 | architecture | critical | Mandate and define an automated schema distribution mechanism. The proposed "Option A (lightweight)" in Phase 6.2 re-introduces a manual synchronization step that undermines the project's entire goal of preventing drift. | Without a reliable, automated way for consumer repos to fetch the canonical schema, drift is inevitable. Option A is a temporary fix that will become permanent technical debt. The plan must solve the core cross-repo dependency problem head-on. | Modify Phase 6.2 to remove Option A and mandate a robust approach (Option B). Add a new step to Phase 1 to publish the generated schema/allowlist as a versioned artifact (e.g., to a GitHub release) from the ContextCore repo. | The StartD8 CI pipeline must fetch a versioned schema artifact from ContextCore as part of its validation step, not rely on a checked-in, manually-updated file. |
-| R2-S2 | validation | high | Add a work package to Phase 5 to audit and update Wayfinder's key runtime consumers (`load_tasks_to_tempo.py`, Grafana dashboards) to use the newly available `opt_in` attributes. | The problem statement highlights that "Emitter-only attributes are invisible downstream unless consumers are updated." Phase 5 only updates documentation, failing to close the loop and deliver user value by making the new data visible in dashboards and scripts. | Add a new step 5.4 in Phase 5: "Update Downstream Consumers". This includes auditing consumer code and filing/linking tickets to implement the necessary changes. | A pull request in the Wayfinder repo modifies `load_tasks_to_tempo.py` to correctly parse at least one of the new `opt_in` attributes (e.g., `task.feature_id`). |
-| R2-S3 | architecture | high | Add a task to define and document a formal deprecation lifecycle policy, including timelines for removal and the process for communicating breaking changes. | Phase 2 consolidates deprecation mappings but provides no mechanism to ever remove them. This guarantees schema bloat and an ever-increasing maintenance burden for backward compatibility. A formal policy is required for long-term health. | Add a new step 2.3: "Document Deprecation Policy" in a new `semconv/README.md` file. The policy should align with a semantic versioning strategy for the registry. | The policy document must specify (1) how long a deprecated attribute is supported (e.g., 2 minor versions) and (2) the process for its final removal in a future major version. |
-| R2-S4 | validation | medium | Explicitly define the comparison semantics for the round-trip test in Phase 3.2 to require semantic equivalence, not a literal diff. | The current description, "Verify all attributes survive," is ambiguous. A naive diff will be brittle and fail on non-functional changes like JSON key ordering or timestamp precision. The test must be robust to be useful. | Add implementation details to the description of Phase 3.2, specifying that the comparison must ignore key order, tolerate timestamp precision differences (e.g., to the millisecond), and handle default/null values consistently. | The test code for the round-trip check must demonstrate semantic comparison, for example by loading both files into dictionaries and performing a deep comparison. |
-| R2-S5 | architecture | medium | Start the registry at version `0.1.0` instead of `1.0.0` in the manifest. | The registry is new, experimental, and introduces many `opt_in` fields. Following semantic versioning conventions, a `0.x` version correctly signals to consumers that the schema is not yet stable and breaking changes may occur before a stable `1.0.0` release. | Modify the `registry_manifest.yaml` file in Phase 1.1. | The `semconv/registry_manifest.yaml` file checked into the ContextCore repository contains `version: 0.1.0`. |
-| R2-S6 | data | medium | Add a task to Phase 1 to explicitly document the behavioral contract for `opt_in` attributes in the registry's README. | The term `opt_in` is used throughout the plan, but its contract for producers (MAY emit) and consumers (MUST tolerate absence) is assumed, not stated. Explicitly documenting this prevents misinterpretation by developers in any of the three repos. | Add a new step 1.6: "Document Registry Conventions", creating a `semconv/README.md` file that defines the requirement levels used. | The README must contain a section defining the stability and requirement levels, clarifying that `opt_in` means producers MAY emit the attribute and consumers MUST NOT fail if it is absent. |
-| R2-S7 | validation | low | The enum consistency script proposed in Phase 6.3 should be explicitly scoped to validate *all* enums defined in `types.py` against the registry, not just the `HandoffStatus` enum. | The plan fixes the `HandoffStatus` drift (Phase 4), but the CI check in Phase 6.3 is only implicitly scoped. The check should be comprehensive to prevent future drift in other enums like `TaskStatus` or `Priority`. | Clarify the scope in the description of the `validate_enum_consistency.py` script in Phase 6.3 to state it covers all enums shared between the contracts file and the registry. | The implementation of `scripts/validate_enum_consistency.py` iterates over all enums found in the registry YAMLs and checks for a corresponding, matching enum in `types.py`. |
+| --- | --- | --- | --- | --- | --- | --- |
+| R2-S1 | Architecture | critical | Mandate and define an automated schema distribution mechanism. The proposed Option A in Phase 6.2 re-introduces manual synchronization and drift risk. | Without reliable schema distribution, cross-repo validation degrades over time. | Phase 6.2 | Consumer CI fetches a pinned schema artifact version instead of relying on manually updated files. |
+| R2-S2 | Validation | high | Add a work package to Phase 5 to audit and update Wayfinder runtime consumers (`load_tasks_to_tempo.py`, dashboards) for newly standardized attributes. | Documentation alignment alone does not deliver end-user visibility of new fields. | Phase 5.4 (new) | A Wayfinder PR demonstrates consumer parsing of at least one new opt_in attribute. |
+| R2-S3 | Architecture | high | Add a task to define and document a formal deprecation lifecycle policy, including timelines for removal and communication steps. | Consolidating mappings without removal policy leads to permanent schema clutter. | Phase 2.3 (new) | Policy defines support window and removal process for deprecated fields. |
+| R2-S4 | Validation | medium | Define round-trip comparison semantics in Phase 3.2 as semantic equivalence rather than literal diff. | Literal diffs are brittle for key order and timestamp precision. | Phase 3.2 | Tests compare structured objects with explicit equivalence rules. |
+| R2-S5 | Architecture | medium | Start registry versioning at `0.1.0` to signal instability before first stable contract. | `1.0.0` prematurely implies compatibility guarantees not yet met. | Phase 1.1 | Manifest reports `version: 0.1.0`. |
+| R2-S6 | Data | medium | Explicitly document producer/consumer contract for `opt_in` attributes in registry docs. | Prevents divergent interpretations across repos. | Phase 1.6 | Registry README defines requirement-level behavior. |
+| R2-S7 | Validation | low | Scope enum consistency validation to all shared enums, not only HandoffStatus. | Prevents recurrence of enum drift in other domains. | Phase 6.3 | Validation script iterates all enums in registry YAMLs. |
 
-**Endorsements** (prior untriaged suggestions this reviewer agrees with):
-- R1-F1: This is the most critical missing piece; the plan's proposed workaround of a hardcoded allowlist is a major architectural weakness that must be addressed.
-- R1-F7: Solving the problem for end-users (in Wayfinder) is the ultimate goal of the project, and the plan currently misses this crucial last-mile step of updating consumer code.
-- R1-F2: A formal schema evolution and versioning policy is the necessary partner to a distribution mechanism; you need both to manage change safely across repositories.
-- R2-S4: A formal deprecation lifecycle is essential for long-term maintainability and preventing the schema and associated compatibility logic from accumulating cruft indefinitely.
+#### Requirements Coverage
+
+| Requirement Section | Plan Step(s) | Coverage | Gaps |
+| ---- | ---- | ---- | ---- |
+| REQ-1 | Phase 1.2 | Full | — |
+| REQ-2 | Phase 3.1 | Full | — |
+| REQ-3 | Phase 2.1-2.2 | Full | — |
+| REQ-4 | Phase 4.1-4.4 | Full | — |
+| REQ-5 | Phase 5.1-5.3 | Partial | Runtime consumer update path is deferred; plan only covers convention reference and extension evaluation. |
+| REQ-6 | Phase 6.1-6.3 | Partial | Option A remains manual; stronger pinned artifact distribution remains a follow-up hardening step. |
+| REQ-7 | Phase 3.2 | Full | — |
+| REQ-8 | Phase 6.5 + Phase 7 | Partial | MVP AC1-AC3 scheduled now; AC4-AC5 intentionally deferred to a follow-up integration stage. |
+| REQ-9 | Phase 7.5 | Full | — |
+| REQ-10 | Phase 2.3-2.4 | Full | — |
+| REQ-11 | Phase 1.7 | Full | — |
