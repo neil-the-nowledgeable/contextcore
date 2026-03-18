@@ -53,6 +53,33 @@ _GRPC_SIGNAL_PATTERNS = [
 ]
 _PROTO_FILE_PATTERN = re.compile(r'((?:protos?/)?[\w/.-]+\.proto)\b')
 
+# ── Language detection patterns (REQ-ICD-104) ──────────────────────────
+_LANGUAGE_PATTERNS: Dict[str, List[re.Pattern]] = {
+    "python": [
+        re.compile(r'\.py\b'),
+        re.compile(r'\bpython\b', re.IGNORECASE),
+        re.compile(r'\b(?:flask|django|fastapi|gunicorn|uvicorn)\b', re.IGNORECASE),
+    ],
+    "java": [
+        re.compile(r'\.java\b'),
+        re.compile(r'\b(?:gradle|maven|spring|jvm)\b', re.IGNORECASE),
+        re.compile(r'\bbuild\.gradle\b'),
+    ],
+    "go": [
+        re.compile(r'\.go\b'),
+        re.compile(r'\bgo\.(?:mod|sum)\b'),
+    ],
+    "nodejs": [
+        re.compile(r'\bpackage\.json\b'),
+        re.compile(r'\b(?:express|fastify|npm|yarn)\b', re.IGNORECASE),
+        re.compile(r'\.(?:ts|js)\b'),
+    ],
+    "dotnet": [
+        re.compile(r'\.(?:cs|csproj|sln)\b'),
+        re.compile(r'\b(?:dotnet|nuget|aspnet)\b', re.IGNORECASE),
+    ],
+}
+
 
 def _extract_service_communication_graph(
     plan_text: str,
@@ -136,15 +163,26 @@ def _extract_service_communication_graph(
             if grpc_hits >= 2:
                 services[current_service]["protocol"] = "grpc"
 
+        # Detect language per service (REQ-ICD-104)
+        if current_service and current_service in services:
+            for lang, patterns in _LANGUAGE_PATTERNS.items():
+                hits = sum(1 for p in patterns if p.search(section))
+                if hits >= 1:
+                    prev_hits = services[current_service].get("_lang_hits", 0)
+                    if services[current_service].get("language") is None or hits > prev_hits:
+                        services[current_service]["language"] = lang
+                        services[current_service]["_lang_hits"] = hits
+
         # Collect proto file references
         for proto_match in _PROTO_FILE_PATTERN.finditer(section):
             proto_path = proto_match.group(1)
             if proto_path not in proto_schemas:
                 proto_schemas.append(proto_path)
 
-    # Deduplicate imports per service
+    # Deduplicate imports per service and clean up internal counters
     for svc_data in services.values():
         svc_data["imports"] = sorted(set(svc_data["imports"]))
+        svc_data.pop("_lang_hits", None)
 
     # Compute shared modules (modules imported by 2+ services)
     module_usage: Dict[str, List[str]] = {}

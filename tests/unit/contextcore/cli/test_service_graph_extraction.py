@@ -131,6 +131,45 @@ class TestServiceGraphExtraction:
 
 
 # ---------------------------------------------------------------------------
+# Language detection (REQ-ICD-104)
+# ---------------------------------------------------------------------------
+
+class TestLanguageDetection:
+    def test_python_from_py_extension(self):
+        graph = _extract_service_communication_graph(PLAN_WITH_SERVICES, "")
+        assert graph["services"]["emailservice"].get("language") == "python"
+
+    def test_go_from_go_extension(self):
+        graph = _extract_service_communication_graph(PLAN_WITH_SERVICES, "")
+        # productcatalogservice has server.go, frontend has main.go
+        for svc in ("productcatalogservice", "frontend"):
+            if svc in graph["services"]:
+                assert graph["services"][svc].get("language") == "go"
+
+    def test_java_from_gradle(self):
+        plan = """\
+# Services
+
+### Ad Service — gRPC Server
+
+Target: `src/adservice/AdService.java`
+Build: `src/adservice/build.gradle`
+"""
+        graph = _extract_service_communication_graph(plan, "")
+        assert graph["services"]["adservice"].get("language") == "java"
+
+    def test_no_language_when_no_signals(self):
+        graph = _extract_service_communication_graph(PLAN_WITHOUT_SERVICES, "")
+        for svc_data in graph["services"].values():
+            assert "language" not in svc_data
+
+    def test_internal_counter_cleaned_up(self):
+        graph = _extract_service_communication_graph(PLAN_WITH_SERVICES, "")
+        for svc_data in graph["services"].values():
+            assert "_lang_hits" not in svc_data
+
+
+# ---------------------------------------------------------------------------
 # Integration test: through infer_init_from_plan
 # ---------------------------------------------------------------------------
 

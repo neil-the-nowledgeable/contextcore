@@ -1056,6 +1056,17 @@ def build_onboarding_metadata(
     if service_communication_graph:
         result["service_communication_graph"] = service_communication_graph
 
+    # ── Instrumentation hints (REQ-ICD-100–103) ─────────────────────
+    from contextcore.utils.instrumentation import derive_instrumentation_hints
+
+    _instrumentation_hints = derive_instrumentation_hints(
+        artifact_manifest=artifact_manifest,
+        service_communication_graph=service_communication_graph,
+        service_metadata=service_metadata,
+    )
+    if _instrumentation_hints:
+        result["instrumentation_hints"] = _instrumentation_hints
+
     # Integrity checksums for validation downstream
     if artifact_manifest_content is not None:
         result["artifact_manifest_checksum"] = get_content_checksum(
