@@ -85,10 +85,9 @@ status:
     - "Create Security Contract dashboard panel in portfolio overview (data store coverage, sensitivity distribution)"
     # Existing next steps
     - "Consolidate DEV and TEST environments into single deployment source"
-    - "Add runtime GrafanaPluginRequirement to contextcore install verify"
+    # DEFERRED: GrafanaPluginRequirement in install verify — no dashboards currently require external plugins (plugins: [] in dependencies.yaml)
     - "Create Agent Handoffs dashboard (handoff.* + gen_ai.tool.*)"
-    - "Implement REQ-CID P2 requirements (004, 005, 006) — pipeline typed handoff, ExpectedOutput, structured authority"
-    - "Implement REQ-CID-007 — cross-reference from Export Pipeline Analysis Guide"
+    # DONE: REQ-CID-004/005/006/007 all implemented per REQ_CAPABILITY_INDEX_DISCOVERABILITY.md
     - "Implement REQ-CAP-002 through REQ-CAP-010 — capability-aware init/export pipeline"
 
 business:
