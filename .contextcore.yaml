@@ -80,7 +80,7 @@ status:
     - "Capability index v1.18.0: 19 types across 4 categories, REQ-CID-013/014/018 amendments applied"
   nextSteps:
     # Security contract follow-ups (from SP-PL-010–012 implementation)
-    - "Wire security contract into cap-dev-pipe plan ingestion so startd8-sdk Security Prime consumes it for P0/P1 injection enrichment"
+    - "Wire security contract through cap-dev-pipe: resolve-provenance.py (extract from onboarding), run_todo_completion.py (--security-contract param), prime-post-run.py (pass to instrumentation step) — startd8-sdk consumption is already fully wired"
     - "Add runtime security contract validation to contextcore install verify"
     - "Create Security Contract dashboard panel in portfolio overview (data store coverage, sensitivity distribution)"
     # Existing next steps
