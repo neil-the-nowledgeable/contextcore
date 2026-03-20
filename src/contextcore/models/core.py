@@ -127,6 +127,54 @@ class ObservabilitySpec(BaseModel):
     _validate_metrics_interval = field_validator("metrics_interval", mode="before")(duration_validator)
 
 
+class AccessPolicySpec(BaseModel):
+    """RBAC-derived access policy hints for code generation."""
+    allowed_principals: List[str] = Field(
+        default_factory=list, alias="allowedPrincipals",
+        description="Principal types that should access this store (agent, user, service_account)",
+    )
+    required_role: Optional[str] = Field(
+        None, alias="requiredRole",
+        description="ContextCore RBAC role required for access",
+    )
+    audit_access: bool = Field(
+        False, alias="auditAccess",
+        description="Whether generated code should include audit logging",
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class DataStoreSpec(BaseModel):
+    """Data store declaration for security contract emission."""
+    id: str = Field(..., description="Unique data store identifier")
+    type: str = Field(..., description="Database type (e.g., spanner, redis, postgresql)")
+    client_library: Optional[str] = Field(
+        None, alias="clientLibrary", description="Client library package name",
+    )
+    credential_source: Optional[str] = Field(
+        None, alias="credentialSource",
+        description="Credential mechanism: env_var, secrets_manager, workload_identity",
+    )
+    sensitivity: str = Field("medium", description="Data sensitivity level (low, medium, high)")
+    access_policy: Optional[AccessPolicySpec] = Field(
+        None, alias="accessPolicy", description="RBAC-derived access policy hints",
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class SecuritySpec(BaseModel):
+    """Security contract specification for downstream code generation."""
+    sensitivity: str = Field("medium", description="Overall project data sensitivity")
+    data_stores: List[DataStoreSpec] = Field(
+        default_factory=list, alias="dataStores",
+        description="Declared data stores with security metadata",
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class ProjectContextSpec(BaseModel):
     """Full ProjectContext specification."""
     project: ProjectSpec
@@ -136,6 +184,7 @@ class ProjectContextSpec(BaseModel):
     risks: List[RiskSpec] = Field(default_factory=list)
     targets: List[TargetSpec] = Field(..., min_length=1)
     observability: Optional[ObservabilitySpec] = None
+    security: Optional[SecuritySpec] = None
 
     model_config = ConfigDict(populate_by_name=True)
 

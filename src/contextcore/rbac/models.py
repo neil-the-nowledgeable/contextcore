@@ -39,6 +39,7 @@ class ResourceType(str, Enum):
     HANDOFF = "handoff"                            # Agent handoffs
     GUIDANCE = "guidance"                          # Human guidance
     TASK = "task"                                  # Project tasks
+    DATA_STORE = "data_store"                      # Data stores (REQ-ICD-106)
 
 
 class Action(str, Enum):

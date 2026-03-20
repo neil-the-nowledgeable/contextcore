@@ -5,7 +5,7 @@ coordinates, dependencies) from the service communication graph, artifact
 manifest semantic conventions, and transport protocol → OTel semantic convention
 mappings.
 
-Implements REQ-ICD-100 through REQ-ICD-103.
+Implements REQ-ICD-100 through REQ-ICD-105.
 
 Used by: ``build_onboarding_metadata()`` in ``onboarding.py``
 Consumed by: startd8-sdk TODO Scanner (REQ-TCW-100) and Completion Planner (REQ-TCW-200)
@@ -87,6 +87,43 @@ _OTEL_SDK_MAP: Dict[str, Dict[str, Any]] = {
         },
     },
 }
+
+
+# ── Database client library detection (REQ-ICD-105) ──────────────────
+_DATABASE_IMPORT_PATTERNS: Dict[str, str] = {
+    "Npgsql": "postgresql",
+    "psycopg2": "postgresql",
+    "asyncpg": "postgresql",
+    "pg": "postgresql",
+    "postgres": "postgresql",
+    "AlloyDB": "postgresql",  # AlloyDB uses pg wire protocol
+    "Spanner": "spanner",
+    "SpannerConnection": "spanner",
+    "MySql": "mysql",
+    "mysql": "mysql",
+    "pymysql": "mysql",
+    "Redis": "redis",
+    "StackExchange.Redis": "redis",
+    "redis": "redis",
+    "Sqlite": "sqlite",
+    "sqlite3": "sqlite",
+    "System.Data.SQLite": "sqlite",
+}
+
+
+def _detect_databases_from_imports(imports: List[str]) -> List[str]:
+    """Detect database types from a service's import list (REQ-ICD-105).
+
+    Scans each import string for known database client library keywords.
+    Returns a list of detected database types (may contain duplicates
+    from different imports matching the same type — preserves provenance).
+    """
+    detected: List[str] = []
+    for imp in imports:
+        for keyword, db_type in _DATABASE_IMPORT_PATTERNS.items():
+            if keyword in imp and db_type not in detected:
+                detected.append(db_type)
+    return detected
 
 
 def _convention_metrics_for_protocol(protocol: str) -> List[Dict[str, Any]]:
@@ -244,9 +281,14 @@ def derive_instrumentation_hints(
         # Traces
         traces_spec = traces_by_service.get(svc_name, {"required": [], "propagation": "W3C"})
 
+        # Database detection from imports (REQ-ICD-105)
+        svc_imports = svc_graph.get("imports", [])
+        detected_dbs = _detect_databases_from_imports(svc_imports)
+
         hint: Dict[str, Any] = {
             "service_id": svc_name,
             "transport": transport,
+            "detected_databases": detected_dbs,
             "metrics": {
                 "convention_based": convention_metrics,
                 "manifest_declared": manifest_metrics,

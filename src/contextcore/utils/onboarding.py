@@ -611,6 +611,7 @@ def build_onboarding_metadata(
     service_metadata: Optional[Dict[str, Any]] = None,
     generation_profile: str = "full",
     service_communication_graph: Optional[Dict[str, Any]] = None,
+    project_context_data: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Build onboarding metadata for programmatic artifact generation.
@@ -1066,6 +1067,14 @@ def build_onboarding_metadata(
     )
     if _instrumentation_hints:
         result["instrumentation_hints"] = _instrumentation_hints
+
+    # ── Security contract (REQ-ICD-106) ────────────────────────────────
+    if project_context_data:
+        from contextcore.utils.security import derive_security_contract
+
+        _security_contract = derive_security_contract(project_context_data)
+        if _security_contract:
+            result["security_contract"] = _security_contract
 
     # Integrity checksums for validation downstream
     if artifact_manifest_content is not None:

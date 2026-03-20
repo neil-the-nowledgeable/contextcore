@@ -95,6 +95,26 @@ These fields provide the deeper context that A2A governance gates validate and d
 | `open_questions` | object[] | Recommended | Unresolved questions from `guidance.questions` (status=`open`). Downstream consumers should surface these during design review. |
 | `file_ownership` | object | Recommended | Maps resolved output file path → artifact ID. Used for post-generation validation and CI ownership checks. |
 | `objectives` | object[] | No | Strategic objectives from `strategy.objectives`. Provides business context for contractor alignment during design phase. |
+| `instrumentation_hints` | object | No | Per-service instrumentation hints (REQ-ICD-100–105). Each service entry includes `detected_databases` (list of db types detected from imports), `metrics`, `traces`, `dependencies`, and optional `language`/`sdk`. |
+
+### Example: instrumentation_hints.detected_databases
+
+```json
+{
+  "instrumentation_hints": {
+    "cartservice": {
+      "detected_databases": ["spanner", "postgresql"],
+      "transport": "grpc",
+      "metrics": { "convention_based": [...] },
+      ...
+    },
+    "emailservice": {
+      "detected_databases": [],
+      ...
+    }
+  }
+}
+```
 
 ### Example: derivation_rules
 
@@ -166,6 +186,7 @@ These fields provide the deeper context that A2A governance gates validate and d
 | `guidance` | object | Governance constraints and preferences |
 | `guidance.design_principles` | object[] | Design principles from capability index applicable to this project's artifacts (REQ-CAP-006). Each entry has `id`, `principle`, and `anti_patterns`. |
 | `capability_context` | object | Capability index references for downstream consumers (REQ-CAP-005). Includes applicable principles, patterns, matched capabilities, and governance gates. Present when `docs/capability-index/` exists. |
+| `security_contract` | object | Security contract derived from `spec.security.data_stores` (REQ-ICD-106). Contains `databases` (dict of data store specs with type, client_library, credential_source, sensitivity, optional access_policy), `sensitivity` (overall), and `source: "manifest"`. Absent when `spec.security` is not declared. |
 | `generated_at` | string | ISO 8601 timestamp |
 
 ## Example (minimal)

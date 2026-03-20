@@ -1,7 +1,7 @@
 # Plan: Instrumentation Hints Derivation (Revised)
 
-> **Date:** 2026-03-18
-> **Status:** Active
+> **Date:** 2026-03-20 (updated)
+> **Status:** Complete (all 7 phases implemented, 60 tests passing)
 > **Requirements:** [REQ_INSTRUMENTATION_CONTRACT_DERIVATION.md](../design/requirements/REQ_INSTRUMENTATION_CONTRACT_DERIVATION.md) (REQ-ICD-100–104, revised)
 > **Scope:** ContextCore EXPORT stage — derive `instrumentation_hints` from OTel conventions, communication graph, and artifact manifest
 > **Depends on:** Service communication graph (implemented 2026-03-16, commit `da85e34`)
@@ -49,10 +49,33 @@ Compose per-service hints from Phases 2-4. Emit as `instrumentation_hints` in on
 
 ---
 
+## Phase 6: Graph-Derived Database Detection (REQ-ICD-105)
+
+**File:** `src/contextcore/utils/instrumentation.py`
+
+Add `_DATABASE_IMPORT_PATTERNS` dict (keyword → db type) and `_detect_databases_from_imports()` function. Wire into `derive_instrumentation_hints()` for each service using existing `imports` from communication graph. Emit `detected_databases` list per service.
+
+**Tests:** Added to `tests/unit/contextcore/utils/test_instrumentation.py` — 10 tests for database detection.
+
+## Phase 7: Security Contract Emission (REQ-ICD-106)
+
+**Files:**
+- `src/contextcore/models/core.py` — `AccessPolicySpec`, `DataStoreSpec`, `SecuritySpec` models
+- `src/contextcore/rbac/models.py` — `DATA_STORE` resource type
+- `src/contextcore/utils/security.py` — `derive_security_contract()` function
+- `src/contextcore/utils/onboarding.py` — wiring in `build_onboarding_metadata()`
+- `src/contextcore/cli/manifest.py` — pass `project_context_data=raw_data`
+
+**Tests:** `tests/unit/contextcore/models/test_security_spec.py` (12 tests), `tests/unit/contextcore/utils/test_security.py` (12 tests).
+
+---
+
 ## Dependency Graph
 
 ```
 Phase 1 (language) ──→ Phase 4 (SDK) ──┐
 Phase 2 (metrics)  ─────────────────────┤──→ Phase 5 (assembly)
 Phase 3 (traces)   ─────────────────────┘
+Phase 6 (database detection) ───────────────→ Phase 5 (assembly)
+Phase 7 (security contract) ────────────────→ onboarding emission
 ```

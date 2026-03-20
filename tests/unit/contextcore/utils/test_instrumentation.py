@@ -1,4 +1,4 @@
-"""Tests for instrumentation hints derivation (REQ-ICD-100–104)."""
+"""Tests for instrumentation hints derivation (REQ-ICD-100–105)."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ from contextcore.models.artifact_manifest import (
 from contextcore.utils.instrumentation import (
     _convention_metrics_for_protocol,
     _derive_traces,
+    _detect_databases_from_imports,
     _manifest_declared_metrics,
     _resolve_dependencies,
     _resolve_sdk,
@@ -309,3 +310,83 @@ class TestDeriveInstrumentationHints:
             )
             assert "instrumentation_hints" in result, f"Missing for profile={profile}"
             assert "emailservice" in result["instrumentation_hints"]
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: Database detection from imports (REQ-ICD-105)
+# ---------------------------------------------------------------------------
+
+class TestDatabaseDetection:
+    def test_npgsql_detects_postgresql(self):
+        assert _detect_databases_from_imports(["Npgsql"]) == ["postgresql"]
+
+    def test_psycopg2_detects_postgresql(self):
+        assert _detect_databases_from_imports(["psycopg2"]) == ["postgresql"]
+
+    def test_spanner_detected(self):
+        assert _detect_databases_from_imports(["Google.Cloud.Spanner.Data"]) == ["spanner"]
+
+    def test_redis_detected(self):
+        assert _detect_databases_from_imports(["StackExchange.Redis"]) == ["redis"]
+
+    def test_sqlite3_detected(self):
+        assert _detect_databases_from_imports(["sqlite3"]) == ["sqlite"]
+
+    def test_no_database_imports_empty(self):
+        assert _detect_databases_from_imports(["demo_pb2", "grpc"]) == []
+
+    def test_multiple_databases_detected(self):
+        result = _detect_databases_from_imports([
+            "Google.Cloud.Spanner.Data",
+            "Npgsql",
+        ])
+        assert "spanner" in result
+        assert "postgresql" in result
+
+    def test_alloydb_maps_to_postgresql(self):
+        assert _detect_databases_from_imports(["AlloyDB.Npgsql"]) == ["postgresql"]
+
+
+class TestDatabaseDetectionInHints:
+    def test_detected_databases_in_hints(self):
+        """detected_databases appears in instrumentation hints per service."""
+        graph = {
+            "services": {
+                "cartservice": {
+                    "imports": ["Google.Cloud.Spanner.Data", "Npgsql"],
+                    "protocol": "grpc",
+                    "rpc_calls": [],
+                    "language": "dotnet",
+                },
+                "emailservice": {
+                    "imports": ["demo_pb2"],
+                    "protocol": "grpc",
+                    "rpc_calls": [],
+                    "language": "python",
+                },
+            },
+        }
+        manifest = _make_manifest()
+        hints = derive_instrumentation_hints(
+            artifact_manifest=manifest,
+            service_communication_graph=graph,
+            service_metadata=None,
+        )
+        assert "spanner" in hints["cartservice"]["detected_databases"]
+        assert "postgresql" in hints["cartservice"]["detected_databases"]
+        assert hints["emailservice"]["detected_databases"] == []
+
+    def test_no_imports_key_gives_empty_databases(self):
+        """Service without imports key still gets empty detected_databases."""
+        graph = {
+            "services": {
+                "minimal": {"protocol": "http", "rpc_calls": []},
+            },
+        }
+        manifest = _make_manifest()
+        hints = derive_instrumentation_hints(
+            artifact_manifest=manifest,
+            service_communication_graph=graph,
+            service_metadata=None,
+        )
+        assert hints["minimal"]["detected_databases"] == []

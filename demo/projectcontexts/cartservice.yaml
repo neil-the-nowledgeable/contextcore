@@ -46,6 +46,24 @@ spec:
     - kind: Deployment
       name: redis-cart
 
+  security:
+    sensitivity: high
+    dataStores:
+      - id: cartdb
+        type: spanner
+        clientLibrary: Google.Cloud.Spanner.Data
+        credentialSource: workload_identity
+        sensitivity: high
+        accessPolicy:
+          allowedPrincipals: [service_account]
+          requiredRole: security-reader
+          auditAccess: true
+      - id: cart-cache
+        type: redis
+        clientLibrary: StackExchange.Redis
+        credentialSource: environment_variable
+        sensitivity: medium
+
   observability:
     traceSampling: 1.0
     metricsInterval: "10s"

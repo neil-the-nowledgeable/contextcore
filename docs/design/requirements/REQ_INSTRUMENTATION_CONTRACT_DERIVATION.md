@@ -1,6 +1,6 @@
 # Requirements: Instrumentation Contract Derivation — ContextCore
 
-> **Status:** Draft (Revised after implementation planning)
+> **Status:** Implemented (2026-03-18)
 > **Date:** 2026-03-18
 > **Author:** Observability Team
 > **Priority Tier:** Tier 1
@@ -91,9 +91,10 @@ Log configuration (log4j2.xml, Python logging config) exists in generated code, 
 ### REQ-ICD-100: Protocol-Based Metric Expectations (Quick Win)
 
 **Priority:** P1
+**Status:** Implemented — `src/contextcore/utils/instrumentation.py:24-41, 92-113`
 **Implements:** REQ-TCW-000 (ContextCore portion)
 **Replaces:** Original "Dashboard-to-Metrics Derivation" — revised per Finding 1+2
-**File:** New `src/contextcore/utils/instrumentation.py`
+**File:** `src/contextcore/utils/instrumentation.py`
 
 The EXPORT stage SHALL derive expected metric names from the transport protocol and OTel semantic conventions. This is deterministic and requires no PromQL parsing.
 
@@ -138,9 +139,9 @@ When generated Grafana dashboard JSON files are available (either from template 
 ### REQ-ICD-101: Communication-Graph-to-Traces Derivation (Quick Win)
 
 **Priority:** P1
+**Status:** Implemented — `src/contextcore/utils/instrumentation.py:116-156`
 **Implements:** REQ-TCW-001 (ContextCore portion)
 **Depends on:** Service communication graph (REQ-SIG-100–104, implemented)
-**Status:** Unchanged from original — this was already well-grounded in available data
 
 The EXPORT stage SHALL derive required trace spans from the service communication graph.
 
@@ -167,8 +168,9 @@ The EXPORT stage SHALL derive required trace spans from the service communicatio
 ### REQ-ICD-102: Language-Aware SDK Resolution
 
 **Priority:** P2
+**Status:** Implemented — `src/contextcore/utils/instrumentation.py:48-89, 159-187`
 **Implements:** REQ-TCW-002 (ContextCore portion)
-**Depends on:** REQ-ICD-104 (language detection)
+**Depends on:** REQ-ICD-104 (language detection, implemented)
 
 The EXPORT stage SHALL resolve OTel SDK dependency coordinates for each service's detected language.
 
@@ -198,6 +200,7 @@ The EXPORT stage SHALL resolve OTel SDK dependency coordinates for each service'
 ### REQ-ICD-103: Instrumentation Hints Emission
 
 **Priority:** P1
+**Status:** Implemented — `src/contextcore/utils/instrumentation.py:190-273` + wiring in `onboarding.py:1059-1068`
 **Implements:** REQ-TCW-003 (ContextCore portion)
 **File:** `src/contextcore/utils/onboarding.py :: build_onboarding_metadata()`
 
@@ -270,6 +273,7 @@ The EXPORT stage SHALL emit instrumentation hints as a section of `onboarding-me
 ### REQ-ICD-104: Language Detection from Plan Text (Quick Win)
 
 **Priority:** P1 (upgraded from P2 — Finding 6 shows this is trivially simple and blocks SDK resolution)
+**Status:** Implemented — `src/contextcore/cli/init_from_plan_ops.py:56-81, 166-174`
 **File:** `src/contextcore/cli/init_from_plan_ops.py`
 
 The INIT-FROM-PLAN stage SHALL detect the primary language per service from plan text signals, piggybacking on the existing `_extract_service_communication_graph()` file scanning.
@@ -371,15 +375,114 @@ python3 -m pytest tests/ -x
 
 ---
 
-## 9. Cross-References
+## 9. Security Contract Support (REQ-ICD-105, REQ-ICD-106)
+
+### REQ-ICD-105: Graph-Derived Database Detection (Tier 2, Zero-Config)
+
+**Priority:** P1 | **Status:** Implemented (2026-03-20) | **Depends on:** REQ-ICD-104
+
+The EXPORT stage detects database client libraries from `service_communication_graph.services.{name}.imports` and emits `detected_databases` per service in `instrumentation_hints`.
+
+**Three-tier fidelity model:**
+
+| Tier | Source | Fidelity | User effort |
+|------|--------|----------|-------------|
+| **1** | `spec.security.data_stores` in manifest | Full — client_library, sensitivity, credential_source, access_policy | User declares |
+| **2** | Communication graph imports | Medium — database type auto-detected | Zero (piggybacks on existing scan) |
+| **3** | Plan/feature text keyword matching | Low — generic database type (startd8-sdk fallback) | Zero |
+
+**Detection table:**
+
+| Import keyword | Database type |
+|----------------|--------------|
+| `Npgsql`, `psycopg2`, `asyncpg`, `pg`, `postgres` | `postgresql` |
+| `Spanner`, `SpannerConnection` | `spanner` |
+| `MySql`, `mysql`, `pymysql` | `mysql` |
+| `Redis`, `StackExchange.Redis`, `redis` | `redis` |
+| `Sqlite`, `sqlite3`, `System.Data.SQLite` | `sqlite` |
+| `AlloyDB` | `postgresql` (AlloyDB uses pg wire protocol) |
+
+**Output** (added to each service's instrumentation hints):
+```json
+{
+  "cartservice": {
+    "detected_databases": ["spanner", "postgresql"],
+    ...
+  },
+  "emailservice": {
+    "detected_databases": [],
+    ...
+  }
+}
+```
+
+### REQ-ICD-106: Manifest-Declared Security Contract with RBAC Access Policy (Tier 1)
+
+**Priority:** P2 | **Status:** Implemented (2026-03-20) | **Depends on:** REQ-ICD-105
+
+When `spec.security.data_stores` is present in `.contextcore.yaml`, the EXPORT stage emits a `security_contract` section in `onboarding-metadata.json`, including RBAC-derived access policy hints.
+
+**Schema** (matches startd8-sdk `security_prime/contract.py:98-126`):
+
+```yaml
+spec:
+  security:
+    sensitivity: high
+    data_stores:
+      - id: cartdb
+        type: spanner
+        client_library: Google.Cloud.Spanner.Data
+        credential_source: workload_identity
+        sensitivity: high
+        access_policy:
+          allowed_principals: [service_account]
+          required_role: security-reader
+          audit_access: true
+```
+
+**Emitted contract:**
+```json
+{
+  "security_contract": {
+    "databases": {
+      "cartdb": {
+        "type": "spanner",
+        "client_library": "Google.Cloud.Spanner.Data",
+        "credential_source": "workload_identity",
+        "sensitivity": "high",
+        "access_policy": {
+          "allowed_principals": ["service_account"],
+          "required_role": "security-reader",
+          "audit_access": true
+        }
+      }
+    },
+    "sensitivity": "high",
+    "source": "manifest"
+  }
+}
+```
+
+**RBAC integration:** `ResourceType.DATA_STORE` added to RBAC models.
+
+**Acceptance:**
+- `spec.security.data_stores` present → `security_contract` emitted with `"source": "manifest"`
+- `spec.security` absent → `security_contract` not emitted (Tier 2 `detected_databases` still available)
+- `access_policy` optional — omitted when not declared
+- Missing optional fields default: `sensitivity: "medium"`, `client_library: ""`, `credential_source: ""`
+
+---
+
+## 10. Cross-References
 
 | Document | Relationship |
 |----------|-------------|
 | [TODO Completion Workflow Requirements](~/Documents/dev/startd8-sdk/docs/design/prime/TODO_COMPLETION_WORKFLOW_REQUIREMENTS.md) | Cross-system parent — REQ-TCW-000–003; this doc is the ContextCore-specific elaboration |
-| [Implementation Plan](../../plans/INSTRUMENTATION_CONTRACT_DERIVATION_PLAN.md) | Step-by-step implementation with code sketches (written before this revision — references `instrumentation_contracts` naming) |
+| [Implementation Plan](../../plans/INSTRUMENTATION_CONTRACT_DERIVATION_PLAN.md) | Step-by-step implementation with code sketches |
 | [Service Interconnectedness Requirements](../SERVICE_INTERCONNECTEDNESS_REQUIREMENTS.md) | REQ-SIG-100–104 — communication graph extraction that feeds REQ-ICD-101 |
 | [Generation Profiles](REQ_GENERATION_PROFILES.md) | REQ-GP-100–501 — profile scoping for onboarding metadata sections |
 | [Contracts Gap Analysis](REQ_CONTRACTS_GAP_ANALYSIS.md) | Context on what's essential vs dormant in `contextcore.contracts` |
 | [Pipeline-Innate Requirements](~/Documents/dev/cap-dev-pipe/design/pipeline-requirements.md) | REQ-CDP-OBS-001–007 — the external observability artifacts this bridges to internal code |
 | [Cross-Cutting Context Loss Analysis](~/Documents/dev/startd8-sdk/docs/design/kaizen/CROSS_CUTTING_CONTEXT_LOSS_ANALYSIS.md) | Root cause analysis — proto import hallucination is one instance; instrumentation gaps are another |
 | [OTel Semantic Conventions for RPC](https://opentelemetry.io/docs/specs/semconv/rpc/rpc-metrics/) | Authoritative source for gRPC/HTTP metric names used in REQ-ICD-100 |
+| startd8-sdk `security_prime/contract.py` | Consumer schema for security contract — REQ-ICD-106 matches its field expectations |

@@ -2172,6 +2172,7 @@ def export(
             service_metadata=parsed_service_metadata,
             generation_profile=generation_profile,
             service_communication_graph=_comm_graph,
+            project_context_data=raw_data,
         )
         validation_report = build_validation_report(
             onboarding_metadata=onboarding_metadata,

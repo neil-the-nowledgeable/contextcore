@@ -52,6 +52,27 @@ spec:
     - kind: Service
       name: paymentservice
 
+  security:
+    sensitivity: high
+    dataStores:
+      - id: payment-ledger
+        type: postgresql
+        clientLibrary: Npgsql
+        credentialSource: secrets_manager
+        sensitivity: high
+        accessPolicy:
+          allowedPrincipals: [service_account]
+          requiredRole: security-reader
+          auditAccess: true
+      - id: token-vault
+        type: redis
+        clientLibrary: StackExchange.Redis
+        credentialSource: secrets_manager
+        sensitivity: high
+        accessPolicy:
+          allowedPrincipals: [service_account]
+          auditAccess: true
+
   observability:
     traceSampling: 1.0
     metricsInterval: "10s"
