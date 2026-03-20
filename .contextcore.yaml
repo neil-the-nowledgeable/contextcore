@@ -80,7 +80,7 @@ status:
     - "Capability index v1.18.0: 19 types across 4 categories, REQ-CID-013/014/018 amendments applied"
   nextSteps:
     # Security contract follow-ups (from SP-PL-010–012 implementation)
-    - "Wire security contract through cap-dev-pipe: resolve-provenance.py (extract from onboarding), run_todo_completion.py (--security-contract param), prime-post-run.py (pass to instrumentation step) — startd8-sdk consumption is already fully wired"
+    # DONE: Security contract wired through cap-dev-pipe (resolve-provenance.py, prime-post-run.py) and startd8-sdk (run_todo_completion.py --security-contract)
     # DEFERRED (likely drop): Runtime security contract validation in install verify — Pydantic models already validate at parse time; install verify checks infrastructure health, not manifest quality
     - "Create Security Contract dashboard panel in portfolio overview (data store coverage, sensitivity distribution)"
     # Existing next steps
