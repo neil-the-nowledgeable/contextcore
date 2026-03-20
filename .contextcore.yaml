@@ -79,15 +79,9 @@ status:
     - "All 4 onboarding dicts, artifact conventions, scan patterns updated for 5 source types"
     - "Capability index v1.18.0: 19 types across 4 categories, REQ-CID-013/014/018 amendments applied"
   nextSteps:
-    # Security contract follow-ups (from SP-PL-010–012 implementation)
-    # DONE: Security contract wired through cap-dev-pipe (resolve-provenance.py, prime-post-run.py) and startd8-sdk (run_todo_completion.py --security-contract)
-    # DEFERRED (likely drop): Runtime security contract validation in install verify — Pydantic models already validate at parse time; install verify checks infrastructure health, not manifest quality
-    - "Create Security Contract dashboard panel in portfolio overview (data store coverage, sensitivity distribution)"
-    # Existing next steps
     - "Consolidate DEV and TEST environments into single deployment source"
-    # DEFERRED: GrafanaPluginRequirement in install verify — no dashboards currently require external plugins (plugins: [] in dependencies.yaml)
     - "Create Agent Handoffs dashboard (handoff.* + gen_ai.tool.*)"
-    # DONE: REQ-CID-004/005/006/007 all implemented per REQ_CAPABILITY_INDEX_DISCOVERABILITY.md
+    - "Create Security Contract dashboard panel in portfolio overview (data store coverage, sensitivity distribution)"
     - "Implement REQ-CAP-002 through REQ-CAP-010 — capability-aware init/export pipeline"
 
 business:
