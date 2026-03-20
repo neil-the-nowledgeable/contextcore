@@ -82,7 +82,6 @@ status:
     - "Consolidate DEV and TEST environments into single deployment source"
     - "Create Agent Handoffs dashboard (handoff.* + gen_ai.tool.*)"
     - "Create Security Contract dashboard panel in portfolio overview (data store coverage, sensitivity distribution)"
-    - "Implement REQ-CAP-002 through REQ-CAP-010 — capability-aware init/export pipeline"
 
 business:
   criticality: critical
