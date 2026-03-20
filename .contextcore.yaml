@@ -81,7 +81,6 @@ status:
   nextSteps:
     # Security contract follow-ups (from SP-PL-010–012 implementation)
     - "Wire security contract into cap-dev-pipe plan ingestion so startd8-sdk Security Prime consumes it for P0/P1 injection enrichment"
-    - "Add spec.security to remaining demo CRDs (checkoutservice, recommendationservice, etc.) as pattern proves out"
     - "Add runtime security contract validation to contextcore install verify"
     - "Create Security Contract dashboard panel in portfolio overview (data store coverage, sensitivity distribution)"
     # Existing next steps
