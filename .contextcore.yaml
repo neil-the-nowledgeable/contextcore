@@ -81,7 +81,7 @@ status:
   nextSteps:
     - "Consolidate DEV and TEST environments into single deployment source"
     - "Create Agent Handoffs dashboard (handoff.* + gen_ai.tool.*)"
-    - "Create Security Contract dashboard panel in portfolio overview (data store coverage, sensitivity distribution)"
+    - "Implement REQ-SCV-001–004 — security contract verification in install verify (see docs/design/requirements/REQ_SECURITY_CONTRACT_VERIFICATION.md)"
 
 business:
   criticality: critical
