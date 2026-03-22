@@ -51,6 +51,7 @@ class RequirementCategory(str, Enum):
     TOOLING = "tooling"  # CLI, make targets available
     OBSERVABILITY = "observability"  # Grafana datasources, dashboards
     DOCUMENTATION = "documentation"  # Runbooks, guides
+    SECURITY = "security"  # Security contract completeness (REQ-SCV-001)
 
 
 class RequirementStatus(str, Enum):
@@ -452,6 +453,111 @@ def check_data_directories() -> bool:
 
 
 # =============================================================================
+# Security Contract Checks (REQ-SCV-002–004)
+# =============================================================================
+
+
+def _load_contextcore_yaml() -> Optional[dict]:
+    """Load .contextcore.yaml from project root, returning parsed dict or None."""
+    root = _find_project_root()
+    if root is None:
+        return None
+    yaml_path = root / ".contextcore.yaml"
+    if not yaml_path.exists():
+        return None
+    try:
+        import yaml
+        return yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _get_security_data_stores(data: dict) -> list[dict]:
+    """Extract spec.security.data_stores from parsed .contextcore.yaml."""
+    spec = data.get("spec") or {}
+    security = spec.get("security") or {}
+    stores = security.get("data_stores", security.get("dataStores", []))
+    return stores if isinstance(stores, list) else []
+
+
+def check_security_manifest_declaration() -> bool:
+    """Check that spec.security is declared when databases are detected (REQ-SCV-002).
+
+    Passes when:
+    - spec.security.data_stores exists, OR
+    - No detected databases in the most recent export, OR
+    - No .contextcore.yaml exists (not applicable)
+    Fails when detected databases exist but spec.security is absent.
+    """
+    data = _load_contextcore_yaml()
+    if data is None:
+        return True  # No manifest — not applicable
+
+    # If spec.security.data_stores declared → pass
+    if _get_security_data_stores(data):
+        return True
+
+    # Check for detected databases in most recent export
+    root = _find_project_root()
+    if root is None:
+        return True
+    for candidate in (root / "out" / "export", root / "output"):
+        onboarding = candidate / "onboarding-metadata.json"
+        if onboarding.is_file():
+            try:
+                import json
+                ob = json.loads(onboarding.read_text(encoding="utf-8"))
+                hints = ob.get("instrumentation_hints", {})
+                for svc_hints in hints.values():
+                    if isinstance(svc_hints, dict) and svc_hints.get("detected_databases"):
+                        return False  # Databases detected but no spec.security
+            except Exception:
+                pass
+    return True  # No detected databases — not applicable
+
+
+def check_security_audit_policy() -> bool:
+    """Check that high-sensitivity stores have audit_access: true (REQ-SCV-003)."""
+    data = _load_contextcore_yaml()
+    if data is None:
+        return True
+    stores = _get_security_data_stores(data)
+    if not stores:
+        return True
+    for store in stores:
+        if not isinstance(store, dict):
+            continue
+        sensitivity = store.get("sensitivity", "medium")
+        if sensitivity == "high":
+            policy = store.get("access_policy", store.get("accessPolicy")) or {}
+            if not policy.get("audit_access", policy.get("auditAccess", False)):
+                return False
+    return True
+
+
+_KNOWN_CREDENTIAL_SOURCES = {
+    "env_var", "environment_variable", "secrets_manager", "workload_identity",
+}
+
+
+def check_security_credential_sources() -> bool:
+    """Check that credential_source values are known mechanisms (REQ-SCV-004)."""
+    data = _load_contextcore_yaml()
+    if data is None:
+        return True
+    stores = _get_security_data_stores(data)
+    if not stores:
+        return True
+    for store in stores:
+        if not isinstance(store, dict):
+            continue
+        cred = store.get("credential_source", store.get("credentialSource", ""))
+        if cred and cred not in _KNOWN_CREDENTIAL_SOURCES:
+            return False
+    return True
+
+
+# =============================================================================
 # Installation Requirements Registry
 # =============================================================================
 
@@ -671,6 +777,34 @@ INSTALLATION_REQUIREMENTS: list[InstallationRequirement] = [
         category=RequirementCategory.DOCUMENTATION,
         check=check_operational_runbook,
         critical=False,
+    ),
+    # Security (REQ-SCV-002–004)
+    InstallationRequirement(
+        id="security_manifest_declaration",
+        name="Security Contract Declaration",
+        description="spec.security.data_stores declared when databases detected in communication graph",
+        category=RequirementCategory.SECURITY,
+        check=check_security_manifest_declaration,
+        critical=False,
+        depends_on=["cli_installed"],
+    ),
+    InstallationRequirement(
+        id="security_audit_policy",
+        name="High-Sensitivity Audit Policy",
+        description="High-sensitivity data stores have access_policy.audit_access enabled",
+        category=RequirementCategory.SECURITY,
+        check=check_security_audit_policy,
+        critical=False,
+        depends_on=["security_manifest_declaration"],
+    ),
+    InstallationRequirement(
+        id="security_credential_sources",
+        name="Credential Source Validation",
+        description="Data store credential_source values are known mechanisms",
+        category=RequirementCategory.SECURITY,
+        check=check_security_credential_sources,
+        critical=False,
+        depends_on=["security_manifest_declaration"],
     ),
 ]
 
